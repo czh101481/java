@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>注册 · DRAGON</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Serif+SC:wght@500;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    /* 龙族配色：夜幕深蓝 + 鎏金 + 龙焰红 + 龙瞳青 */
+    --accent:#E8B84B;
+    --accent-2:#5BC8F5;
+    --accent-3:#E0533D;
+    --ink:#ECE9F2;
+    --ink-2:#B6B2C6;
+    --ink-3:#7E7A8E;
+    --glass:rgba(18,24,42,.50);
+    --glass-line:rgba(150,170,220,.22);
+    --r:22px;
+    --ease:cubic-bezier(.22,.8,.3,1);
+    --err:#FF6B6B;
+    --ok:#5BE7A9;
+    font-family:"Quicksand","Noto Serif SC",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",serif;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{
+    color:var(--ink);
+    background:
+      radial-gradient(120% 120% at 12% 0%, #1a1330 0%, transparent 45%),
+      radial-gradient(120% 120% at 92% 8%, #102338 0%, transparent 48%),
+      radial-gradient(140% 140% at 50% 115%, #2a0f1a 0%, transparent 50%),
+      #070A14;
+    display:grid;place-items:center;
+    min-height:100vh;padding:24px;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  #fx{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+  .stage{
+    position:relative;z-index:1;
+    width:100%;max-width:920px;
+    display:grid;grid-template-columns:0.92fr 1.08fr;
+    background:var(--glass);
+    border:1px solid var(--glass-line);
+    border-radius:var(--r);
+    box-shadow:0 24px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 1px rgba(232,184,75,.06);
+    backdrop-filter:blur(20px) saturate(1.15);
+    -webkit-backdrop-filter:blur(20px) saturate(1.15);
+    overflow:hidden;
+  }
+
+  /* ── 主视觉：龙渊 ── */
+  .hero{
+    position:relative;padding:40px 32px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    background:
+      radial-gradient(80% 60% at 50% 30%, rgba(232,184,75,.10), transparent 70%),
+      linear-gradient(160deg, rgba(91,200,245,.16), rgba(224,83,61,.18) 60%, rgba(18,24,42,.55));
+    border-right:1px solid var(--glass-line);
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-family:"Cinzel","Noto Serif SC",serif;font-weight:700;font-size:18px;letter-spacing:.08em;color:#F3E6C4}
+  .brand .dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-3));box-shadow:0 0 14px rgba(232,184,75,.55)}
+  .hero-art{display:grid;place-items:center;flex:1;padding:18px 0}
+  .hero h2{font-family:"Noto Serif SC",serif;font-size:27px;font-weight:700;line-height:1.3;letter-spacing:.02em;color:#F4EEDC}
+  .hero p{margin-top:8px;color:var(--ink-2);font-size:14px}
+
+  /* ── 注册卡片 ── */
+  .panel{padding:40px 44px;display:flex;flex-direction:column;overflow-y:auto;max-height:92vh}
+  .panel .eyebrow{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.22em;font-family:"Cinzel",serif}
+  .panel h1{font-family:"Noto Serif SC",serif;font-size:28px;font-weight:700;margin:6px 0 4px}
+  .panel .lead{color:var(--ink-2);font-size:14px;margin-bottom:22px}
+
+  .field{position:relative;margin-bottom:14px}
+  .field input{
+    width:100%;padding:18px 44px 8px 16px;font-size:15px;color:var(--ink);
+    background:rgba(8,12,22,.45);
+    border:1px solid rgba(150,170,220,.25);border-radius:14px;outline:none;
+    transition:border-color .25s var(--ease), box-shadow .25s var(--ease), background .25s var(--ease);
+  }
+  .field label{
+    position:absolute;left:16px;top:15px;font-size:15px;color:var(--ink-3);pointer-events:none;
+    transition:transform .2s var(--ease), color .2s var(--ease), font-size .2s var(--ease);
+  }
+  .field input:focus,.field input:not(:placeholder-shown){background:rgba(8,12,22,.7);border-color:var(--accent);box-shadow:0 0 0 4px rgba(232,184,75,.16)}
+  .field input:focus+label,.field input:not(:placeholder-shown)+label{transform:translateY(-10px);font-size:11px;color:var(--ink-2)}
+  .field input:focus+label{color:var(--accent)}
+
+  .field.bad input{border-color:var(--err);box-shadow:0 0 0 4px rgba(255,107,107,.14)}
+  .field.good input{border-color:var(--ok);box-shadow:0 0 0 4px rgba(91,231,169,.14)}
+  .toggle{position:absolute;right:12px;top:14px;width:26px;height:26px;border:none;background:none;cursor:pointer;color:var(--ink-3);display:grid;place-items:center;transition:color .2s var(--ease)}
+  .toggle:hover{color:var(--accent)}
+  .toggle svg{width:19px;height:19px}
+  .hint{font-size:11.5px;margin:-8px 2px 12px;min-height:14px;color:var(--err);opacity:0;transition:opacity .2s var(--ease)}
+  .hint.show{opacity:1}
+  .banner{font-size:13px;margin:0 2px 14px;padding:10px 14px;border-radius:12px;display:none}
+  .banner.show{display:block}
+  .banner.ok{background:rgba(91,231,169,.14);color:var(--ok);border:1px solid rgba(91,231,169,.35)}
+  .banner.err{background:rgba(255,107,107,.12);color:var(--err);border:1px solid rgba(255,107,107,.32)}
+
+  .meter{height:5px;border-radius:99px;background:rgba(150,170,220,.2);overflow:hidden;margin:-6px 2px 12px}
+  .meter > i{display:block;height:100%;width:0;border-radius:99px;transition:width .35s var(--ease), background .35s var(--ease)}
+  .meter-label{font-size:11px;color:var(--ink-3);margin:-4px 2px 12px}
+
+  .row{display:flex;align-items:center;justify-content:space-between;margin:2px 0 22px;font-size:13px}
+  .check{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);cursor:pointer;line-height:1.4}
+  .check input{accent-color:var(--accent);width:15px;height:15px;flex:none}
+  .check a{color:var(--accent);text-decoration:none;font-weight:600}
+  .check.bad{color:var(--err)}
+
+  .btn{
+    width:100%;padding:15px;font-size:16px;font-weight:700;color:#1a1206;font-family:"Noto Serif SC",serif;letter-spacing:.04em;
+    background:linear-gradient(135deg,var(--accent),#D99A2E 55%,var(--accent-3));
+    border:none;border-radius:14px;cursor:pointer;
+    box-shadow:0 10px 26px rgba(232,184,75,.30), 0 0 0 1px rgba(255,220,150,.25) inset;
+    transition:transform .1s var(--ease), box-shadow .25s var(--ease), filter .25s var(--ease);
+  }
+  .btn:hover{filter:brightness(1.05);box-shadow:0 14px 34px rgba(232,184,75,.45), 0 0 18px rgba(232,184,75,.35)}
+  .btn:active{transform:translateY(1px) scale(.99)}
+
+  .divider{display:flex;align-items:center;gap:12px;color:var(--ink-3);font-size:12px;margin:22px 0 16px}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:rgba(150,170,220,.2)}
+  .alt{
+    width:100%;padding:13px;font-size:14px;font-weight:600;color:var(--ink);font-family:inherit;
+    background:rgba(8,12,22,.4);border:1px solid rgba(150,170,220,.25);border-radius:14px;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    transition:border-color .2s var(--ease), background .2s var(--ease);
+  }
+  .alt:hover{border-color:var(--accent-2);background:rgba(8,12,22,.6)}
+  .foot{margin-top:22px;text-align:center;font-size:13px;color:var(--ink-2)}
+  .foot a{color:var(--accent);font-weight:600;text-decoration:none}
+
+  @keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+  .shake{animation:shake .4s var(--ease)}
+
+  @media(max-width:760px){
+    .stage{grid-template-columns:1fr}
+    .hero{display:none}
+    .panel{padding:38px 26px;max-height:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+
+<main class="stage">
+  <!-- 主视觉：龙渊徽记 -->
+  <section class="hero">
+    <div class="brand"><span class="dot"></span> 龙渊 · Draconic</div>
+    <div class="hero-art">
+      <svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="dragon emblem">
+        <defs>
+          <radialGradient id="med" cx="0.5" cy="0.42" r="0.6">
+            <stop offset="0" stop-color="#243056"/><stop offset="1" stop-color="#0A0E1C"/>
+          </radialGradient>
+          <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#F6D98A"/><stop offset="1" stop-color="#C8941F"/>
+          </linearGradient>
+          <linearGradient id="dragon" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#2C3656"/><stop offset="1" stop-color="#101626"/>
+          </linearGradient>
+          <radialGradient id="eye" cx="0.5" cy="0.4" r="0.7">
+            <stop offset="0" stop-color="#BFF3FF"/><stop offset="0.5" stop-color="#5BC8F5"/><stop offset="1" stop-color="#1C6FA0"/>
+          </radialGradient>
+        </defs>
+
+        <circle cx="120" cy="120" r="98" fill="url(#med)" stroke="rgba(232,184,75,.35)" stroke-width="2"/>
+        <circle cx="120" cy="120" r="98" fill="none" stroke="rgba(91,200,245,.12)" stroke-width="6" stroke-dasharray="2 10"/>
+
+        <path d="M120 40 C 168 46, 196 84, 192 128 C 189 162, 160 188, 120 188 C 80 188, 51 162, 48 128 C 45 92, 70 58, 110 46"
+              fill="none" stroke="url(#gold)" stroke-width="9" stroke-linecap="round" opacity=".9"/>
+        <path d="M120 40 C 168 46, 196 84, 192 128 C 189 162, 160 188, 120 188 C 80 188, 51 162, 48 128 C 45 92, 70 58, 110 46"
+              fill="none" stroke="rgba(255,240,200,.25)" stroke-width="2"/>
+
+        <g transform="translate(96,96)">
+          <path d="M58 96 C 50 70, 70 52, 92 56 C 104 58, 110 64, 118 66
+                   C 140 70, 165 86, 182 104 C 178 110, 168 110, 160 108
+                   L 150 112 C 156 116, 158 122, 152 126 L 138 122
+                   C 132 128, 128 132, 120 132 C 96 136, 78 128, 70 116
+                   C 60 110, 56 104, 58 96 Z"
+                fill="url(#dragon)" stroke="url(#gold)" stroke-width="2.5"/>
+          <path d="M70 60 C 55 40, 40 34, 30 38 C 42 44, 50 56, 64 66 Z" fill="url(#dragon)" stroke="url(#gold)" stroke-width="2"/>
+          <path d="M92 56 C 88 36, 94 26, 104 24 C 100 36, 98 50, 98 60 Z" fill="url(#dragon)" stroke="url(#gold)" stroke-width="2"/>
+          <ellipse cx="108" cy="90" rx="8" ry="10" fill="url(#eye)"/>
+          <ellipse cx="108" cy="90" rx="2.4" ry="9" fill="#0A1424"/>
+          <path d="M150 112 l4 9 l4 -8 Z" fill="#F3E6C4"/>
+          <path d="M138 122 l3 8 l4 -7 Z" fill="#F3E6C4"/>
+        </g>
+
+        <circle cx="120" cy="120" r="13" fill="url(#eye)" opacity=".9"/>
+        <circle cx="120" cy="120" r="13" fill="none" stroke="rgba(232,184,75,.6)" stroke-width="1.5"/>
+      </svg>
+    </div>
+    <div>
+      <h2>缔结契约<br/>觉醒你的龙血</h2>
+      <p>数步之间，成就专属名号 ✦</p>
+    </div>
+  </section>
+
+  <!-- 注册表单 -->
+  <section class="panel">
+    <div class="eyebrow">FORGE THE PACT</div>
+    <h1>注册</h1>
+    <p class="lead">铭刻你的名号与秘钥，加入龙渊。</p>
+
+    <div class="banner" id="banner"></div>
+
+    <form id="form" novalidate>
+      <div class="field" id="f-user">
+        <input id="user" type="text" placeholder=" " autocomplete="username" />
+        <label for="user">名号（用户名）</label>
+        <span class="hint" id="h-user">名号需 3–20 个字符</span>
+      </div>
+
+      <div class="field" id="f-email">
+        <input id="email" type="email" placeholder=" " autocomplete="email" />
+        <label for="email">邮箱</label>
+        <span class="hint" id="h-email">请输入有效的邮箱地址</span>
+      </div>
+
+      <div class="field" id="f-pwd">
+        <input id="pwd" type="password" placeholder=" " autocomplete="new-password" />
+        <label for="pwd">秘钥（密码）</label>
+        <button class="toggle" type="button" data-target="pwd" aria-label="显示密码">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="meter"><i id="meter"></i></div>
+      <div class="meter-label" id="meter-label">秘钥至少 8 位，建议混合字符</div>
+
+      <div class="field" id="f-confirm">
+        <input id="confirm" type="password" placeholder=" " autocomplete="new-password" />
+        <label for="confirm">确认秘钥</label>
+        <button class="toggle" type="button" data-target="confirm" aria-label="显示密码">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <span class="hint" id="h-confirm">两次秘钥不一致</span>
+      </div>
+
+      <div class="row">
+        <label class="check" id="f-terms"><input type="checkbox" id="terms" /> 我愿以龙血起誓，恪守 <a href="#">龙渊契约</a></label>
+      </div>
+
+      <button class="btn" type="submit">缔 结 契 约</button>
+    </form>
+
+    <div class="divider">或以龙血起誓</div>
+    <button class="alt" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.5 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-2 3.2-4.9 3.2-7.9Z"/><path fill="#34A853" d="M12 23c2.9 0 5.4-1 7.2-2.6l-3.6-2.7c-1 .7-2.3 1.1-3.6 1.1-2.8 0-5.1-1.9-6-4.4H2.3v2.8A10.8 10.8 0 0 0 12 23Z"/><path fill="#FBBC05" d="M6 14.4a6.5 6.5 0 0 1 0-4.1V7.5H2.3a10.8 10.8 0 0 0 0 9.7L6 14.4Z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.1 1.6l3.1-3.1A10.8 10.8 0 0 0 12 1.6 10.8 10.8 0 0 0 2.3 7.5L6 10.4C6.9 7.9 9.2 5.4 12 5.4Z"/></svg>
+      使用 Google 续缘
+    </button>
+
+    <p class="foot">已是龙渊之子？<a href="login-anime.html">重返龙渊 · 登录</a></p>
+  </section>
+</main>
+
+<script>
+  // 龙焰火星粒子（上升 + 辉光）
+  const cv=document.getElementById('fx'),ctx=cv.getContext('2d');
+  let W,H,parts;
+  function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;
+    parts=Array.from({length:46},()=>({
+      x:Math.random()*W,y:Math.random()*H,
+      r:Math.random()*2+0.8,
+      vy:-(Math.random()*.6+.25), vx:(Math.random()-.5)*.3,
+      a:Math.random()*.5+.3,
+      hue:Math.random()<.55?'232,184,75':(Math.random()<.5?'224,83,61':'91,200,245')
+    }));
+  }
+  function tick(){
+    ctx.clearRect(0,0,W,H);
+    ctx.globalCompositeOperation='lighter';
+    for(const p of parts){
+      p.y+=p.vy;p.x+=p.vx+Math.sin(p.y/30)*.2;
+      if(p.y<-10){p.y=H+10;p.x=Math.random()*W}
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);
+      ctx.shadowBlur=12;ctx.shadowColor=`rgba(${p.hue},${p.a})`;
+      ctx.fillStyle=`rgba(${p.hue},${p.a})`;ctx.fill();
+    }
+    ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';
+    requestAnimationFrame(tick);
+  }
+  addEventListener('resize',resize);resize();tick();
+
+  // 密码显示切换
+  document.querySelectorAll('.toggle').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const el=document.getElementById(b.dataset.target);
+      const show=el.type==='password';
+      el.type=show?'text':'password';
+      b.innerHTML=show
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4"/><path d="M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 3.4-.6"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    });
+  });
+
+  // 校验逻辑
+  const $=id=>document.getElementById(id);
+  const form=$('form'),banner=$('banner');
+  const user=$('user'),email=$('email'),pwd=$('pwd'),confirm=$('confirm'),terms=$('terms');
+  const meter=$('meter'),meterLabel=$('meter-label');
+  const emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function setField(id,bad,good){const f=$(id);f.classList.toggle('bad',bad);f.classList.toggle('good',good);}
+  function showHint(id,show){const h=$(id);if(h)h.classList.toggle('show',show);}
+  function shake(el){el.classList.add('shake');setTimeout(()=>el.classList.remove('shake'),420);}
+  function showBanner(ok,msg){banner.textContent=msg;banner.className='banner show '+(ok?'ok':'err');}
+
+  function pwdScore(v){
+    let s=0;
+    if(v.length>=8)s++;
+    if(/[a-z]/.test(v)&&/[A-Z]/.test(v))s++;
+    if(/\d/.test(v))s++;
+    if(/[^A-Za-z0-9]/.test(v))s++;
+    return s;
+  }
+  function renderMeter(){
+    const v=pwd.value, s=pwdScore(v);
+    const map=[
+      {w:0,c:'#E5484D',t:'秘钥至少 8 位，建议混合字符'},
+      {w:25,c:'#E5484D',t:'虚弱：再长一些方显龙威'},
+      {w:50,c:'#E8B84B',t:'尚可：建议大小写与数字并用'},
+      {w:75,c:'#5BC8F5',t:'不俗：已含多种字符'},
+      {w:100,c:'#5BE7A9',t:'炽烈：可安心立契'}
+    ];
+    const m=map[Math.min(s,4)];
+    meter.style.width=(v?m.w:0)+'%';
+    meter.style.background=m.c;
+    meterLabel.textContent=m.t;
+    meterLabel.style.color=v?'var(--ink-2)':'var(--ink-3)';
+  }
+  pwd.addEventListener('input',renderMeter);
+
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();
+    let ok=true;
+    if(user.value.trim().length<3||user.value.trim().length>20){setField('f-user',true,false);showHint('h-user',true);ok=false;}
+    else{setField('f-user',false,true);showHint('h-user',false);}
+    if(!emailRe.test(email.value.trim())){setField('f-email',true,false);showHint('h-email',true);ok=false;}
+    else{setField('f-email',false,true);showHint('h-email',false);}
+    if(pwdScore(pwd.value)<1){setField('f-pwd',true,false);ok=false;shake($('f-pwd'));}
+    else{setField('f-pwd',false,true);}
+    if(confirm.value!==pwd.value||!confirm.value){setField('f-confirm',true,false);showHint('h-confirm',true);ok=false;}
+    else{setField('f-confirm',false,true);showHint('h-confirm',false);}
+    if(!terms.checked){$('f-terms').classList.add('bad');ok=false;}
+    else{$('f-terms').classList.remove('bad');}
+
+    if(!ok){shake(form);return;}
+    const btn=form.querySelector('.btn');
+    btn.textContent='契约缔结中…';btn.disabled=true;banner.className='banner';
+    try{
+      const res=await fetch('http://localhost:8081/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:user.value.trim(),email:email.value.trim(),password:pwd.value})});
+      const data=await res.json().catch(()=>({success:false,message:'服务器响应异常'}));
+      if(res.ok&&data.success){
+        showBanner(true,data.message||'注册成功，欢迎加入龙渊！');
+        btn.textContent='觉醒成功 ✓';
+        setTimeout(()=>{location.href='login-anime.html';},1200);
+      }else{
+        if(data.field==='username'){setField('f-user',true,false);showHint('h-user',true);$('h-user').textContent=data.message;}
+        if(data.field==='email'){setField('f-email',true,false);showHint('h-email',true);$('h-email').textContent=data.message;}
+        if(data.field==='password'){setField('f-pwd',true,false);}
+        showBanner(false,data.message||'契约缔结失败');
+        btn.textContent='缔 结 契 约';btn.disabled=false;
+      }
+    }catch(err){
+      showBanner(false,'无法连接龙渊服务器，请确认后端已启动 (http://localhost:8081)');
+      btn.textContent='缔 结 契 约';btn.disabled=false;
+    }
+  });
+
+  [user,email,pwd,confirm].forEach(el=>el.addEventListener('input',()=>{
+    const wrap=el.closest('.field');
+    if(wrap.classList.contains('bad')){wrap.classList.remove('bad');const h=wrap.querySelector('.hint');if(h)h.classList.remove('show');}
+  }));
+  terms.addEventListener('change',()=>$('f-terms').classList.remove('bad'));
+</script>
+</body>
+</html>

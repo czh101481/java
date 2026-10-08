@@ -1,0 +1,37 @@
+/* ── Sakura Pass 主题令牌（自 login-anime.html :root 原样平移）── */
+:root{
+  /* 主色 + 点缀色：樱粉 / 天蓝 / 薄荷 */
+  --accent:#FF6F91;          /* 主色 樱粉 */
+  --accent-2:#7EC8E3;        /* 点缀 天蓝 */
+  --accent-3:#A8E6CF;        /* 点缀 薄荷 */
+  --ink:#2B2433;
+  --ink-2:#6E6478;
+  --ink-3:#A79FB0;
+  --glass:rgba(255,255,255,.55);
+  --glass-line:rgba(255,255,255,.7);
+  --r:22px;
+  --ease:cubic-bezier(.22,.8,.3,1);
+  font-family:"Quicksand","Zen Maru Gothic",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{
+  color:var(--ink);
+  background:
+    radial-gradient(120% 120% at 10% 0%, #FFE3EC 0%, transparent 45%),
+    radial-gradient(120% 120% at 95% 10%, #DFF3FB 0%, transparent 45%),
+    radial-gradient(140% 140% at 50% 110%, #E6FBF0 0%, transparent 50%),
+    #FBF7FB;
+  display:grid;place-items:center;
+  min-height:100vh;padding:24px;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+/* 轻量粒子 / 光斑氛围 */
+#fx{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/*
+ * Vue 挂载点：不生成盒子，让 main.stage 直接成为 body 网格的子项，
+ * 保证居中效果与原始单文件页面完全一致（这是唯一新增的样式声明）。
+ */
+#app{display:contents}

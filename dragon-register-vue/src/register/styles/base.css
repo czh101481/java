@@ -1,0 +1,53 @@
+/* ══════════════════════════════════════════════════════════
+   龙渊 · 全局样式（设计令牌 / 页面底色 / 挂载点）
+   —— 数值与原 register-anime.html 完全一致
+   ══════════════════════════════════════════════════════════ */
+
+:root{
+  /* 龙族配色：夜幕深蓝 + 鎏金 + 龙焰红 + 龙瞳青 */
+  --accent:#E8B84B;
+  --accent-2:#5BC8F5;
+  --accent-3:#E0533D;
+  --ink:#ECE9F2;
+  --ink-2:#B6B2C6;
+  --ink-3:#7E7A8E;
+  --glass:rgba(18,24,42,.50);
+  --glass-line:rgba(150,170,220,.22);
+  --r:22px;
+  --ease:cubic-bezier(.22,.8,.3,1);
+  --err:#FF6B6B;
+  --ok:#5BE7A9;
+  font-family:"Quicksand","Noto Serif SC",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",serif;
+}
+
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+
+body{
+  color:var(--ink);
+  background:
+    radial-gradient(120% 120% at 12% 0%, #1a1330 0%, transparent 45%),
+    radial-gradient(120% 120% at 92% 8%, #102338 0%, transparent 48%),
+    radial-gradient(140% 140% at 50% 115%, #2a0f1a 0%, transparent 50%),
+    #070A14;
+  display:grid;place-items:center;
+  min-height:100vh;padding:24px;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* Vue 挂载点：display:contents 让 main.stage 直接作为 body 网格的子项，
+   从而与原页面完全一致的居中效果（挂载点本身不产生任何盒） */
+#app{display:contents}
+
+/* 龙焰火星粒子画布 */
+#fx{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* 通用抖动（表单整体与单个字段共用） */
+@keyframes shake{
+  10%,90%{transform:translateX(-1px)}
+  20%,80%{transform:translateX(2px)}
+  30%,50%,70%{transform:translateX(-4px)}
+  40%,60%{transform:translateX(4px)}
+}
+.shake{animation:shake .4s var(--ease)}

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>登录 · ANIME</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    /* 主色 + 点缀色：樱粉 / 天蓝 / 薄荷 */
+    --accent:#FF6F91;          /* 主色 樱粉 */
+    --accent-2:#7EC8E3;        /* 点缀 天蓝 */
+    --accent-3:#A8E6CF;        /* 点缀 薄荷 */
+    --ink:#2B2433;
+    --ink-2:#6E6478;
+    --ink-3:#A79FB0;
+    --glass:rgba(255,255,255,.55);
+    --glass-line:rgba(255,255,255,.7);
+    --r:22px;
+    --ease:cubic-bezier(.22,.8,.3,1);
+    font-family:"Quicksand","Zen Maru Gothic",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{
+    color:var(--ink);
+    background:
+      radial-gradient(120% 120% at 10% 0%, #FFE3EC 0%, transparent 45%),
+      radial-gradient(120% 120% at 95% 10%, #DFF3FB 0%, transparent 45%),
+      radial-gradient(140% 140% at 50% 110%, #E6FBF0 0%, transparent 50%),
+      #FBF7FB;
+    display:grid;place-items:center;
+    min-height:100vh;padding:24px;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* 轻量粒子 / 光斑氛围 */
+  #fx{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+  .stage{
+    position:relative;z-index:1;
+    width:100%;max-width:920px;
+    display:grid;grid-template-columns:0.92fr 1.08fr;
+    background:var(--glass);
+    border:1px solid var(--glass-line);
+    border-radius:var(--r);
+    box-shadow:0 20px 60px rgba(120,90,130,.18), inset 0 1px 0 rgba(255,255,255,.6);
+    backdrop-filter:blur(18px) saturate(1.2);
+    -webkit-backdrop-filter:blur(18px) saturate(1.2);
+    overflow:hidden;
+  }
+
+  /* ── 主视觉锚点（第一级）── */
+  .hero{
+    position:relative;padding:40px 32px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    background:
+      radial-gradient(80% 60% at 50% 30%, rgba(255,255,255,.6), transparent 70%),
+      linear-gradient(160deg, rgba(126,200,227,.35), rgba(255,111,145,.30) 60%, rgba(168,230,207,.35));
+    border-right:1px solid var(--glass-line);
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:.04em}
+  .brand .dot{width:26px;height:26px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 12px rgba(255,111,145,.4)}
+  .hero-art{display:grid;place-items:center;flex:1;padding:18px 0}
+  .hero h2{font-size:26px;font-weight:700;line-height:1.3;letter-spacing:.01em}
+  .hero p{margin-top:8px;color:var(--ink-2);font-size:14px}
+
+  /* ── 登录卡片（第二级 信息块 / 第三级 细节）── */
+  .panel{padding:48px 44px;display:flex;flex-direction:column}
+  .panel .eyebrow{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.18em}
+  .panel h1{font-size:28px;font-weight:700;margin:6px 0 4px;letter-spacing:.01em}
+  .panel .lead{color:var(--ink-2);font-size:14px;margin-bottom:28px}
+
+  .field{position:relative;margin-bottom:18px}
+  .field input{
+    width:100%;padding:18px 16px 8px;font-size:15px;color:var(--ink);
+    background:rgba(255,255,255,.65);
+    border:1px solid rgba(180,170,190,.35);border-radius:14px;outline:none;
+    transition:border-color .25s var(--ease), box-shadow .25s var(--ease), background .25s var(--ease);
+  }
+  .field label{
+    position:absolute;left:16px;top:15px;font-size:15px;color:var(--ink-3);pointer-events:none;
+    transition:transform .2s var(--ease), color .2s var(--ease), font-size .2s var(--ease);
+  }
+  .field input:focus,.field input:not(:placeholder-shown){background:#fff;border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,111,145,.16)}
+  .field input:focus+label,.field input:not(:placeholder-shown)+label{transform:translateY(-10px);font-size:11px;color:var(--ink-2)}
+  .field input:focus+label{color:var(--accent)}
+
+  .row{display:flex;align-items:center;justify-content:space-between;margin:4px 0 26px;font-size:13px}
+  .check{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);cursor:pointer}
+  .check input{accent-color:var(--accent);width:15px;height:15px}
+  .link{color:var(--accent);text-decoration:none;font-weight:600;transition:opacity .2s var(--ease)}
+  .link:hover{opacity:.7}
+
+  .btn{
+    width:100%;padding:15px;font-size:16px;font-weight:700;color:#fff;font-family:inherit;
+    background:linear-gradient(135deg,var(--accent),#FF8FAB 55%,var(--accent-2));
+    border:none;border-radius:14px;cursor:pointer;
+    box-shadow:0 10px 24px rgba(255,111,145,.35);
+    transition:transform .1s var(--ease), box-shadow .25s var(--ease), filter .25s var(--ease);
+  }
+  .btn:hover{filter:brightness(1.04);box-shadow:0 14px 30px rgba(255,111,145,.45)}
+  .btn:active{transform:translateY(1px) scale(.99)}
+
+  .divider{display:flex;align-items:center;gap:12px;color:var(--ink-3);font-size:12px;margin:24px 0 18px}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:rgba(180,170,190,.3)}
+  .alt{
+    width:100%;padding:13px;font-size:14px;font-weight:600;color:var(--ink);font-family:inherit;
+    background:rgba(255,255,255,.6);border:1px solid rgba(180,170,190,.35);border-radius:14px;cursor:pointer;
+    transition:border-color .2s var(--ease), background .2s var(--ease);
+  }
+  .alt:hover{border-color:var(--accent-2);background:#fff}
+  .foot{margin-top:22px;text-align:center;font-size:13px;color:var(--ink-2)}
+  .foot a{color:var(--accent);font-weight:600;text-decoration:none}
+
+  @media(max-width:760px){
+    .stage{grid-template-columns:1fr}
+    .hero{display:none}
+    .panel{padding:40px 28px}
+  }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+
+<main class="stage">
+  <!-- 第一级：主视觉锚点 -->
+  <section class="hero">
+    <div class="brand"><span class="dot"></span> Sakura Pass</div>
+    <div class="hero-art">
+      <!-- 角色立绘（赛璐璐风 SVG 锚点）-->
+      <svg width="220" height="250" viewBox="0 0 220 250" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="anime character">
+        <defs>
+          <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#FFB3C8"/><stop offset="1" stop-color="#7EC8E3"/>
+          </linearGradient>
+          <linearGradient id="cloth" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E9F6FB"/>
+          </linearGradient>
+          <radialGradient id="eye" cx="0.5" cy="0.4" r="0.6">
+            <stop offset="0" stop-color="#9BE0F2"/><stop offset="1" stop-color="#3F7FB0"/>
+          </radialGradient>
+        </defs>
+        <!-- 后发 -->
+        <path d="M60 95 C50 40 170 40 160 95 C175 130 168 175 150 200 C140 160 80 160 70 200 C52 175 45 130 60 95Z" fill="url(#hair)"/>
+        <!-- 身体/衣 -->
+        <path d="M78 175 C78 160 142 160 142 175 L150 250 L70 250 Z" fill="url(#cloth)"/>
+        <path d="M108 168 L120 188 L96 188 Z" fill="#FFD6E2"/>
+        <!-- 脸 -->
+        <ellipse cx="110" cy="115" rx="40" ry="44" fill="#FFE6D5"/>
+        <!-- 前发/刘海 -->
+        <path d="M70 100 C72 60 148 60 150 100 C140 82 128 92 120 84 C114 96 106 96 100 84 C92 92 80 82 70 100Z" fill="url(#hair)"/>
+        <path d="M110 72 C104 88 100 96 96 104 C104 98 110 98 110 98 C110 98 116 98 124 104 C120 96 116 88 110 72Z" fill="url(#hair)"/>
+        <!-- 侧发尾 -->
+        <path d="M70 110 C58 140 60 175 78 178 C72 150 74 130 84 116 Z" fill="url(#hair)"/>
+        <path d="M150 110 C162 140 160 175 142 178 C148 150 146 130 136 116 Z" fill="url(#hair)"/>
+        <!-- 眼睛 -->
+        <ellipse cx="94" cy="118" rx="9" ry="12" fill="url(#eye)"/>
+        <ellipse cx="126" cy="118" rx="9" ry="12" fill="url(#eye)"/>
+        <circle cx="91" cy="113" r="3" fill="#fff"/><circle cx="123" cy="113" r="3" fill="#fff"/>
+        <path d="M86 124 q8 4 16 0" stroke="#3F7FB0" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <path d="M118 124 q8 4 16 0" stroke="#3F7FB0" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <!-- 腮红 -->
+        <ellipse cx="84" cy="130" rx="6" ry="3.5" fill="#FFB3C8" opacity=".7"/>
+        <ellipse cx="136" cy="130" rx="6" ry="3.5" fill="#FFB3C8" opacity=".7"/>
+        <!-- 嘴 -->
+        <path d="M104 134 q6 5 12 0" stroke="#E58aa0" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div>
+      <h2>欢迎回到<br/>你的二次元空间</h2>
+      <p>登录后继续你的冒险 ✦</p>
+    </div>
+  </section>
+
+  <!-- 第二/三级：信息块 + 细节 -->
+  <section class="panel">
+    <div class="eyebrow">SIGN IN</div>
+    <h1>登录</h1>
+    <p class="lead">输入账号信息，开启你的世界。</p>
+
+    <form onsubmit="return false">
+      <div class="field">
+        <input id="email" type="email" placeholder=" " autocomplete="email" />
+        <label for="email">邮箱地址</label>
+      </div>
+      <div class="field">
+        <input id="pwd" type="password" placeholder=" " autocomplete="current-password" />
+        <label for="pwd">密码</label>
+      </div>
+
+      <div class="row">
+        <label class="check"><input type="checkbox" /> 记住我</label>
+        <a class="link" href="#">忘记密码？</a>
+      </div>
+
+      <button class="btn" type="submit">登 录</button>
+    </form>
+
+    <div class="divider">或使用</div>
+    <button class="alt" type="button">使用 Google 继续</button>
+
+    <p class="foot">还没有账号？<a href="#">立即注册</a></p>
+  </section>
+</main>
+
+<script>
+  // 轻量粒子：樱花花瓣 + 光斑
+  const cv=document.getElementById('fx'),ctx=cv.getContext('2d');
+  let W,H,parts;
+  function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;
+    parts=Array.from({length:34},()=>({
+      x:Math.random()*W,y:Math.random()*H,
+      r:Math.random()*3+1.5,
+      vy:Math.random()*.5+.25, vx:(Math.random()-.5)*.4,
+      a:Math.random()*.5+.2, hue:Math.random()<.5?'255,111,145':'126,200,227',
+      petal:Math.random()<.4
+    }));
+  }
+  function tick(){
+    ctx.clearRect(0,0,W,H);
+    for(const p of parts){
+      p.y+=p.vy;p.x+=p.vx+Math.sin(p.y/40)*.3;
+      if(p.y>H+10){p.y=-10;p.x=Math.random()*W}
+      ctx.beginPath();
+      if(p.petal){ // 花瓣形
+        ctx.ellipse(p.x,p.y,p.r,p.r*0.5,p.y/30,0,7);
+      }else{ctx.arc(p.x,p.y,p.r,0,7)}
+      ctx.fillStyle=`rgba(${p.hue},${p.a})`;ctx.fill();
+    }
+    requestAnimationFrame(tick);
+  }
+  addEventListener('resize',resize);resize();tick();
+</script>
+</body>
+</html>

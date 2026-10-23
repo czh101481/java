@@ -65,6 +65,7 @@ public class AuthService {
         user.setName(dto.getName());
         user.setEmail(dto.getEmail());
         user.setRealm(dto.getRealm());
+        user.setCultivation(com.fenglin.springboottest.common.Realm.NAMES.get(0)); // 新修者皆从引煞起步
         user.setPassword(dto.getPassword());
         userMapper.insert(user);
         return Result.success();

@@ -24,7 +24,8 @@
       <div class="nav-user">
         <div class="user-meta">
           <span class="user-name">{{ user?.name || '无名修者' }}</span>
-          <span class="user-realm" v-if="user?.realm">所修 · {{ user.realm }}</span>
+          <span class="user-realm" v-if="user?.cultivation">{{ user.cultivation }}境 · 第{{ realmIndex + 1 }}重</span>
+          <span class="user-realm" v-else-if="user?.realm">魔种 · {{ user.realm }}</span>
         </div>
         <div class="avatar">{{ initial }}</div>
         <button class="logout" type="button" @click="onLogout">断魔契</button>
@@ -51,6 +52,10 @@
     <!-- 条目列表 -->
     <section class="list">
       <div v-if="loading" class="state">魔 渊 回 响 中 ……</div>
+
+      <div v-else-if="deny" class="state deny">
+        <span class="deny-lock">封</span>{{ deny }}
+      </div>
 
       <div v-else-if="items.length === 0" class="state">
         此 殿 之 中 尚 无 记 载 。
@@ -94,6 +99,13 @@ const type = computed(() => String(route.params.type || 'art'))
 const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
 const isHome = ref(false)
 
+// 境界位阶（引煞 0 → 魔祖 6，与后端 Realm 一致）
+const REALM_NAMES = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔祖']
+const realmIndex = computed(() => {
+  const i = REALM_NAMES.indexOf(user.value?.cultivation)
+  return i >= 0 ? i : 0
+})
+
 const META = {
   art:    { icon: '☥', title: '功 法 阁', desc: '修魔之术，万千法门', unit: '部' },
   trial:  { icon: '⚔', title: '历 练 录', desc: '入世历劫，淬炼真我', unit: '程' },
@@ -111,13 +123,20 @@ const navModules = [
 const items = ref([])
 const loading = ref(false)
 const kw = ref('')
+// 境界封禁提示（后端 403 时回显）
+const deny = ref('')
 
 async function load() {
   loading.value = true
+  deny.value = ''
   try {
     const res = await homeList(type.value, kw.value)
-    if (res.data.code === 200) items.value = res.data.data || []
-    else items.value = []
+    if (res.data.code === 200) {
+      items.value = res.data.data || []
+    } else {
+      items.value = []
+      if (res.data.code === 403) deny.value = res.data.msg || '境界不足，此殿封禁。'
+    }
   } catch (e) {
     items.value = []
   } finally {
@@ -271,6 +290,26 @@ watch(type, () => {
 .state {
   padding: 40px; text-align: center; font-size: 13px; letter-spacing: 4px;
   color: rgba(232, 220, 200, 0.45);
+}
+.state.deny {
+  color: rgba(255, 80, 110, 0.95);
+  border: 1px dashed rgba(255, 59, 107, 0.4);
+  border-radius: 14px;
+  background: rgba(40, 4, 18, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.deny-lock {
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; letter-spacing: 0;
+  color: rgba(255, 80, 110, 0.95);
+  border: 1px solid rgba(255, 59, 107, 0.5);
+  box-shadow: 0 0 14px rgba(255, 59, 107, 0.35);
 }
 .row {
   display: flex; align-items: center; gap: 16px;

@@ -5,6 +5,8 @@ import Home from '../views/Home.vue'
 import Module from '../views/Module.vue'
 import Detail from '../views/Detail.vue'
 import Archive from '../views/Archive.vue'
+import AdminLogin from '../views/AdminLogin.vue'
+import AdminArt from '../views/AdminArt.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -14,7 +16,10 @@ const routes = [
   { path: '/module/:type', name: 'module', component: Module },
   { path: '/detail/:type/:id', name: 'detail', component: Detail },
   // 魔枢典册：cat 可选，缺省展示魔族谱系
-  { path: '/archive/:cat?', name: 'archive', component: Archive }
+  { path: '/archive/:cat?', name: 'archive', component: Archive },
+  // 后台管理系统：登录（仅登录无注册）→ 功法阁数据管理
+  { path: '/admin/login', name: 'adminLogin', component: AdminLogin },
+  { path: '/admin', name: 'admin', component: AdminArt }
 ]
 
 export default createRouter({

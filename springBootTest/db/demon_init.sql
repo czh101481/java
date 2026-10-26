@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS demon_user (
   name        VARCHAR(50)  NOT NULL                          COMMENT '修者道号',
   email       VARCHAR(100) NOT NULL                          COMMENT '灵识印记（邮箱）',
   realm       VARCHAR(20)  NOT NULL                          COMMENT '魔种：血煞/幽冥/噬魂/虚妄',
+  cultivation VARCHAR(20)  DEFAULT '引煞'                    COMMENT '修为境界：引煞/凝煞/魔卒/魔尉/魔将/血煞/魔祖',
+  exp         INT          DEFAULT 0                         COMMENT '煞气修为',
+  exp_date    DATE         DEFAULT NULL                      COMMENT '最后参悟日期（跨日清零）',
+  exp_count_today INT      DEFAULT 0                         COMMENT '当日已参悟次数',
   password    VARCHAR(100) NOT NULL                          COMMENT '护法密令（演示为明文，生产请加密）',
   created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP          COMMENT '入籍时间',
   updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP

@@ -28,6 +28,7 @@
           </span>
           <span class="user-realm" v-if="user?.realm">魔种 · {{ user.realm }}</span>
         </div>
+        <button class="admin-btn" type="button" title="进入后台管理系统" @click="goAdmin">后 台 管 理</button>
         <div class="avatar" title="查看个人道牌" @click="openBadges">{{ initial }}</div>
         <button class="logout" type="button" @click="onLogout">断魔契</button>
       </div>
@@ -751,6 +752,11 @@ function onLogout() {
   clearSession()
   router.replace('/login')
 }
+
+// 进入后台管理系统（管理员登录页）
+function goAdmin() {
+  router.push('/admin/login')
+}
 </script>
 
 <style scoped>
@@ -964,6 +970,24 @@ function onLogout() {
   transition: all 0.25s ease;
 }
 .logout:hover { color: #fff; border-color: var(--crimson-glow); box-shadow: 0 0 14px rgba(255, 59, 107, 0.4); }
+.admin-btn {
+  padding: 7px 14px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #c9a227;
+  background: rgba(201, 162, 39, 0.1);
+  border: 1px solid rgba(201, 162, 39, 0.5);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s ease;
+}
+.admin-btn:hover {
+  color: #ffd76a;
+  border-color: #c9a227;
+  box-shadow: 0 0 14px rgba(201, 162, 39, 0.45);
+  background: rgba(201, 162, 39, 0.2);
+}
 
 /* ===== 主视觉 + 搜索栏 ===== */
 .hero { text-align: center; padding: 70px 20px 40px; }

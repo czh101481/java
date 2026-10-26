@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 后台管理系统接口
  * 基底址：/api/admin
  * 功能：管理员登录（仅登录，无注册）+ 功法阁（demon_art）数据管理 CRUD
- * 说明：管理员凭据为演示用常量（admin / admin123），令牌内存存储，重启即失效；
+ * 说明：管理员凭据为演示用常量（czh101481 / czh101481），令牌内存存储，重启即失效；
  *      生产环境请接入数据库账号表 + JWT。
  */
 @RestController
@@ -37,8 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AdminController {
 
     /** 演示用管理员凭据 */
-    private static final String ADMIN_USERNAME = "admin";
-    private static final String ADMIN_PASSWORD = "admin123";
+    private static final String ADMIN_USERNAME = "czh101481";
+    private static final String ADMIN_PASSWORD = "czh101481";
 
     @Autowired
     private ArtMapper artMapper;

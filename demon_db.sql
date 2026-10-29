@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 26/10/2026 09:53:01
+ Date: 29/10/2026 15:10:50
 */
 
 SET NAMES utf8mb4;
@@ -28,7 +28,7 @@ CREATE TABLE `demon_announcement`  (
   `level` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '通告' COMMENT '等级：通告/警示/喜讯/秘辛',
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '魔门公告' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '魔门公告' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_announcement
@@ -54,7 +54,7 @@ CREATE TABLE `demon_archive`  (
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_category`(`category` ASC, `sort_order` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 21 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '魔枢典册' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 21 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '魔枢典册' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_archive
@@ -95,7 +95,7 @@ CREATE TABLE `demon_art`  (
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `image` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '配图相对路径',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 15 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '功法阁' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 15 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '功法阁' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_art
@@ -125,7 +125,7 @@ CREATE TABLE `demon_codex`  (
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `image` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '配图相对路径',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '魔典秘录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '魔典秘录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_codex
@@ -156,7 +156,7 @@ CREATE TABLE `demon_debate`  (
   `analysis` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '论道解析',
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '宗门论道' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '宗门论道' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_debate
@@ -184,7 +184,7 @@ CREATE TABLE `demon_trial`  (
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `image` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '配图相对路径',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '历练录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '历练录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_trial
@@ -213,21 +213,23 @@ CREATE TABLE `demon_user`  (
   `exp_date` date NULL DEFAULT NULL COMMENT '最后参悟日期（跨日清零）',
   `exp_count_today` int NULL DEFAULT 0 COMMENT '当日已参悟次数',
   `password` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '护法密令（演示为明文，生产请加密）',
+  `permission` tinyint NULL DEFAULT 1 COMMENT '权限：1 默认权限 / 0 管理员权限',
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '入籍时间',
   `updated_at` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_name`(`name` ASC) USING BTREE,
   UNIQUE INDEX `uk_email`(`email` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 8 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '魔族修者表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '魔族修者表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_user
 -- ----------------------------
-INSERT INTO `demon_user` VALUES (2, '魔祖', 'demo@demon.com', '血煞', '魔祖', 3060, '2026-10-26', 7, '123456', '2026-10-26 09:02:43', '2026-10-26 09:49:04');
-INSERT INTO `demon_user` VALUES (3, '血河老祖', 'xuehe@demon.com', '血煞', '魔祖', 2995, NULL, 0, '123456', '2026-10-26 09:13:11', '2026-10-26 09:17:24');
-INSERT INTO `demon_user` VALUES (4, '幽冥夫人', 'youming@demon.com', '幽冥', '魔祖', 2580, NULL, 0, '123456', '2026-10-26 09:13:11', '2026-10-26 09:17:15');
-INSERT INTO `demon_user` VALUES (5, '噬魂大王', 'shihun@demon.com', '噬魂', '魔祖', 2200, NULL, 0, '123456', '2026-10-26 09:13:11', '2026-10-26 09:13:11');
-INSERT INTO `demon_user` VALUES (6, '寂灭尊者', 'jimie@demon.com', '虚妄', '魔祖', 1800, NULL, 0, '123456', '2026-10-26 09:13:11', '2026-10-26 09:13:11');
-INSERT INTO `demon_user` VALUES (7, '虚妄上人', 'xuwang@demon.com', '虚妄', '魔祖', 1500, NULL, 0, '123456', '2026-10-26 09:13:11', '2026-10-26 09:13:11');
+INSERT INTO `demon_user` VALUES (2, '魔祖', 'demo@demon.com', '血煞', '魔祖', 9190, '2026-10-29', 3, '123456', 0, '2026-10-26 09:02:43', '2026-10-29 15:03:43');
+INSERT INTO `demon_user` VALUES (3, '血河老祖', 'xuehe@demon.com', '血煞', '血煞', 5200, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:03:49');
+INSERT INTO `demon_user` VALUES (4, '幽冥夫人', 'youming@demon.com', '幽冥', '血煞', 4570, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:03:57');
+INSERT INTO `demon_user` VALUES (5, '噬魂大王', 'shihun@demon.com', '噬魂', '血煞', 4100, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:04:07');
+INSERT INTO `demon_user` VALUES (6, '寂灭尊者', 'jimie@demon.com', '虚妄', '血煞', 3790, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:04:24');
+INSERT INTO `demon_user` VALUES (7, '虚妄上人', 'xuwang@demon.com', '虚妄', '血煞', 2500, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:04:29');
+INSERT INTO `demon_user` VALUES (8, 'gay', 'gay@qq.com', '噬魂', '魔卒', 180, '2026-10-29', 1, 'gaygay', 1, '2026-10-29 14:45:03', '2026-10-29 15:05:02');
 
 SET FOREIGN_KEY_CHECKS = 1;

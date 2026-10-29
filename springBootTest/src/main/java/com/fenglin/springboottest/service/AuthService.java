@@ -67,6 +67,7 @@ public class AuthService {
         user.setRealm(dto.getRealm());
         user.setCultivation(com.fenglin.springboottest.common.Realm.NAMES.get(0)); // 新修者皆从引煞起步
         user.setPassword(dto.getPassword());
+        user.setPermission(1); // 注册修者皆为默认权限，管理员需另行提权
         userMapper.insert(user);
         return Result.success();
     }

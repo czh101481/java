@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS demon_user (
   exp_date    DATE         DEFAULT NULL                      COMMENT '最后参悟日期（跨日清零）',
   exp_count_today INT      DEFAULT 0                         COMMENT '当日已参悟次数',
   password    VARCHAR(100) NOT NULL                          COMMENT '护法密令（演示为明文，生产请加密）',
+  permission  TINYINT      DEFAULT 1                         COMMENT '权限：1 默认权限 / 0 管理员权限',
   created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP          COMMENT '入籍时间',
   updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP
                           ON UPDATE CURRENT_TIMESTAMP        COMMENT '更新时间',
@@ -51,5 +52,5 @@ CREATE TABLE IF NOT EXISTS demon_user (
 -- 可选：预置一个演示修者，方便不注册也能先试登录
 --   道号：mo ZuShi（魔祖）   邮箱：demo@demon.com   密令：123456
 -- ---------------------------------------------------------------------
-INSERT IGNORE INTO demon_user (name, email, realm, password)
-VALUES ('魔祖', 'demo@demon.com', '血煞', '123456');
+INSERT IGNORE INTO demon_user (name, email, realm, password, permission)
+VALUES ('魔祖', 'demo@demon.com', '血煞', '123456', 0);

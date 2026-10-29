@@ -62,3 +62,77 @@ export function artUpdate(id, payload) {
 export function artDelete(id) {
   return adminHttp.delete(`/api/admin/art/${id}`)
 }
+
+// ==================== 历练录（demon_trial） ====================
+export function trialList(kw) {
+  return adminHttp.get('/api/admin/trial/list', { params: { kw: kw || '' } })
+}
+
+export function trialAdd(payload) {
+  return adminHttp.post('/api/admin/trial', payload)
+}
+
+export function trialUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/trial/${id}`, payload)
+}
+
+export function trialDelete(id) {
+  return adminHttp.delete(`/api/admin/trial/${id}`)
+}
+
+// ==================== 宗门论道（demon_debate） ====================
+export function debateList(kw) {
+  return adminHttp.get('/api/admin/debate/list', { params: { kw: kw || '' } })
+}
+
+export function debateAdd(payload) {
+  return adminHttp.post('/api/admin/debate', payload)
+}
+
+export function debateUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/debate/${id}`, payload)
+}
+
+export function debateDelete(id) {
+  return adminHttp.delete(`/api/admin/debate/${id}`)
+}
+
+// ==================== 魔典秘录（demon_codex） ====================
+export function codexList(kw) {
+  return adminHttp.get('/api/admin/codex/list', { params: { kw: kw || '' } })
+}
+
+export function codexAdd(payload) {
+  return adminHttp.post('/api/admin/codex', payload)
+}
+
+export function codexUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/codex/${id}`, payload)
+}
+
+export function codexDelete(id) {
+  return adminHttp.delete(`/api/admin/codex/${id}`)
+}
+
+// ==================== 魔枢典册（demon_archive） ====================
+export function archiveList(kw, cat) {
+  return adminHttp.get('/api/admin/archive/list', { params: { kw: kw || '', cat: cat || '' } })
+}
+
+export function archiveAdd(payload) {
+  return adminHttp.post('/api/admin/archive', payload)
+}
+
+export function archiveUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/archive/${id}`, payload)
+}
+
+export function archiveDelete(id) {
+  return adminHttp.delete(`/api/admin/archive/${id}`)
+}
+
+// ==================== 图片同步 ====================
+// 扫描后端 static/images/{dir} 实际存在的图片，返回相对路径清单
+export function imageList(dir) {
+  return adminHttp.get('/api/admin/images', { params: { dir } })
+}

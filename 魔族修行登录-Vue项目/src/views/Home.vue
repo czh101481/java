@@ -28,7 +28,14 @@
           </span>
           <span class="user-realm" v-if="user?.realm">魔种 · {{ user.realm }}</span>
         </div>
-        <button class="admin-btn" type="button" title="进入后台管理系统" @click="goAdmin">后 台 管 理</button>
+        <!-- 仅管理员权限（permission=0）可见后台入口 -->
+        <button
+          v-if="user?.permission === 0"
+          class="admin-btn"
+          type="button"
+          title="进入后台管理系统"
+          @click="goAdmin"
+        >后 台 管 理</button>
         <div class="avatar" title="查看个人道牌" @click="openBadges">{{ initial }}</div>
         <button class="logout" type="button" @click="onLogout">断魔契</button>
       </div>
@@ -263,7 +270,7 @@
             </div>
             <div class="rank-title">{{ r.title }}</div>
           </div>
-          <span class="rank-realm" :style="realmTagStyle(r.index)">{{ r.cultivation }}境</span>
+          <span class="rank-realm" :style="realmTagStyle(r.index)">{{ r.realmName }}境</span>
           <span class="rank-exp">煞气 {{ r.exp }}</span>
           <button
             v-if="!r.me"

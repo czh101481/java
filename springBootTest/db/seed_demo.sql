@@ -5,5 +5,5 @@ USE demon_db;
 -- 仅删除旧的演示行（按邮箱定位），再插入干净的演示账号
 DELETE FROM demon_user WHERE email = 'demo@demon.com';
 
-INSERT INTO demon_user (name, email, realm, cultivation, exp, password)
-VALUES ('魔祖', 'demo@demon.com', '血煞', '魔祖', 3000, '123456');
+INSERT INTO demon_user (name, email, realm, cultivation, exp, password, permission)
+VALUES ('魔祖', 'demo@demon.com', '血煞', '魔祖', 3000, '123456', 0);

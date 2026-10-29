@@ -41,6 +41,9 @@ public class DemonUser {
     /** 护法密令（演示为明文，生产请加密） */
     private String password;
 
+    /** 权限：1 默认权限 / 0 管理员权限（仅 0 可见后台入口并可登录后台） */
+    private Integer permission;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

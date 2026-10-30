@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * 个人道牌（勋章墙）：修者信息 + 七境勋章 + 修行数据总览（GET /api/home/badges）
+ * 个人道牌（勋章墙）：修者信息 + 十境勋章 + 修行数据总览（GET /api/home/badges）
  */
 @Data
 public class RealmBadgeVO {
@@ -37,7 +37,7 @@ public class RealmBadgeVO {
     /** 每日参悟上限 */
     private int exploreLimit;
 
-    /** 七境勋章（升序） */
+    /** 十境勋章（升序） */
     private List<MedalVO> medallions;
 
     /**

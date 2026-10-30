@@ -123,8 +123,8 @@ const user = ref(session.user)
 const type = computed(() => String(route.params.type || 'art'))
 const id = computed(() => Number(route.params.id || 0))
 
-// 境界位阶（引煞 0 → 魔祖 6，与后端 Realm 一致）
-const REALM_NAMES = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔祖']
+// 境界位阶（引煞 0 → 魔圣 9，与后端 Realm 一致）
+const REALM_NAMES = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔尊', '魔祖', '无上', '魔圣']
 const realmIndex = computed(() => {
   const i = REALM_NAMES.indexOf(user.value?.cultivation)
   return i >= 0 ? i : 0

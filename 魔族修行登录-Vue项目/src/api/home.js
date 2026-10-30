@@ -35,7 +35,7 @@ export function homeDetail(type, id) {
   return http.get('/api/home/detail', { params: { type, id } })
 }
 
-// 境界阶梯：七境全量 + 各功能所需境界（公开）
+// 境界阶梯：十境全量 + 各功能所需境界（公开）
 export function homeRealms() {
   return http.get('/api/home/realms')
 }
@@ -70,7 +70,7 @@ export function debateAnswer(id, choice) {
   return http.post('/api/home/quiz/answer', { id, choice })
 }
 
-// 个人道牌（勋章墙）：七境勋章 + 修行数据总览
+// 个人道牌（勋章墙）：十境勋章 + 修行数据总览
 export function homeBadges() {
   return http.get('/api/home/badges')
 }

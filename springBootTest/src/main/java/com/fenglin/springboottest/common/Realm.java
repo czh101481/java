@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 魔族修行 · 境界体系（引煞 → 魔祖，共七境）
+ * 魔族修行 · 境界体系（引煞 → 魔圣，共十境）
  * 与前端 REALM_NAMES / REALM_THRESHOLDS / TYPE_REQ 保持一致
  */
 public final class Realm {
@@ -12,15 +12,16 @@ public final class Realm {
     private Realm() {
     }
 
-    /** 七境之名（索引即位阶） */
+    /** 十境之名（索引即位阶） */
     public static final List<String> NAMES = List.of(
-            "引煞", "凝煞", "魔卒", "魔尉", "魔将", "血煞", "魔祖");
+            "引煞", "凝煞", "魔卒", "魔尉", "魔将", "血煞", "魔尊", "魔祖", "无上", "魔圣");
 
-    /** 七境之称 */
+    /** 十境之称 */
     public static final List<String> TITLES = List.of(
-            "初入魔门", "煞气凝形", "魔门行伍", "统御百夫", "坐镇一方", "威震魔域", "万法归魔");
+            "初入魔门", "煞气凝形", "魔门行伍", "统御百夫", "坐镇一方", "威震魔域", "魔道至尊",
+            "万法归魔", "无上魔道", "圣魔临世");
 
-    /** 七境之述 */
+    /** 十境之述 */
     public static final List<String> DESCS = List.of(
             "引煞入体，初踏魔途",
             "煞气凝形，根基渐固",
@@ -28,10 +29,14 @@ public final class Realm {
             "百夫之长，可窥魔典",
             "坐镇一方，执掌典册",
             "煞名远播，威震群魔",
-            "一念通天，统御群修");
+            "魔威盖世，群魔俯首",
+            "一念通天，统御群修",
+            "超然物外，万法皆空",
+            "魔道通玄，圣威昭昭");
 
-    /** 冲击各境界所需煞气（索引即目标位阶；引煞起步为 0） */
-    public static final List<Integer> THRESHOLDS = List.of(0, 50, 150, 350, 650, 1000, 1400);
+    /** 冲击各境界所需煞气（索引即目标位阶；引煞为起始境，无人需冲击） */
+    public static final List<Integer> THRESHOLDS = List.of(
+            100, 300, 800, 1500, 2400, 3800, 8000, 12000, 15000, 20000);
 
     /** 各功能模块所需最低境界位阶：art 0 / trial 1 / debate 2 / codex 3 / archive 4 */
     public static final Map<String, Integer> FEATURE_REQUIREMENT = Map.of(
@@ -43,6 +48,9 @@ public final class Realm {
 
     /** 每日参悟上限（篇） */
     public static final int DAILY_EXPLORE_LIMIT = 10;
+
+    /** 每日切磋上限（场，跨日清零） */
+    public static final int DAILY_SPAR_LIMIT = 5;
 
     /** 每参悟一篇所得煞气 */
     public static final int EXPLORE_GAIN = 5;

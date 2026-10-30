@@ -17,19 +17,19 @@ public class RealmStatusVO {
     /** 当前位阶（0 = 引煞） */
     private int index;
 
-    /** 总境数（7） */
+    /** 总境数（10） */
     private int total;
 
     /** 修行进度百分比 */
     private int percent;
 
-    /** 下一境界名（已至魔祖为 null） */
+    /** 下一境界名（已至魔圣为 null） */
     private String next;
 
     /** 当前煞气修为 */
     private int exp;
 
-    /** 冲击下一境所需煞气（已至魔祖为 0） */
+    /** 冲击下一境所需煞气（已至魔圣为 0） */
     private int nextExp;
 
     /** 是否可冲击下一境 */
@@ -40,4 +40,10 @@ public class RealmStatusVO {
 
     /** 每日参悟上限 */
     private int exploreLimit;
+
+    /** 今日已切磋场数 */
+    private int sparCount;
+
+    /** 每日切磋上限 */
+    private int sparLimit;
 }

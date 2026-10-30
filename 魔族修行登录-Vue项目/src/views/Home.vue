@@ -106,11 +106,11 @@
       </div>
     </section>
 
-    <!-- 修行境界阶梯（引煞 → 魔祖，境界愈高可入之殿愈多） -->
+    <!-- 修行境界阶梯（引煞 → 魔圣，境界愈高可入之殿愈多） -->
     <section class="realm" v-if="ladder.length">
       <div class="sec-title">
         <span>修 行 境 界</span>
-        <em>引煞起步 · 魔祖为尊 · 境界愈高，可入之殿愈多</em>
+        <em>引煞起步 · 魔圣为尊 · 境界愈高，可入之殿愈多</em>
       </div>
 
       <div class="realm-ladder">
@@ -276,9 +276,9 @@
             v-if="!r.me"
             class="rank-spar"
             type="button"
-            :disabled="sparing"
-            @click.stop="onSpar(r.name)"
-          >切 磋</button>
+            :disabled="sparing || sparLeft <= 0"
+            @click.stop="openSpar(r)"
+          >切 磋<span class="rank-spar-left">{{ sparLeft > 0 ? sparLeft : '尽' }}</span></button>
         </div>
       </div>
     </section>
@@ -319,10 +319,10 @@
               v-for="m in badges.medallions"
               :key="m.index"
               class="medal"
-              :class="{ earned: m.earned }"
+              :class="{ earned: m.unlocked }"
             >
               <div class="medal-orb" :style="medalStyle(m)">
-                <span v-if="m.earned">✦</span>
+                <span v-if="m.unlocked">✦</span>
                 <span v-else class="medal-lock">封</span>
               </div>
               <span class="medal-name">{{ m.name }}境</span>
@@ -334,6 +334,46 @@
       </div>
     </div>
 
+    <!-- 切磋对阵预览 -->
+    <div class="badge-mask" v-if="sparTarget && sparCalc" @click.self="sparTarget = null">
+      <div class="badge-modal spar-modal">
+        <button class="badge-close" type="button" @click="sparTarget = null">✕</button>
+        <h2 class="spar-title">对 阵 之 约</h2>
+
+        <div class="spar-vs">
+          <div class="spar-side">
+            <div class="spar-avatar">{{ (user?.name || '我').slice(0, 1) }}</div>
+            <div class="spar-name">{{ user?.name }}</div>
+            <div class="spar-realm">{{ myRealmName }}境</div>
+            <div class="spar-power">战力 {{ sparCalc.mine }}</div>
+          </div>
+          <div class="spar-vs-mark">VS</div>
+          <div class="spar-side foe">
+            <div class="spar-avatar">{{ sparTarget.name.slice(0, 1) }}</div>
+            <div class="spar-name">{{ sparTarget.name }}</div>
+            <div class="spar-realm">{{ sparTarget.realmName }}境</div>
+            <div class="spar-power">战力 {{ sparCalc.foe }}</div>
+          </div>
+        </div>
+
+        <div class="spar-chance">
+          <span class="chance-label">预估胜率</span>
+          <div class="chance-track"><i :style="{ width: sparCalc.chance + '%' }"></i></div>
+          <b class="chance-num">{{ sparCalc.chance }}%</b>
+        </div>
+
+        <p class="spar-note" v-if="sparCalc.note">{{ sparCalc.note }}</p>
+
+        <div class="spar-rules">
+          胜 +15 煞气 · 败 −10 煞气 · 今日剩余 {{ sparLeft }}/{{ sparLimit }} 场
+        </div>
+
+        <button class="spar-go" type="button" :disabled="sparing" @click="doSpar(sparTarget.name)">
+          {{ sparing ? '交 手 中 ……' : '开 战 ⟶' }}
+        </button>
+      </div>
+    </div>
+
     <!-- 切磋战报弹窗 -->
     <div class="badge-mask" v-if="sparReport" @click.self="sparReport = null">
       <div class="badge-modal spar-modal">
@@ -341,11 +381,26 @@
         <h2 class="spar-title" :class="{ win: sparReport.win, lose: !sparReport.win }">
           {{ sparReport.win ? '切 磋 得 胜' : '切 磋 落 败' }}
         </h2>
+
+        <div class="spar-powerbar">
+          <div class="pb-row">
+            <span class="pb-label">{{ user?.name }}</span>
+            <div class="pb-track"><i class="pb-mine" :style="{ width: powerShare(sparReport.myPower) + '%' }"></i></div>
+            <b>{{ sparReport.myPower }}</b>
+          </div>
+          <div class="pb-row">
+            <span class="pb-label">{{ sparReport.targetName }}</span>
+            <div class="pb-track"><i class="pb-foe" :style="{ width: (100 - powerShare(sparReport.myPower)) + '%' }"></i></div>
+            <b>{{ sparReport.targetPower }}</b>
+          </div>
+        </div>
+
         <div class="spar-log">
-          <p v-for="(line, i) in sparReport.report" :key="i">{{ line }}</p>
+          <p v-for="(line, i) in sparReport.report" :key="i" :style="{ animationDelay: (i * 0.3) + 's' }">{{ line }}</p>
         </div>
         <div class="spar-delta" :class="{ win: sparReport.win }">
-          我的煞气变化：{{ sparReport.myDelta >= 0 ? '+' : '' }}{{ sparReport.myDelta }}（当前 {{ sparReport.myExp }}）
+          我的煞气：{{ sparReport.myDelta >= 0 ? '+' : '' }}{{ sparReport.myDelta }} → 当前 {{ sparReport.myExp }}
+          <span class="spar-left">· 今日剩余 {{ sparReport.sparLeft }}/{{ sparReport.sparLimit }} 场</span>
         </div>
       </div>
     </div>
@@ -369,10 +424,10 @@ const searching = ref(false)
 
 const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
 
-// ==================== 境界体系（引煞 → 魔祖，共七境） ====================
+// ==================== 境界体系（引煞 → 魔圣，共十境） ====================
 // 位阶 0 起；demon_user.cultivation 存当前境界名（与魔种 realm 相互独立）
-const REALM_NAMES = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔祖']
-const REALM_COLORS = ['#6b7a8f', '#8a5fb0', '#b3552e', '#c2944a', '#a02c48', '#ff3b6b', '#ffd76a']
+const REALM_NAMES = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔尊', '魔祖', '无上', '魔圣']
+const REALM_COLORS = ['#6b7a8f', '#8a5fb0', '#b3552e', '#c2944a', '#a02c48', '#ff3b6b', '#ff9f43', '#ffd76a', '#6ff7e8', '#c77dff']
 // 各功能模块所需最低境界（与后端 Realm.FEATURE_REQUIREMENT 一致）
 const TYPE_REQ = { art: 0, trial: 1, debate: 2, codex: 3, archive: 4 }
 
@@ -384,7 +439,10 @@ const ladder = ref([
   { index: 3, name: '魔尉', title: '统御百夫', desc: '百夫之长，可窥魔典' },
   { index: 4, name: '魔将', title: '坐镇一方', desc: '坐镇一方，执掌典册' },
   { index: 5, name: '血煞', title: '威震魔域', desc: '煞名远播，威震群魔' },
-  { index: 6, name: '魔祖', title: '万法归魔', desc: '一念通天，统御群修' }
+  { index: 6, name: '魔尊', title: '魔道至尊', desc: '魔威盖世，群魔俯首' },
+  { index: 7, name: '魔祖', title: '万法归魔', desc: '一念通天，统御群修' },
+  { index: 8, name: '无上', title: '无上魔道', desc: '超然物外，万法皆空' },
+  { index: 9, name: '魔圣', title: '圣魔临世', desc: '魔道通玄，圣威昭昭' }
 ])
 // 修者境界状态（后端返回：境界名/位阶/进度百分比/下一境）
 const realmStatus = ref(null)
@@ -401,7 +459,7 @@ const myPercent = computed(() =>
 
 // ==================== 煞气修为与冲境 ====================
 // 冲击各境界所需煞气（与后端 Realm.THRESHOLDS 一致；索引即目标位阶）
-const REALM_THRESHOLDS = [0, 50, 150, 350, 650, 1000, 1400]
+const REALM_THRESHOLDS = [100, 300, 800, 1500, 2400, 3800, 8000, 12000, 15000, 20000]
 
 const isMaxRealm = computed(() => myLevel.value >= REALM_NAMES.length - 1)
 const myExp = computed(() => realmStatus.value?.exp ?? user.value?.exp ?? 0)
@@ -427,7 +485,7 @@ const expText = computed(() => {
 })
 const expTooltip = computed(() =>
   isMaxRealm.value
-    ? '已至魔祖之境'
+    ? '已至魔圣之境'
     : `参悟魔域内容可积累煞气（每篇 +5），每日上限 ${exploreLimit.value} 篇`
 )
 const breakBtnText = computed(() => {
@@ -536,7 +594,7 @@ const badgeAvatarStyle = computed(() => {
 })
 function medalStyle(m) {
   const c = REALM_COLORS[m.index]
-  return m.earned
+  return m.unlocked
     ? {
         background: `radial-gradient(circle at 35% 30%, ${c}, #1a030a 80%)`,
         boxShadow: `0 0 14px ${c}88`,
@@ -548,23 +606,75 @@ function medalStyle(m) {
 // ==================== 修者切磋 ====================
 const sparing = ref(false)
 const sparReport = ref(null)
+const sparTarget = ref(null)
 
-async function onSpar(targetName) {
+// 今日切磋次数（来自境界状态接口，跨日由后端清零）
+const sparLimit = computed(() => realmStatus.value?.sparLimit ?? 5)
+const sparCount = computed(() => realmStatus.value?.sparCount ?? 0)
+const sparLeft = computed(() => Math.max(0, sparLimit.value - sparCount.value))
+
+/** 单方战力：位阶×1000 + 煞气；境界差 ≥2 时低境一方按六折计（与后端一致） */
+function sparPower(index, exp, gap) {
+  const mod = gap <= -2 ? 0.6 : 1
+  return Math.round((index * 1000 + (exp || 0)) * mod)
+}
+
+/** 对阵预览：双方战力、预估胜率、境界压制提示 */
+const sparCalc = computed(() => {
+  const t = sparTarget.value
+  if (!t) return null
+  const gap = myLevel.value - t.index
+  const mine = sparPower(myLevel.value, myExp.value, gap)
+  const foe = sparPower(t.index, t.exp, -gap)
+  const raw = Math.round((mine * 100) / (mine + foe))
+  const chance = Math.min(99, Math.max(1, raw))
+  let note = ''
+  if (gap >= 2) note = `你高出 ${gap} 重境界，境界压制：「${t.name}」战力折损三成。`
+  else if (gap <= -2) note = `「${t.name}」高出你 ${-gap} 重境界，你的战力折损三成。`
+  return { mine, foe, chance, note, gap }
+})
+
+/** 战报战力条：我方占比 */
+function powerShare(p) {
+  const t = sparReport.value?.targetPower ?? 0
+  const total = p + t
+  return total <= 0 ? 50 : Math.round((p * 100) / total)
+}
+
+function openSpar(r) {
   if (sparing.value) return
-  if (!confirm(`确定向「${targetName}」发起切磋？胜者 +15 煞气，败者 -10。`)) return
+  if (sparLeft.value <= 0) {
+    alert('今日切磋已达上限，魔气未复，明日再来。')
+    return
+  }
+  sparTarget.value = r
+}
+
+async function doSpar(targetName) {
+  if (sparing.value) return
   sparing.value = true
   try {
     const res = await sparring(targetName)
     if (res.data.code === 200) {
       sparReport.value = res.data.data
-      // 战斗改变双方煞气与排名，刷新榜单与自身状态
+      sparTarget.value = null
+      // 战斗改变双方煞气与排名，刷新榜单、自身状态与勋章墙
       await loadRank()
       try {
         const stRes = await homeRealmStatus()
         if (stRes.data.code === 200) realmStatus.value = stRes.data.data
       } catch (e) { /* 静默 */ }
+      try {
+        const bRes = await homeBadges()
+        if (bRes.data.code === 200) badges.value = bRes.data.data
+      } catch (e) { /* 静默 */ }
     } else {
       alert(res.data.msg || '切磋无应。')
+      // 次数用尽等异常：同步最新状态
+      try {
+        const stRes = await homeRealmStatus()
+        if (stRes.data.code === 200) realmStatus.value = stRes.data.data
+      } catch (e) { /* 静默 */ }
     }
   } catch (e) {
     alert(e.message || '魔门无应，连通失败')
@@ -679,7 +789,7 @@ onMounted(async () => {
     }
   } catch (e) { /* 静默 */ }
 
-  // 拉取境界阶梯（七境全量 + 各功能门槛）
+  // 拉取境界阶梯（十境全量 + 各功能门槛）
   try {
     const res = await homeRealms()
     if (res.data.code === 200 && res.data.data?.ladder?.length) {
@@ -1230,10 +1340,13 @@ function goAdmin() {
   justify-content: center;
   width: min(1080px, 96%);
   margin: 0 auto;
+  /* 十境同列时避免节点被过度压窄：窄屏可横向滚动 */
+  overflow-x: auto;
 }
 .realm-node {
   position: relative;
-  flex: 1;
+  flex: 1 0 104px;
+  min-width: 104px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1768,7 +1881,7 @@ function goAdmin() {
 .stat-label { display: block; font-size: 11px; letter-spacing: 2px; color: rgba(232, 220, 200, 0.5); margin-top: 5px; }
 .medal-wall {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
 }
 .medal { text-align: center; opacity: 0.4; }
@@ -1846,6 +1959,140 @@ function goAdmin() {
 }
 .spar-delta.win { color: var(--gold); }
 
+/* 切磋：剩余次数角标 */
+.rank-spar-left {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 10px;
+  background: rgba(255, 59, 107, 0.16);
+  color: rgba(255, 200, 210, 0.9);
+}
+
+/* 切磋：对阵预览 */
+.spar-vs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.spar-side {
+  flex: 1;
+  text-align: center;
+  padding: 14px 8px;
+  border-radius: 12px;
+  background: rgba(217, 176, 102, 0.06);
+  border: 1px solid rgba(217, 176, 102, 0.22);
+}
+.spar-side.foe {
+  background: rgba(255, 59, 107, 0.06);
+  border-color: rgba(255, 59, 107, 0.28);
+}
+.spar-avatar {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 18px;
+  color: var(--bone);
+  background: radial-gradient(circle at 35% 30%, rgba(179, 24, 58, 0.9), #1a030a 80%);
+  border: 1px solid rgba(255, 59, 107, 0.4);
+}
+.spar-name { font-size: 14px; letter-spacing: 2px; color: var(--bone); }
+.spar-realm { margin-top: 3px; font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.6); }
+.spar-power { margin-top: 6px; font-size: 12px; letter-spacing: 1px; color: var(--gold); }
+.spar-vs-mark { font-size: 14px; letter-spacing: 1px; color: rgba(217, 176, 102, 0.75); }
+
+.spar-chance { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.chance-label { flex-shrink: 0; font-size: 11px; letter-spacing: 2px; color: rgba(232, 220, 200, 0.6); }
+.chance-track { flex: 1; height: 6px; border-radius: 4px; background: rgba(255, 59, 107, 0.18); overflow: hidden; }
+.chance-track i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(217, 176, 102, 0.85), var(--gold));
+  box-shadow: 0 0 10px rgba(217, 176, 102, 0.5);
+  transition: width 0.6s ease;
+}
+.chance-num { font-size: 12px; letter-spacing: 1px; color: var(--gold); }
+
+.spar-note {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.8;
+  letter-spacing: 1px;
+  color: rgba(255, 59, 107, 0.85);
+  background: rgba(255, 59, 107, 0.08);
+  border-left: 2px solid rgba(255, 59, 107, 0.5);
+  border-radius: 8px;
+}
+.spar-rules {
+  margin-bottom: 14px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: rgba(232, 220, 200, 0.5);
+}
+.spar-go {
+  width: 100%;
+  padding: 11px 0;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 4px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--crimson), #4a0d24);
+  border: 1px solid rgba(255, 59, 107, 0.5);
+  border-radius: 24px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.spar-go:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(255, 59, 107, 0.55);
+  transform: translateY(-1px);
+}
+.spar-go:disabled { opacity: 0.5; cursor: wait; }
+
+/* 切磋：战力对比条 */
+.spar-powerbar { margin-bottom: 16px; }
+.pb-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.pb-label {
+  width: 82px;
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: rgba(232, 220, 200, 0.65);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pb-track { flex: 1; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.pb-track i { display: block; height: 100%; transition: width 0.7s ease; }
+.pb-mine {
+  background: linear-gradient(90deg, rgba(217, 176, 102, 0.7), var(--gold));
+  box-shadow: 0 0 10px rgba(217, 176, 102, 0.45);
+}
+.pb-foe {
+  background: linear-gradient(90deg, rgba(255, 59, 107, 0.55), var(--crimson-glow));
+  box-shadow: 0 0 10px rgba(255, 59, 107, 0.4);
+}
+.pb-row b { width: 56px; text-align: right; font-size: 11px; font-weight: normal; color: rgba(232, 220, 200, 0.75); }
+
+/* 切磋：战报逐条浮现 */
+.spar-log p { opacity: 0; animation: sparLineIn 0.45s ease forwards; }
+@keyframes sparLineIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.spar-left { font-size: 11px; color: rgba(232, 220, 200, 0.5); }
+
+/* 系统开启"减少动效"时，战报直接显示，避免动画失效导致文字不可见 */
+@media (prefers-reduced-motion: reduce) {
+  .spar-log p { opacity: 1; animation: none; }
+}
+
 /* 窄屏适配 */
 @media (max-width: 720px) {
   .nav { flex-wrap: wrap; gap: 14px; padding: 12px 16px; }
@@ -1854,6 +2101,10 @@ function goAdmin() {
   .ticker, .sec-title, .hot-scroll, .elite-grid, .rank-list { width: 92%; }
   .medal-wall { grid-template-columns: repeat(3, 1fr); }
   .arc-grid { grid-template-columns: repeat(2, 1fr); width: 92%; }
+  .spar-vs { gap: 6px; }
+  .spar-power { font-size: 11px; letter-spacing: 0; }
+  .pb-label { width: 60px; }
+  .spar-title { font-size: 20px; letter-spacing: 4px; }
 }
 
 /* 可点击提示：搜索结果 / 热门修习 / 功能卡 均可进入详情 */

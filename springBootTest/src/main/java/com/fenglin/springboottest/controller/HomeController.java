@@ -30,7 +30,7 @@ import java.util.Map;
 /**
  * 魔族修行 · 首页内容接口
  * 基底址：/api/home
- * 境界体系：引煞 → 凝煞 → 魔卒 → 魔尉 → 魔将 → 血煞 → 魔祖
+ * 境界体系：引煞 → 凝煞 → 魔卒 → 魔尉 → 魔将 → 血煞 → 魔尊 → 魔祖 → 无上 → 魔圣
  */
 @RestController
 @RequestMapping("/api/home")
@@ -111,7 +111,7 @@ public class HomeController {
         return Result.success(vo);
     }
 
-    /** 境界阶梯 GET /api/home/realms → 七境全量 + 各功能门槛（公开） */
+    /** 境界阶梯 GET /api/home/realms → 十境全量 + 各功能门槛（公开） */
     @GetMapping("/realms")
     public Result<RealmLadderVO> realms() {
         RealmLadderVO vo = new RealmLadderVO();
@@ -231,7 +231,7 @@ public class HomeController {
         }
         int index = Realm.indexOf(user.getCultivation());
         if (index >= Realm.NAMES.size() - 1) {
-            return Result.error(400, "已至魔祖之境，魔域再无更高处。");
+            return Result.error(400, "已至魔圣之境，魔域再无更高处。");
         }
         int exp = user.getExp() == null ? 0 : user.getExp();
         int need = Realm.thresholdOf(index + 1);
@@ -318,7 +318,7 @@ public class HomeController {
     }
 
     /**
-     * 个人道牌（勋章墙）GET /api/home/badges → 七境勋章 + 修行数据总览（需持魔契）
+     * 个人道牌（勋章墙）GET /api/home/badges → 十境勋章 + 修行数据总览（需持魔契）
      */
     @GetMapping("/badges")
     public Result<?> badges(
@@ -352,8 +352,10 @@ public class HomeController {
 
     /**
      * 修者切磋 POST /api/home/sparring {targetName} → 与指定修者对战并结算煞气（需持魔契）
-     * 战力 = 境界位阶×1000 + 煞气 + 天运波动(0~400)；胜者 +15 煞气，败者 -10（不低于 0）
+     * 战力 = 境界位阶×1000 + 煞气 + 天运波动(0~399)；境界差 ≥2 时低境一方战力按六折计（境界压制）
+     * 胜者 +15 煞气，败者 -10（不低于 0）；每日上限 Realm.DAILY_SPAR_LIMIT 场，跨日清零
      */
+    @org.springframework.transaction.annotation.Transactional
     @org.springframework.web.bind.annotation.PostMapping("/sparring")
     public Result<?> sparring(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -366,6 +368,14 @@ public class HomeController {
         if (dto == null || !StringUtils.hasText(dto.getTargetName())) {
             return Result.error(400, "未指明切磋对手。");
         }
+
+        // 今日切磋次数（跨日清零）
+        java.time.LocalDate today = java.time.LocalDate.now();
+        int sparCount = me.getSparCountToday() == null ? 0 : me.getSparCountToday();
+        if (me.getSparDate() == null || !today.equals(me.getSparDate())) {
+            sparCount = 0;
+        }
+
         DemonUser target = userMapper.selectOne(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DemonUser>()
                         .eq(DemonUser::getName, dto.getTargetName().trim()));
@@ -375,42 +385,86 @@ public class HomeController {
         if (target.getId().equals(me.getId())) {
             return Result.error(400, "不可与自己的影子切磋。");
         }
+        if (sparCount >= Realm.DAILY_SPAR_LIMIT) {
+            return Result.error(400, String.format("今日切磋已达 %d 场上限，魔气未复，明日再来。",
+                    Realm.DAILY_SPAR_LIMIT));
+        }
 
-        // 战力对比：境界压倒性优势 + 煞气底蕴 + 天运波动
         int myIndex = Realm.indexOf(me.getCultivation());
         int targetIndex = Realm.indexOf(target.getCultivation());
+        int myExpBase = me.getExp() == null ? 0 : me.getExp();
+        int targetExpBase = target.getExp() == null ? 0 : target.getExp();
+
+        // 境界压制：位阶差 ≥2，低境一方战力打六折
+        int gap = myIndex - targetIndex;
+        double myMod = gap <= -2 ? 0.6 : 1.0;
+        double targetMod = gap >= 2 ? 0.6 : 1.0;
+
+        int myBase = myIndex * 1000 + myExpBase;
+        int targetBase = targetIndex * 1000 + targetExpBase;
         java.util.random.RandomGenerator rng = java.util.random.RandomGenerator.getDefault();
-        int myPower = myIndex * 1000 + (me.getExp() == null ? 0 : me.getExp()) + rng.nextInt(400);
-        int targetPower = targetIndex * 1000 + (target.getExp() == null ? 0 : target.getExp()) + rng.nextInt(400);
+        int myPower = (int) Math.round((myBase + rng.nextInt(400)) * myMod);
+        int targetPower = (int) Math.round((targetBase + rng.nextInt(400)) * targetMod);
         boolean win = myPower >= targetPower;
+
+        // 预估胜率（按基础战力 + 压制系数，不含天运波动；仅供展示）
+        double myWeight = myBase * myMod;
+        double targetWeight = targetBase * targetMod;
+        int winChance = (int) Math.round(myWeight * 100 / (myWeight + targetWeight));
 
         // 结算：胜者 +15，败者 -10（不低于 0）
         int myDelta = win ? Realm.SPAR_WIN : -Realm.SPAR_LOSS;
         int targetDelta = win ? -Realm.SPAR_LOSS : Realm.SPAR_WIN;
-        int myExp = Math.max(0, (me.getExp() == null ? 0 : me.getExp()) + myDelta);
-        int targetExp = Math.max(0, (target.getExp() == null ? 0 : target.getExp()) + targetDelta);
-        updateExp(me.getId(), myExp);
+        int myExp = Math.max(0, myExpBase + myDelta);
+        int targetExp = Math.max(0, targetExpBase + targetDelta);
+
+        // 我方：更新煞气 + 累计今日切磋次数
+        com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> myUw =
+                new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
+        myUw.eq("id", me.getId())
+                .set("exp", myExp)
+                .set("spar_date", today)
+                .set("spar_count_today", sparCount + 1);
+        userMapper.update(null, myUw);
         updateExp(target.getId(), targetExp);
 
-        // 战报（三回合演武）
+        // 战报（含战力对比与境界压制说明）
         String myRealm = Realm.name(myIndex);
         String targetRealm = Realm.name(targetIndex);
         List<String> report = new ArrayList<>();
         report.add(String.format("「%s」（%s境）煞气灌体，率先出手！", me.getName(), myRealm));
         report.add(String.format("「%s」（%s境）不闪不避，硬撼其锋！", target.getName(), targetRealm));
+        if (gap >= 2) {
+            report.add(String.format("境界压制——「%s」高出两重以上，「%s」战力折损三成！", me.getName(), target.getName()));
+        } else if (gap <= -2) {
+            report.add(String.format("境界压制——「%s」高出两重以上，「%s」战力折损三成！", target.getName(), me.getName()));
+        }
+        report.add(String.format("两道魔气轰然相撞（战力 %d : %d），差距 %d 点——「%s」技高一筹！",
+                myPower, targetPower, Math.abs(myPower - targetPower), win ? me.getName() : target.getName()));
         report.add(win
-                ? String.format("两道魔气轰然相撞，差距 %d 点战力——「%s」技高一筹！", Math.abs(myPower - targetPower), me.getName())
-                : String.format("两道魔气轰然相撞，差距 %d 点战力——「%s」更胜一筹！", Math.abs(targetPower - myPower), target.getName()));
-        report.add(win
-                ? String.format("切磋终了：「%s」胜，煞气 +%d；「%s」败退，煞气 -%d。", me.getName(), Realm.SPAR_WIN, target.getName(), Realm.SPAR_LOSS)
-                : String.format("切磋终了：「%s」胜，煞气 +%d；「%s」败退，煞气 -%d。", target.getName(), Realm.SPAR_WIN, me.getName(), Realm.SPAR_LOSS));
+                ? String.format("切磋终了：「%s」胜，煞气 +%d；「%s」败退，煞气 -%d。今日已切磋 %d/%d 场。",
+                        me.getName(), Realm.SPAR_WIN, target.getName(), Realm.SPAR_LOSS,
+                        sparCount + 1, Realm.DAILY_SPAR_LIMIT)
+                : String.format("切磋终了：「%s」胜，煞气 +%d；「%s」败退，煞气 -%d。今日已切磋 %d/%d 场。",
+                        target.getName(), Realm.SPAR_WIN, me.getName(), Realm.SPAR_LOSS,
+                        sparCount + 1, Realm.DAILY_SPAR_LIMIT));
 
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("win", win);
         data.put("report", report);
         data.put("myDelta", myDelta);
         data.put("myExp", myExp);
+        data.put("myPower", myPower);
+        data.put("targetPower", targetPower);
         data.put("targetName", target.getName());
+        data.put("targetRealm", targetRealm);
+        data.put("targetTitle", Realm.TITLES.get(targetIndex));
+        data.put("targetExp", targetExp);
+        data.put("targetDelta", targetDelta);
+        data.put("winChance", winChance);
+        data.put("sparCount", sparCount + 1);
+        data.put("sparLimit", Realm.DAILY_SPAR_LIMIT);
+        data.put("sparLeft", Realm.DAILY_SPAR_LIMIT - sparCount - 1);
         return Result.success(data);
     }
 
@@ -463,6 +517,12 @@ public class HomeController {
             countToday = 0;
         }
 
+        // 今日切磋次数（跨日视为 0）
+        int sparCount = user.getSparCountToday() == null ? 0 : user.getSparCountToday();
+        if (user.getSparDate() == null || !today.equals(user.getSparDate())) {
+            sparCount = 0;
+        }
+
         RealmStatusVO vo = new RealmStatusVO();
         vo.setName(user.getName());
         vo.setCultivation(Realm.name(index));
@@ -475,6 +535,8 @@ public class HomeController {
         vo.setCanBreakthrough(!maxed && exp >= need);
         vo.setExploreCount(countToday);
         vo.setExploreLimit(Realm.DAILY_EXPLORE_LIMIT);
+        vo.setSparCount(sparCount);
+        vo.setSparLimit(Realm.DAILY_SPAR_LIMIT);
         return vo;
     }
 }

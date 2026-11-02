@@ -1,7 +1,9 @@
 package com.fenglin.springboottest.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fenglin.springboottest.common.Realm;
 import com.fenglin.springboottest.common.Result;
+import com.fenglin.springboottest.config.RealmConfigLoader;
 import com.fenglin.springboottest.dto.AdminLoginDTO;
 import com.fenglin.springboottest.entity.Archive;
 import com.fenglin.springboottest.entity.Art;
@@ -65,6 +67,8 @@ public class AdminController {
     private ArchiveMapper archiveMapper;
     @Autowired
     private DemonUserMapper userMapper;
+    @Autowired
+    private RealmConfigLoader realmConfigLoader;
 
     /** 允许扫描的配图目录（白名单） */
     private static final Set<String> IMAGE_DIRS = Set.of("art", "trial", "codex");
@@ -559,6 +563,25 @@ public class AdminController {
             }
         }
         return result;
+    }
+
+    /**
+     * 重新加载修行境界配置 POST /api/admin/realm/reload
+     * 改完 demon_realm 表后调用即可生效，无需重启后端
+     */
+    @PostMapping("/realm/reload")
+    public Result<Map<String, Object>> reloadRealm(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String err = checkAdmin(authorization);
+        if (err != null) {
+            return Result.error(401, err);
+        }
+        realmConfigLoader.load();
+        Map<String, Object> data = new HashMap<>();
+        data.put("fromTable", Realm.isLoadedFromTable());
+        data.put("realms", Realm.NAMES);
+        data.put("thresholds", Realm.THRESHOLDS);
+        return Result.success(data);
     }
 
     /** 管理员鉴权：有效返回 null，无效返回提示 */

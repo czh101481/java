@@ -32,6 +32,12 @@
         </select>
       </div>
 
+      <!-- 魔种天赋：择定后即时显影，说明该系独有的成长偏向 -->
+      <div v-if="currentOrigin" class="origin-tip">
+        <span class="ot-name">{{ currentOrigin.title }}</span>
+        <span class="ot-desc">{{ currentOrigin.description }}</span>
+      </div>
+
       <div class="field" :class="{ err: errors.password }">
         <label for="rkey">护 法 密 令</label>
         <span class="icon">⚸</span>
@@ -62,14 +68,28 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { register, login, saveSession } from '../api/auth'
+import { homeOrigins } from '../api/home'
 
 const form = reactive({ name: '', email: '', realm: '', password: '', confirm: '' })
 const errors = reactive({ name: '', email: '', realm: '', password: '', confirm: '', summary: '' })
 const ritual = ref(false)
 const router = useRouter()
+
+// 四系魔种天赋：选魔种时即时展示该系将获得的天赋（数据来自后端 demon_origin 表）
+const originList = ref([])
+const currentOrigin = computed(
+  () => originList.value.find((o) => o.origin === form.realm) || null
+)
+
+onMounted(async () => {
+  try {
+    const res = await homeOrigins()
+    if (res.data.code === 200) originList.value = res.data.data?.origins || []
+  } catch (e) { /* 天赋说明拿不到不影响注册 */ }
+})
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

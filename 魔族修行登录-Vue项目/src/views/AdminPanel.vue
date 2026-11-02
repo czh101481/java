@@ -148,9 +148,12 @@ import {
   clearAdminSession, getAdminSession,
   imageList, trialAdd, trialDelete, trialList, trialUpdate
 } from '../api/admin'
+// 境界下拉选项：由后端 demon_realm 表驱动（默认值与表一致）
+import { REALM_OPTIONS } from '../config/realm'
 
 // ==================== 常量选项 ====================
-const REALMS = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔尊', '魔祖', '无上', '魔圣'].map(r => ({ v: r, t: r }))
+// 境界下拉来自 ../config/realm，由后端 demon_realm 表驱动
+const REALMS = REALM_OPTIONS
 const CATS = [
   { v: 'lineage', t: '魔族谱系' },
   { v: 'path', t: '魔修道途' },

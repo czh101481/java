@@ -175,6 +175,34 @@ body {
   background-repeat: no-repeat;
 }
 .field select option { background: #160a24; color: var(--bone); }
+
+/* ===== 魔种天赋显影（注册页择定魔种后即时提示该系成长偏向） ===== */
+.origin-tip {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: -12px 0 20px;
+  padding: 10px 14px;
+  border-left: 2px solid var(--crimson-glow);
+  border-radius: 0 8px 8px 0;
+  background: rgba(176, 102, 255, 0.08);
+  animation: originIn 0.35s ease;
+}
+.origin-tip .ot-name {
+  flex: none;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--crimson-glow);
+}
+.origin-tip .ot-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(232, 220, 200, 0.6);
+}
+@keyframes originIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
 .field .icon {
   position: absolute;
   left: 13px;

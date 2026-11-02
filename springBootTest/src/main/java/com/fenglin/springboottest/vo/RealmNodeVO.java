@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 境界阶梯节点：位阶 / 境界名 / 称号 / 描述
+ * 境界阶梯节点：位阶 / 境界名 / 称号 / 描述 / 冲击所需煞气
  */
 @Data
 @AllArgsConstructor
@@ -23,4 +23,7 @@ public class RealmNodeVO {
 
     /** 境界描述 */
     private String desc;
+
+    /** 冲击本位阶所需煞气（取自 demon_realm.threshold） */
+    private Integer threshold;
 }

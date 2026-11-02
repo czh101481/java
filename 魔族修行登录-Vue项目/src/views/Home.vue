@@ -106,11 +106,11 @@
       </div>
     </section>
 
-    <!-- 修行境界阶梯（引煞 → 魔圣，境界愈高可入之殿愈多） -->
+    <!-- 修行境界阶梯（引煞 → 无上，境界愈高可入之殿愈多） -->
     <section class="realm" v-if="ladder.length">
       <div class="sec-title">
         <span>修 行 境 界</span>
-        <em>引煞起步 · 魔圣为尊 · 境界愈高，可入之殿愈多</em>
+        <em>引煞起步 · 无上为尊 · 境界愈高，可入之殿愈多</em>
       </div>
 
       <div class="realm-ladder">
@@ -299,6 +299,12 @@
             </div>
           </div>
 
+          <!-- 魔种天赋：本命魔种与独有成长偏向 -->
+          <div v-if="myOriginInfo" class="badge-origin">
+            <span class="bo-tag">{{ myOriginInfo.origin }} · {{ myOriginInfo.title }}</span>
+            <span class="bo-desc">{{ myOriginInfo.description }}</span>
+          </div>
+
           <div class="badge-stats">
             <div class="stat">
               <span class="stat-num">{{ badges.exp }}</span>
@@ -412,8 +418,10 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession, saveSession, me } from '../api/auth'
-import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, breakthrough, homeRank, homeBadges, sparring, imgUrl } from '../api/home'
+import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin } from '../api/home'
 import { archiveCategories } from '../api/archive'
+// 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
+import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
 
 const router = useRouter()
 const session = getSession()
@@ -424,10 +432,9 @@ const searching = ref(false)
 
 const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
 
-// ==================== 境界体系（引煞 → 魔圣，共十境） ====================
+// ==================== 境界体系（引煞 → 无上，共十境） ====================
 // 位阶 0 起；demon_user.cultivation 存当前境界名（与魔种 realm 相互独立）
-const REALM_NAMES = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔尊', '魔祖', '无上', '魔圣']
-const REALM_COLORS = ['#6b7a8f', '#8a5fb0', '#b3552e', '#c2944a', '#a02c48', '#ff3b6b', '#ff9f43', '#ffd76a', '#6ff7e8', '#c77dff']
+// REALM_NAMES / REALM_COLORS 来自 ../config/realm，其内容由后端 demon_realm 表驱动
 // 各功能模块所需最低境界（与后端 Realm.FEATURE_REQUIREMENT 一致）
 const TYPE_REQ = { art: 0, trial: 1, debate: 2, codex: 3, archive: 4 }
 
@@ -441,8 +448,8 @@ const ladder = ref([
   { index: 5, name: '血煞', title: '威震魔域', desc: '煞名远播，威震群魔' },
   { index: 6, name: '魔尊', title: '魔道至尊', desc: '魔威盖世，群魔俯首' },
   { index: 7, name: '魔祖', title: '万法归魔', desc: '一念通天，统御群修' },
-  { index: 8, name: '无上', title: '无上魔道', desc: '超然物外，万法皆空' },
-  { index: 9, name: '魔圣', title: '圣魔临世', desc: '魔道通玄，圣威昭昭' }
+  { index: 8, name: '魔圣', title: '圣魔临世', desc: '魔道通玄，圣威昭昭' },
+  { index: 9, name: '无上', title: '无上魔道', desc: '超然物外，万法皆空' }
 ])
 // 修者境界状态（后端返回：境界名/位阶/进度百分比/下一境）
 const realmStatus = ref(null)
@@ -458,8 +465,7 @@ const myPercent = computed(() =>
 )
 
 // ==================== 煞气修为与冲境 ====================
-// 冲击各境界所需煞气（与后端 Realm.THRESHOLDS 一致；索引即目标位阶）
-const REALM_THRESHOLDS = [100, 300, 800, 1500, 2400, 3800, 8000, 12000, 15000, 20000]
+// 冲击各境界所需煞气：来自 ../config/realm（由后端 demon_realm 表驱动，索引即目标位阶）
 
 const isMaxRealm = computed(() => myLevel.value >= REALM_NAMES.length - 1)
 const myExp = computed(() => realmStatus.value?.exp ?? user.value?.exp ?? 0)
@@ -485,7 +491,7 @@ const expText = computed(() => {
 })
 const expTooltip = computed(() =>
   isMaxRealm.value
-    ? '已至魔圣之境'
+    ? '已至无上之境'
     : `参悟魔域内容可积累煞气（每篇 +5），每日上限 ${exploreLimit.value} 篇`
 )
 const breakBtnText = computed(() => {
@@ -575,10 +581,21 @@ async function loadRank() {
 // ==================== 个人道牌（勋章墙） ====================
 const badgeVisible = ref(false)
 const badges = ref(null)
+// 本命魔种天赋（读 demon_origin 表，注册时选定的魔种由此产生实际加成）
+const myOriginInfo = ref(null)
+
+async function loadMyOrigin() {
+  if (myOriginInfo.value) return
+  try {
+    const res = await myOrigin()
+    if (res.data.code === 200) myOriginInfo.value = res.data.data
+  } catch (e) { /* 静默 */ }
+}
 
 async function openBadges() {
   badgeVisible.value = true
   badges.value = null
+  loadMyOrigin()
   try {
     const res = await homeBadges()
     if (res.data.code === 200) badges.value = res.data.data
@@ -1864,6 +1881,28 @@ function goAdmin() {
 }
 .badge-name { font-size: 20px; letter-spacing: 4px; color: var(--bone); text-shadow: 0 0 12px var(--crimson-glow); }
 .badge-title { font-size: 12px; letter-spacing: 2px; color: var(--gold); margin-top: 6px; }
+/* 魔种天赋条 */
+.badge-origin {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border-left: 2px solid var(--crimson-glow);
+  border-radius: 0 8px 8px 0;
+  background: rgba(176, 102, 255, 0.08);
+}
+.badge-origin .bo-tag {
+  flex: none;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--crimson-glow);
+}
+.badge-origin .bo-desc {
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(232, 220, 200, 0.6);
+}
 .badge-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

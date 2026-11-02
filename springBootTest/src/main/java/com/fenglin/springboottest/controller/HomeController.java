@@ -30,7 +30,7 @@ import java.util.Map;
 /**
  * 魔族修行 · 首页内容接口
  * 基底址：/api/home
- * 境界体系：引煞 → 凝煞 → 魔卒 → 魔尉 → 魔将 → 血煞 → 魔尊 → 魔祖 → 无上 → 魔圣
+ * 境界体系：引煞 → 凝煞 → 魔卒 → 魔尉 → 魔将 → 血煞 → 魔尊 → 魔祖 → 魔圣 → 无上
  */
 @RestController
 @RequestMapping("/api/home")
@@ -55,6 +55,9 @@ public class HomeController {
 
     @Autowired
     private com.fenglin.springboottest.mapper.DebateMapper debateMapper;
+
+    @Autowired
+    private com.fenglin.springboottest.mapper.QuizRecordMapper quizRecordMapper;
 
     /** 首页概览 GET /api/home/overview → 各模块数量 + 精选 */
     @GetMapping("/overview")
@@ -117,7 +120,9 @@ public class HomeController {
         RealmLadderVO vo = new RealmLadderVO();
         List<RealmNodeVO> ladder = new ArrayList<>();
         for (int i = 0; i < Realm.NAMES.size(); i++) {
-            ladder.add(new RealmNodeVO(i, Realm.NAMES.get(i), Realm.TITLES.get(i), Realm.DESCS.get(i)));
+            RealmNodeVO node = new RealmNodeVO(i, Realm.NAMES.get(i), Realm.TITLES.get(i), Realm.DESCS.get(i),
+                    Realm.thresholdOf(i));
+            ladder.add(node);
         }
         vo.setLadder(ladder);
 
@@ -201,7 +206,18 @@ public class HomeController {
                     countToday, Realm.DAILY_EXPLORE_LIMIT));
         }
 
-        int newExp = (user.getExp() == null ? 0 : user.getExp()) + Realm.EXPLORE_GAIN;
+        // 魔种天赋：幽冥「幽息吞吐」提升参悟收益，虚妄「虚妄顿悟」有概率双倍
+        com.fenglin.springboottest.common.Origins.Bonus origin =
+                com.fenglin.springboottest.common.Origins.of(user.getRealm());
+        int gain = (int) Math.round(Realm.EXPLORE_GAIN * (1 + origin.getExploreBonus()));
+        boolean insight = false;
+        if (origin.getInsightChance() > 0
+                && java.util.concurrent.ThreadLocalRandom.current().nextDouble() < origin.getInsightChance()) {
+            gain *= 2;
+            insight = true;
+        }
+
+        int newExp = (user.getExp() == null ? 0 : user.getExp()) + gain;
         int newCount = countToday + 1;
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
                 new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
@@ -213,6 +229,9 @@ public class HomeController {
 
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("exp", newExp);
+        data.put("gain", gain);
+        data.put("insight", insight);
+        data.put("originTitle", origin.getTitle());
         data.put("exploreCount", newCount);
         data.put("exploreLimit", Realm.DAILY_EXPLORE_LIMIT);
         return Result.success(data);
@@ -231,7 +250,7 @@ public class HomeController {
         }
         int index = Realm.indexOf(user.getCultivation());
         if (index >= Realm.NAMES.size() - 1) {
-            return Result.error(400, "已至魔圣之境，魔域再无更高处。");
+            return Result.error(400, "已至无上之境，魔域再无更高处。");
         }
         int exp = user.getExp() == null ? 0 : user.getExp();
         int need = Realm.thresholdOf(index + 1);
@@ -276,6 +295,10 @@ public class HomeController {
     /**
      * 论道作答 POST /api/home/quiz/answer {id, choice} → 判定正误并结算煞气（需魔卒境）
      * 答对：+10 煞气；答错：心魔反噬 -5（不低于 0）
+     *
+     * 防刷规则（两道闸）：
+     *   1) 同一修者对同一论题只能作答一次（demon_quiz_record 唯一键 user_id + debate_id）
+     *   2) 每日答题上限 Realm.DAILY_QUIZ_LIMIT 题，跨日清零
      */
     @org.springframework.web.bind.annotation.PostMapping("/quiz/answer")
     public Result<?> quizAnswer(
@@ -290,30 +313,77 @@ public class HomeController {
                 || dto.getChoice() == null || dto.getChoice().isBlank()) {
             return Result.error(400, "论题与所答选项皆不可为空。");
         }
+
+        DemonUser user = currentUser(authorization);
+        if (user == null) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+
+        // 闸二：每日答题上限（跨日清零）
+        java.time.LocalDate today = java.time.LocalDate.now();
+        int quizCount = user.getQuizCountToday() == null ? 0 : user.getQuizCountToday();
+        if (user.getQuizDate() == null || !today.equals(user.getQuizDate())) {
+            quizCount = 0;
+        }
+        if (quizCount >= Realm.DAILY_QUIZ_LIMIT) {
+            return Result.error(400, String.format(
+                    "今日论道已满 %d 题，道心需静，明日再来。", Realm.DAILY_QUIZ_LIMIT));
+        }
+
         com.fenglin.springboottest.entity.Debate d = debateMapper.selectById(dto.getId());
         if (d == null || d.getAnswer() == null) {
             return Result.error(404, "魔渊之中并无此论题。");
         }
 
-        DemonUser user = currentUser(authorization);
+        // 闸一：本论题是否已作答（先查，把绝大多数重复请求挡在写库之前）
+        Long answered = quizRecordMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.fenglin.springboottest.entity.QuizRecord>()
+                        .eq(com.fenglin.springboottest.entity.QuizRecord::getUserId, user.getId())
+                        .eq(com.fenglin.springboottest.entity.QuizRecord::getDebateId, d.getId()));
+        if (answered != null && answered > 0) {
+            return Result.error(400, "此论题你已作答，论道不可反复叩问同一问，另择他题罢。");
+        }
+
         String choice = dto.getChoice().trim().toUpperCase();
         boolean correct = choice.equals(d.getAnswer());
         int delta = correct ? Realm.QUIZ_GAIN : -Realm.QUIZ_LOSS;
-        int exp = Math.max(0, (user.getExp() == null ? 0 : user.getExp()) + delta);
+        int oldExp = user.getExp() == null ? 0 : user.getExp();
+        int exp = Math.max(0, oldExp + delta);
+        int actualDelta = exp - oldExp;
+
+        // 先落答题记录：唯一键在此拦住并发重复提交，插入成功才结算煞气
+        com.fenglin.springboottest.entity.QuizRecord rec =
+                new com.fenglin.springboottest.entity.QuizRecord();
+        rec.setUserId(user.getId());
+        rec.setDebateId(d.getId());
+        rec.setCorrect(correct ? 1 : 0);
+        rec.setAwarded(actualDelta);
+        try {
+            quizRecordMapper.insert(rec);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            return Result.error(400, "此论题你已作答，论道不可反复叩问同一问，另择他题罢。");
+        }
+
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
                 new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
-        uw.eq("id", user.getId()).set("exp", exp);
+        uw.eq("id", user.getId())
+                .set("exp", exp)
+                .set("quiz_date", today)
+                .set("quiz_count_today", quizCount + 1);
         userMapper.update(null, uw);
 
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("correct", correct);
         data.put("answer", d.getAnswer());
-        data.put("delta", exp == 0 && delta < 0 ? -(user.getExp() == null ? 0 : user.getExp()) : delta);
+        data.put("delta", actualDelta);
         data.put("exp", exp);
+        data.put("quizCount", quizCount + 1);
+        data.put("quizLimit", Realm.DAILY_QUIZ_LIMIT);
+        data.put("quizRemain", Realm.DAILY_QUIZ_LIMIT - quizCount - 1);
         data.put("analysis", d.getAnalysis());
         data.put("msg", correct
-                ? "论道得胜，道心愈明！煞气 +" + Realm.QUIZ_GAIN + "。"
-                : "心魔反噬，所答有偏。煞气 -" + Realm.QUIZ_LOSS + "，且听论者解析。");
+                ? "论道得胜，道心愈明！煞气 +" + actualDelta + "。"
+                : "心魔反噬，所答有偏。煞气 -" + Math.abs(actualDelta) + "，且听论者解析。");
         return Result.success(data);
     }
 
@@ -348,6 +418,54 @@ public class HomeController {
         }
         vo.setMedallions(medals);
         return Result.success(vo);
+    }
+
+    /**
+     * 魔种天赋一览 GET /api/home/origins → 四系天赋清单（公开，注册页/道牌页展示用）
+     */
+    @GetMapping("/origins")
+    public Result<?> origins() {
+        List<java.util.Map<String, Object>> list = new ArrayList<>();
+        for (com.fenglin.springboottest.common.Origins.Bonus b
+                : com.fenglin.springboottest.common.Origins.all()) {
+            list.add(originToMap(b));
+        }
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("origins", list);
+        data.put("fromTable", com.fenglin.springboottest.common.Origins.isLoadedFromTable());
+        return Result.success(data);
+    }
+
+    /**
+     * 我的魔种天赋 GET /api/home/origin → 当前修者魔种天赋详情（需持魔契）
+     */
+    @GetMapping("/origin")
+    public Result<?> origin(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        DemonUser user = currentUser(authorization);
+        if (user == null) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        com.fenglin.springboottest.common.Origins.Bonus mine =
+                com.fenglin.springboottest.common.Origins.of(user.getRealm());
+        java.util.Map<String, Object> data = originToMap(mine);
+        data.put("origin", user.getRealm());
+        data.put("fromTable", com.fenglin.springboottest.common.Origins.isLoadedFromTable());
+        return Result.success(data);
+    }
+
+    /** 天赋 → 前端可用结构 */
+    private java.util.Map<String, Object> originToMap(
+            com.fenglin.springboottest.common.Origins.Bonus b) {
+        java.util.Map<String, Object> m = new java.util.HashMap<>();
+        m.put("origin", b.getOrigin());
+        m.put("title", b.getTitle());
+        m.put("description", b.getDescription());
+        m.put("exploreBonus", b.getExploreBonus());
+        m.put("sparPowerBonus", b.getSparPowerBonus());
+        m.put("sparRewardBonus", b.getSparRewardBonus());
+        m.put("insightChance", b.getInsightChance());
+        return m;
     }
 
     /**
@@ -400,20 +518,26 @@ public class HomeController {
         double myMod = gap <= -2 ? 0.6 : 1.0;
         double targetMod = gap >= 2 ? 0.6 : 1.0;
 
+        // 魔种天赋：血煞「战意滔天」提升战力，噬魂「夺魂摄魄」提升胜利掠夺
+        com.fenglin.springboottest.common.Origins.Bonus myOrigin =
+                com.fenglin.springboottest.common.Origins.of(me.getRealm());
+        double powerMod = 1 + myOrigin.getSparPowerBonus();
+
         int myBase = myIndex * 1000 + myExpBase;
         int targetBase = targetIndex * 1000 + targetExpBase;
         java.util.random.RandomGenerator rng = java.util.random.RandomGenerator.getDefault();
-        int myPower = (int) Math.round((myBase + rng.nextInt(400)) * myMod);
+        int myPower = (int) Math.round((myBase * powerMod + rng.nextInt(400)) * myMod);
         int targetPower = (int) Math.round((targetBase + rng.nextInt(400)) * targetMod);
         boolean win = myPower >= targetPower;
 
         // 预估胜率（按基础战力 + 压制系数，不含天运波动；仅供展示）
-        double myWeight = myBase * myMod;
+        double myWeight = myBase * powerMod * myMod;
         double targetWeight = targetBase * targetMod;
         int winChance = (int) Math.round(myWeight * 100 / (myWeight + targetWeight));
 
-        // 结算：胜者 +15，败者 -10（不低于 0）
-        int myDelta = win ? Realm.SPAR_WIN : -Realm.SPAR_LOSS;
+        // 结算：胜者 +15（噬魂天赋可翻倍掠夺），败者 -10（不低于 0）
+        int myWinReward = (int) Math.round(Realm.SPAR_WIN * (1 + myOrigin.getSparRewardBonus()));
+        int myDelta = win ? myWinReward : -Realm.SPAR_LOSS;
         int targetDelta = win ? -Realm.SPAR_LOSS : Realm.SPAR_WIN;
         int myExp = Math.max(0, myExpBase + myDelta);
         int targetExp = Math.max(0, targetExpBase + targetDelta);
@@ -439,11 +563,16 @@ public class HomeController {
         } else if (gap <= -2) {
             report.add(String.format("境界压制——「%s」高出两重以上，「%s」战力折损三成！", target.getName(), me.getName()));
         }
+        if (myOrigin.hasAnyBonus()) {
+            report.add(String.format("魔种天赋「%s」激发——%s", myOrigin.getTitle(),
+                    myOrigin.getSparRewardBonus() > 0 ? "夺魂摄魄，胜则连其煞气一并吞下！"
+                            : "战意滔天，魔气暴涨一成有余！"));
+        }
         report.add(String.format("两道魔气轰然相撞（战力 %d : %d），差距 %d 点——「%s」技高一筹！",
                 myPower, targetPower, Math.abs(myPower - targetPower), win ? me.getName() : target.getName()));
         report.add(win
                 ? String.format("切磋终了：「%s」胜，煞气 +%d；「%s」败退，煞气 -%d。今日已切磋 %d/%d 场。",
-                        me.getName(), Realm.SPAR_WIN, target.getName(), Realm.SPAR_LOSS,
+                        me.getName(), myWinReward, target.getName(), Realm.SPAR_LOSS,
                         sparCount + 1, Realm.DAILY_SPAR_LIMIT)
                 : String.format("切磋终了：「%s」胜，煞气 +%d；「%s」败退，煞气 -%d。今日已切磋 %d/%d 场。",
                         target.getName(), Realm.SPAR_WIN, me.getName(), Realm.SPAR_LOSS,
@@ -454,6 +583,7 @@ public class HomeController {
         data.put("report", report);
         data.put("myDelta", myDelta);
         data.put("myExp", myExp);
+        data.put("originTitle", myOrigin.getTitle());
         data.put("myPower", myPower);
         data.put("targetPower", targetPower);
         data.put("targetName", target.getName());

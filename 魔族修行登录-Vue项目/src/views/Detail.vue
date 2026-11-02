@@ -92,6 +92,9 @@
             <div v-if="quizResult" class="quiz-result" :class="{ ok: quizResult.correct }">
               <div class="quiz-msg">{{ quizResult.msg }}</div>
               <div class="quiz-analysis">论者解析：{{ quizResult.analysis }}</div>
+              <div v-if="quizResult.quizLimit" class="quiz-analysis">
+                今日论道 {{ quizResult.quizCount }}/{{ quizResult.quizLimit }} 题，尚余 {{ quizResult.quizRemain }} 题。
+              </div>
             </div>
             <p v-else class="quiz-tip">答对 +10 煞气 · 答错心魔反噬 -5 · 慎思而后答</p>
           </div>
@@ -114,6 +117,8 @@ import { useRoute, useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
 import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl } from '../api/home'
+// 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
+import { REALM_NAMES } from '../config/realm'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,8 +128,6 @@ const user = ref(session.user)
 const type = computed(() => String(route.params.type || 'art'))
 const id = computed(() => Number(route.params.id || 0))
 
-// 境界位阶（引煞 0 → 魔圣 9，与后端 Realm 一致）
-const REALM_NAMES = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔尊', '魔祖', '无上', '魔圣']
 const realmIndex = computed(() => {
   const i = REALM_NAMES.indexOf(user.value?.cultivation)
   return i >= 0 ? i : 0

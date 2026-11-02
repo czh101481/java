@@ -23,13 +23,13 @@ public class RealmStatusVO {
     /** 修行进度百分比 */
     private int percent;
 
-    /** 下一境界名（已至魔圣为 null） */
+    /** 下一境界名（已至无上为 null） */
     private String next;
 
     /** 当前煞气修为 */
     private int exp;
 
-    /** 冲击下一境所需煞气（已至魔圣为 0） */
+    /** 冲击下一境所需煞气（已至无上为 0） */
     private int nextExp;
 
     /** 是否可冲击下一境 */

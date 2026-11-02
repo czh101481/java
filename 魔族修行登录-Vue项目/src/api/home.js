@@ -45,6 +45,16 @@ export function homeRealmStatus() {
   return http.get('/api/home/realm')
 }
 
+// 四系魔种天赋一览（公开，注册页/道牌页展示用，读 demon_origin 表）
+export function homeOrigins() {
+  return http.get('/api/home/origins')
+}
+
+// 我的魔种天赋详情（需持魔契）
+export function myOrigin() {
+  return http.get('/api/home/origin')
+}
+
 // 参悟魔域：浏览内容详情时调用，积累煞气修为（每次 +5）
 export function explore(type, id) {
   return http.post('/api/home/explore', { type, id })

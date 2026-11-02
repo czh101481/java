@@ -122,6 +122,8 @@ import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
 import { archiveCategories, archiveList } from '../api/archive'
 import { imgUrl } from '../api/home'
+// 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
+import { REALM_NAMES } from '../config/realm'
 
 const route = useRoute()
 const router = useRouter()
@@ -129,8 +131,6 @@ const session = getSession()
 const user = ref(session.user)
 const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
 
-// 境界位阶（引煞 0 → 魔圣 9，与后端 Realm 一致）
-const REALM_NAMES = ['引煞', '凝煞', '魔卒', '魔尉', '魔将', '血煞', '魔尊', '魔祖', '无上', '魔圣']
 const realmIndex = computed(() => {
   const i = REALM_NAMES.indexOf(user.value?.cultivation)
   return i >= 0 ? i : 0

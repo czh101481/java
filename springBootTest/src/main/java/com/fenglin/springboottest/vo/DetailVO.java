@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 魔族修行 · 内容详情（功法阁 / 历练录 / 宗门论道 / 魔典秘录 通用）
+ * 魔族修行 · 内容详情（功法阁 / 域外秘境 / 宗门论道 / 魔典秘录 通用）
  */
 public class DetailVO {
 

@@ -126,3 +126,20 @@ export function learnArt(artId) {
 export function quizRandom() {
   return http.get('/api/home/quiz/random')
 }
+
+// ==================== 域外秘境（副本玩法） ====================
+
+// 秘境一览：门槛 / 入场消耗 / 产出 / 今日剩余次数 / 可否进入
+export function secretRealms() {
+  return http.get('/api/home/secret/list')
+}
+
+// 进入秘境：结算一次探索，返回战报（机缘 / 功成 / 负伤）
+export function enterRealm(id) {
+  return http.post(`/api/home/secret/enter/${id}`)
+}
+
+// 我的秘境履历（战报回看）
+export function myRealmLog(limit) {
+  return http.get('/api/home/secret/log', { params: { limit: limit || 20 } })
+}

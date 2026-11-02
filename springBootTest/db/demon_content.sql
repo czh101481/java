@@ -35,29 +35,39 @@ INSERT INTO demon_art (name, category, grade, realm_req, summary, content) VALUE
 ('血河大阵', '护体', '天', '魔将', '布血河为阵，万法不侵。', '以己血绘阵，成血河屏障，外力难破；阵破则反噬攻心。'),
 ('傀儡替死术', '御兽', '地', '魔尉', '炼傀儡代受死劫。', '以本命精血饲傀，临劫可替主受创；傀毁则精血大损。');
 
--- ---------- 历练录：demon_trial ----------
+-- ---------- 域外秘境：demon_trial ----------
+-- 秘境是副本而非词条：可进入、可结算，自带开启境界 / 入场消耗 / 每日次数 / 产出与机缘凶险
 DROP TABLE IF EXISTS demon_trial;
 CREATE TABLE demon_trial (
-  id          BIGINT       NOT NULL AUTO_INCREMENT,
-  title       VARCHAR(60)  NOT NULL COMMENT '历练名',
-  region      VARCHAR(30)  DEFAULT '' COMMENT '地域',
-  realm_req   VARCHAR(20)  DEFAULT '' COMMENT '所需境界',
-  difficulty  VARCHAR(10)  DEFAULT '' COMMENT '凶险：低/中/高/绝',
-  summary     VARCHAR(200) DEFAULT '' COMMENT '简介',
-  created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  id            BIGINT       NOT NULL AUTO_INCREMENT,
+  title         VARCHAR(60)  NOT NULL COMMENT '秘境名',
+  region        VARCHAR(30)  DEFAULT '' COMMENT '所在域',
+  realm_req     VARCHAR(20)  DEFAULT '' COMMENT '开启所需境界',
+  difficulty    VARCHAR(10)  DEFAULT '' COMMENT '凶险：低/中/高/绝',
+  boss          VARCHAR(40)  DEFAULT '' COMMENT '守关妖魔',
+  cost_exp      INT          NOT NULL DEFAULT 0  COMMENT '入场消耗煞气',
+  daily_limit   INT          NOT NULL DEFAULT 3  COMMENT '每日可入次数',
+  reward_min    INT          NOT NULL DEFAULT 20 COMMENT '产出煞气下限',
+  reward_max    INT          NOT NULL DEFAULT 60 COMMENT '产出煞气上限',
+  risk_rate     INT          NOT NULL DEFAULT 20 COMMENT '凶险概率(百分比)',
+  treasure_rate INT          NOT NULL DEFAULT 15 COMMENT '机缘概率(百分比)',
+  summary       VARCHAR(200) DEFAULT '' COMMENT '简介',
+  created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='历练录';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='域外秘境';
 
-INSERT INTO demon_trial (title, region, realm_req, difficulty, summary) VALUES
-('万骨荒原试炼', '万骨荒原', '魔卒', '高', '于白骨遍野之地淬炼杀性，活过三息者方入门。'),
-('血海浮屠', '血海', '魔尉', '绝', '渡血海而不溺，方证凶煞之身。'),
-('幻月迷宫', '幻月渊', '魔卒', '中', '破幻月迷宫，明心见性，幻破则境开。'),
-('魔渊深处', '无底魔渊', '魔将', '绝', '下探魔渊，窥见本源，然归来者寥寥。'),
-('群魔论战', '魔域演武场', '魔尉', '中', '与同辈论战，砥砺道行，败者亦有所悟。'),
-('煞风峡谷', '煞风峡', '魔卒', '中', '穿煞风而过，炼体亦炼心，怯者退。'),
-('冥河摆渡', '冥河', '魔尉', '高', '渡冥河寻彼岸，迷者沉，悟者渡。'),
-('万魔窟', '万魔窟', '魔将', '绝', '入万魔窟夺造化，九死一生，得者通玄。'),
-('残星台', '残星台', '魔尉', '中', '登残星台观星象，窥天机一角，悟者获益。');
+--                    秘境名        所在域        开启境界 凶险 守关妖魔      入场 次数 产出下限 产出上限 凶险% 机缘%
+INSERT INTO demon_trial (title, region, realm_req, difficulty, boss,
+                         cost_exp, daily_limit, reward_min, reward_max, risk_rate, treasure_rate, summary) VALUES
+('万骨荒原试炼', '万骨荒原',   '魔卒', '高', '白骨魔将',   60,  2, 80,  160, 30, 18, '于白骨遍野之地淬炼杀性，活过三息者方入门。'),
+('血海浮屠',     '血海',       '魔尉', '绝', '血海浮屠兽', 150, 1, 200, 400, 45, 25, '渡血海而不溺，方证凶煞之身。'),
+('幻月迷宫',     '幻月渊',     '魔卒', '中', '幻月魔狐',   20,  3, 30,  70,  20, 12, '破幻月迷宫，明心见性，幻破则境开。'),
+('魔渊深处',     '无底魔渊',   '魔将', '绝', '渊底古魔',   150, 1, 200, 400, 45, 25, '下探魔渊，窥见本源，然归来者寥寥。'),
+('群魔论战',     '魔域演武场', '魔尉', '中', '演武魁首',   20,  3, 30,  70,  20, 12, '与同辈论战，砥砺道行，败者亦有所悟。'),
+('煞风峡谷',     '煞风峡',     '魔卒', '中', '煞风鹰隼',   20,  3, 30,  70,  20, 12, '穿煞风而过，炼体亦炼心，怯者退。'),
+('冥河摆渡',     '冥河',       '魔尉', '高', '冥河渡魂',   60,  2, 80,  160, 30, 18, '渡冥河寻彼岸，迷者沉，悟者渡。'),
+('万魔窟',       '万魔窟',     '魔将', '绝', '万魔之主',   150, 1, 200, 400, 45, 25, '入万魔窟夺造化，九死一生，得者通玄。'),
+('残星台',       '残星台',     '魔尉', '中', '残星守者',   20,  3, 30,  70,  20, 12, '登残星台观星象，窥天机一角，悟者获益。');
 
 -- ---------- 宗门论道：demon_debate ----------
 DROP TABLE IF EXISTS demon_debate;

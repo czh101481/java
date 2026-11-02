@@ -63,7 +63,7 @@ export function artDelete(id) {
   return adminHttp.delete(`/api/admin/art/${id}`)
 }
 
-// ==================== 历练录（demon_trial） ====================
+// ==================== 域外秘境（demon_trial） ====================
 export function trialList(kw) {
   return adminHttp.get('/api/admin/trial/list', { params: { kw: kw || '' } })
 }

@@ -39,7 +39,7 @@ public class HomeController {
     /** 模块 type → 展示名（境界门槛提示用） */
     private static final Map<String, String> TYPE_NAMES = Map.of(
             "art", "功法阁",
-            "trial", "历练录",
+            "trial", "域外秘境",
             "debate", "宗门论道",
             "codex", "魔典秘录",
             "archive", "魔枢典册");
@@ -87,21 +87,14 @@ public class HomeController {
     @Autowired
     private com.fenglin.springboottest.mapper.ArchiveMapper archiveMapper;
 
+    @Autowired
+    private com.fenglin.springboottest.service.GameService gameService;
+
     // ==================== v2 加成计算 ====================
 
-    /** 修者参悟综合倍率：魔种天赋 × 转生加成 × 习得功法加成 */
+    /** 修者参悟综合倍率：魔种天赋 × 转生加成 × 习得功法加成（与秘境产出共用同一套数值） */
     private double exploreMultiplier(DemonUser user) {
-        com.fenglin.springboottest.common.Origins.Bonus origin =
-                com.fenglin.springboottest.common.Origins.of(user.getRealm());
-        int reincarnate = user.getReincarnate() == null ? 0 : user.getReincarnate();
-        long artCount = userArtMapper.selectCount(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
-                        com.fenglin.springboottest.entity.UserArt>()
-                        .eq(com.fenglin.springboottest.entity.UserArt::getUserId, user.getId()));
-        double artBonus = Math.min(artCount, Realm.ART_BONUS_CAP) * Realm.ART_BONUS;
-        return (1 + origin.getExploreBonus())
-                * (1 + reincarnate * Realm.REINCARNATE_BONUS)
-                * (1 + artBonus);
+        return gameService.exploreMultiplier(user);
     }
 
     /** 是否已研读过某条目 */

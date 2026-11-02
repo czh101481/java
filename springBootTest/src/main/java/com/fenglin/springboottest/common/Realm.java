@@ -32,7 +32,7 @@ public final class Realm {
     private static final List<String> DEFAULT_DESCS = List.of(
             "引煞入体，初踏魔途",
             "煞气凝形，根基渐固",
-            "位列行伍，可入历练",
+            "位列行伍，可入秘境",
             "百夫之长，可窥魔典",
             "坐镇一方，执掌典册",
             "煞名远播，威震群魔",
@@ -151,6 +151,20 @@ public final class Realm {
 
     /** 境界不足提示文案（%s 为所需境界名） */
     public static final String DENY_MSG = "修为不足，需修至「%s」境方可入内。";
+
+    // ==================== 秘境（demon_trial）玩法 ====================
+
+    /** 秘境缺省每日可入次数（表内 daily_limit 未设时取此值） */
+    public static final int REALM_DAILY_DEFAULT = 3;
+
+    /** 秘境负伤：所获煞气的折损比例（0.5 = 半数不保） */
+    public static final double REALM_RISK_LOSS = 0.5;
+
+    /** 秘境负伤折损上限（避免一次亏空过大） */
+    public static final int REALM_RISK_CAP = 300;
+
+    /** 秘境机缘：所得煞气翻倍数 */
+    public static final double REALM_TREASURE_MULTI = 2.0;
 
     /** 是否已从 demon_realm 表加载配置（诊断用） */
     public static boolean isLoadedFromTable() {

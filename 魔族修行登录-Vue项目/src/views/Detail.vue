@@ -62,7 +62,7 @@
         </div>
 
         <div class="divider">
-          <span>秘 传 正 文</span>
+          <span>{{ type === 'trial' ? '秘 境 纪 事' : '秘 传 正 文' }}</span>
         </div>
         <div class="content">{{ info.content }}</div>
 
@@ -73,7 +73,7 @@
             type="button"
             :disabled="readDone || reading"
             @click="onRead"
-          >{{ readDone ? '已 曾 研 读' : reading ? '研 读 中 ……' : '研 读 本 篇' }}</button>
+          >{{ readDone ? readDoneLabel : reading ? (type === 'trial' ? '勘 察 中 ……' : '研 读 中 ……') : readLabel }}</button>
           <button
             v-if="type === 'art'"
             class="act-btn art"
@@ -83,6 +83,42 @@
           >{{ learnDone ? '已 习 此 功' : learning ? '习 得 中 ……' : '习 得 此 功' }}</button>
           <span v-if="actMsg" class="act-msg">{{ actMsg }}</span>
         </div>
+
+        <!-- 域外秘境：此间非典籍，是可踏入的秘境——进入即结算 -->
+        <template v-if="type === 'trial'">
+          <div class="divider"><span>踏 入 秘 境</span></div>
+          <div class="realm">
+            <div class="realm-stat">
+              <span>今日余 <b>{{ realmState ? realmState.left : 0 }} / {{ realmState?.dailyLimit || 0 }}</b></span>
+              <span>入场 <b>{{ realmState?.costExp ?? 0 }}</b> 煞气</span>
+              <span>产出 <b>{{ realmState?.rewardMin ?? 0 }} ~ {{ realmState?.rewardMax ?? 0 }}</b></span>
+              <span>机缘 <b>{{ realmState?.treasureRate ?? 0 }}%</b></span>
+              <span>凶险 <b>{{ realmState?.riskRate ?? 0 }}%</b></span>
+            </div>
+
+            <button
+              class="act-btn realm-btn"
+              type="button"
+              :disabled="!realmState?.canEnter || entering"
+              @click="onEnterRealm"
+            >{{ entering ? '探 索 中 ……' : realmState?.canEnter ? '进 入 秘 境' : '不 可 入' }}</button>
+
+            <div v-if="realmMsg" class="act-msg">{{ realmMsg }}</div>
+            <div v-else-if="realmState && !realmState.canEnter" class="act-msg deny">{{ realmState.deny }}</div>
+
+            <div v-if="realmLog.length" class="realm-log">
+              <div class="rl-title">近 日 战 报</div>
+              <div v-for="l in realmLog" :key="l.id" class="rl-row">
+                <span class="rl-time">{{ l.createdAt.slice(5, 16) }}</span>
+                <span class="rl-text">{{ l.detail }}</span>
+                <span
+                  class="rl-num"
+                  :class="l.gain - l.cost >= 0 ? 'up' : 'down'"
+                >{{ l.gain - l.cost >= 0 ? '+' : '' }}{{ l.gain - l.cost }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
 
         <!-- 宗门论道 · 答题论道（答对 +10 煞气，答错 -5） -->
         <template v-if="type === 'debate' && quiz">
@@ -134,7 +170,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
-import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, learnArt } from '../api/home'
+import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, learnArt, secretRealms, enterRealm, myRealmLog } from '../api/home'
 // 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
 import { REALM_NAMES } from '../config/realm'
 
@@ -154,7 +190,7 @@ const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
 
 const navModules = [
   { key: 'art', title: '功 法 阁' },
-  { key: 'trial', title: '历 练 录' },
+  { key: 'trial', title: '域 外 秘 境' },
   { key: 'debate', title: '宗 门 论 道' },
   { key: 'codex', title: '魔 典 秘 录' }
 ]
@@ -183,9 +219,55 @@ async function load() {
   } finally {
     loading.value = false
   }
+  await loadRealm()
+}
+
+// ==================== 域外秘境：玩法状态 / 进入结算 / 战报 ====================
+const realmState = ref(null)   // 本秘境的今日次数与可否进入
+const realmLog = ref([])       // 本人于此境的近期战报
+const entering = ref(false)
+const realmMsg = ref('')
+
+async function loadRealm() {
+  realmState.value = null
+  realmLog.value = []
+  if (type.value !== 'trial') return
+  try {
+    const res = await secretRealms()
+    if (res.data.code === 200) {
+      realmState.value = (res.data.data?.list || []).find(r => r.id === id.value) || null
+    }
+    const lg = await myRealmLog(20)
+    if (lg.data.code === 200) {
+      realmLog.value = (lg.data.data?.list || []).filter(x => x.trialId === id.value).slice(0, 5)
+    }
+  } catch (e) { /* 静默 */ }
+}
+
+async function onEnterRealm() {
+  if (!realmState.value?.canEnter || entering.value) return
+  entering.value = true
+  realmMsg.value = ''
+  try {
+    const res = await enterRealm(id.value)
+    if (res.data.code === 200) {
+      const d = res.data.data
+      realmMsg.value = `${d.detail}（净得 ${d.net >= 0 ? '+' : ''}${d.net} 煞气）`
+      await loadRealm()
+    } else {
+      realmMsg.value = res.data.msg || '秘境之门未启。'
+    }
+  } catch (e) {
+    realmMsg.value = e.message || '魔门无应，连通失败'
+  } finally {
+    entering.value = false
+  }
 }
 
 // ==================== v2：研读 / 习得 ====================
+// 秘境不是典籍：同一接口在秘境页改称「勘察」（仍计入图鉴收集度）
+const readLabel = computed(() => (type.value === 'trial' ? '勘 察 此 境' : '研 读 本 篇'))
+const readDoneLabel = computed(() => (type.value === 'trial' ? '已 曾 勘 察' : '已 曾 研 读'))
 const reading = ref(false)
 const learning = ref(false)
 const readDone = ref(false)
@@ -538,4 +620,35 @@ onMounted(() => {
 .act-btn.art:hover:not(:disabled) { background: rgba(217, 176, 102, 0.22); }
 .act-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .act-msg { font-size: 12px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.6); }
+.act-msg.deny { color: rgba(255, 107, 143, 0.85); }
+
+/* ===== 域外秘境 ===== */
+.realm { margin-top: 14px; }
+.realm-stat {
+  display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 14px;
+  font-size: 12px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.55);
+}
+.realm-stat b { font-weight: normal; color: #e8dcc8; }
+.realm-btn {
+  border-color: rgba(255, 59, 107, 0.6);
+  background: linear-gradient(135deg, rgba(179, 24, 58, 0.55), rgba(74, 13, 36, 0.5));
+  color: #ffd9e2;
+  letter-spacing: 4px;
+}
+.realm-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b3183a, #4a0d24);
+  box-shadow: 0 0 22px rgba(255, 59, 107, 0.5);
+}
+.realm-log { margin-top: 18px; }
+.rl-title { font-size: 12px; letter-spacing: 4px; color: var(--gold); margin-bottom: 8px; }
+.rl-row {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 8px 0; border-top: 1px dashed rgba(255, 59, 107, 0.16);
+  font-size: 12px; line-height: 1.7;
+}
+.rl-time { flex: 0 0 auto; color: rgba(217, 176, 102, 0.7); font-size: 11px; }
+.rl-text { flex: 1; color: rgba(232, 220, 200, 0.68); }
+.rl-num { flex: 0 0 auto; font-size: 12px; }
+.rl-num.up { color: #ff6b8a; }
+.rl-num.down { color: #7ee0a0; }
 </style>

@@ -13,7 +13,7 @@
       <nav class="nav-links">
         <a class="nav-item" @click="goHome">首 页</a>
         <a class="nav-item" @click="goModule('art')">功 法 阁</a>
-        <a class="nav-item" @click="goModule('trial')">历 练 录</a>
+        <a class="nav-item" @click="goModule('trial')">域 外 秘 境</a>
         <a class="nav-item" @click="goModule('debate')">宗 门 论 道</a>
         <a class="nav-item" @click="goModule('codex')">魔 典 秘 录</a>
         <a class="nav-item active">魔 枢 典 册</a>

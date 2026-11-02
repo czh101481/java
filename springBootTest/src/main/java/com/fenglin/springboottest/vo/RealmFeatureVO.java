@@ -15,7 +15,7 @@ public class RealmFeatureVO {
     /** 模块 type（art / trial / debate / codex / archive） */
     private String type;
 
-    /** 模块展示名（功法阁 / 历练录 / 宗门论道 / 魔典秘录 / 魔枢典册） */
+    /** 模块展示名（功法阁 / 域外秘境 / 宗门论道 / 魔典秘录 / 魔枢典册） */
     private String name;
 
     /** 所需最低境界位阶 */

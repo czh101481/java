@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 魔族修行 · 首页内容业务（功法阁 / 历练录 / 宗门论道 / 魔典秘录）
+ * 魔族修行 · 首页内容业务（功法阁 / 域外秘境 / 宗门论道 / 魔典秘录）
  */
 @Service
 public class ContentService {
@@ -47,7 +47,7 @@ public class ContentService {
     private static final String DEBATE = "debate";
     private static final String CODEX = "codex";
     private static final String ART_NAME = "功法阁";
-    private static final String TRIAL_NAME = "历练录";
+    private static final String TRIAL_NAME = "域外秘境";
     private static final String DEBATE_NAME = "宗门论道";
     private static final String CODEX_NAME = "魔典秘录";
 
@@ -92,6 +92,7 @@ public class ContentService {
                             .or().like(Trial::getRegion, like)
                             .or().like(Trial::getRealmReq, like)
                             .or().like(Trial::getDifficulty, like)
+                            .or().like(Trial::getBoss, like)
                             .or().like(Trial::getSummary, like)));
             addGroup(groups, TRIAL, TRIAL_NAME, toItems(trials, TRIAL, TRIAL_NAME));
 
@@ -269,9 +270,24 @@ public class ContentService {
             vo.setSummary(x.getSummary());
             vo.setContent(x.getSummary());
             vo.setImg(x.getImage());
-            vo.getMeta().add(new DetailVO.Meta("地 域", nvl(x.getRegion())));
-            vo.getMeta().add(new DetailVO.Meta("所需境界", nvl(x.getRealmReq())));
+            vo.getMeta().add(new DetailVO.Meta("所在域", nvl(x.getRegion())));
+            vo.getMeta().add(new DetailVO.Meta("开启境界", nvl(x.getRealmReq())));
             vo.getMeta().add(new DetailVO.Meta("凶 险", nvl(x.getDifficulty())));
+            if (StringUtils.hasText(x.getBoss())) {
+                vo.getMeta().add(new DetailVO.Meta("守关妖魔", nvl(x.getBoss())));
+            }
+            vo.getMeta().add(new DetailVO.Meta("入场消耗",
+                    (x.getCostExp() == null ? 0 : x.getCostExp()) + " 煞气"));
+            vo.getMeta().add(new DetailVO.Meta("每日可入",
+                    (x.getDailyLimit() == null || x.getDailyLimit() <= 0
+                            ? com.fenglin.springboottest.common.Realm.REALM_DAILY_DEFAULT
+                            : x.getDailyLimit()) + " 次"));
+            vo.getMeta().add(new DetailVO.Meta("产出煞气",
+                    (x.getRewardMin() == null ? 0 : x.getRewardMin()) + " ~ "
+                            + (x.getRewardMax() == null ? 0 : x.getRewardMax())));
+            vo.getMeta().add(new DetailVO.Meta("机缘 / 凶险",
+                    (x.getTreasureRate() == null ? 0 : x.getTreasureRate()) + "% / "
+                            + (x.getRiskRate() == null ? 0 : x.getRiskRate()) + "%"));
             return vo;
         }
         if (DEBATE.equals(t)) {

@@ -210,23 +210,33 @@ const MODULES = {
     ]
   },
   trial: {
-    label: '历 练 录', short: '历练', api: { list: trialList, add: trialAdd, update: trialUpdate, del: trialDelete },
-    imgDir: 'trial', titleKey: 'title', addLabel: '录 入 新 历 练',
-    kwPlaceholder: '按历练名 / 地域 / 简介检索…',
+    label: '域 外 秘 境', short: '秘境', api: { list: trialList, add: trialAdd, update: trialUpdate, del: trialDelete },
+    imgDir: 'trial', titleKey: 'title', addLabel: '开 辟 新 秘 境',
+    kwPlaceholder: '按秘境名 / 所在域 / 守关 / 简介检索…',
     columns: [
-      { key: 'title', label: '历练名' },
-      { key: 'region', label: '地域', w: '110px' },
-      { key: 'realmReq', label: '所需境界', w: '90px' },
-      { key: 'difficulty', label: '凶险', w: '70px' },
+      { key: 'title', label: '秘境名' },
+      { key: 'region', label: '所在域', w: '110px' },
+      { key: 'realmReq', label: '开启境界', w: '90px' },
+      { key: 'difficulty', label: '凶险', w: '60px' },
+      { key: 'boss', label: '守关', w: '100px' },
+      { key: 'costExp', label: '入场', w: '70px' },
+      { key: 'dailyLimit', label: '每日', w: '60px' },
       { key: 'summary', label: '简介', dim: true }
     ],
     fields: [
-      { key: 'title', label: '历练名', required: true, ph: '如：幽冥血渊试炼' },
-      { key: 'region', label: '地域', ph: '如：北境魔原' },
-      { key: 'realmReq', label: '所需境界', type: 'select', options: REALMS },
+      { key: 'title', label: '秘境名', required: true, ph: '如：幽冥血渊' },
+      { key: 'region', label: '所在域', ph: '如：北境魔原' },
+      { key: 'realmReq', label: '开启境界', type: 'select', options: REALMS },
       { key: 'difficulty', label: '凶险', type: 'select', options: ['低', '中', '高', '绝'].map(v => ({ v, t: v })) },
+      { key: 'boss', label: '守关妖魔', ph: '如：白骨魔将' },
+      { key: 'costExp', label: '入场消耗', type: 'number', ph: '煞气，0 为免费' },
+      { key: 'dailyLimit', label: '每日次数', type: 'number', ph: '3' },
+      { key: 'rewardMin', label: '产出下限', type: 'number', ph: '30' },
+      { key: 'rewardMax', label: '产出上限', type: 'number', ph: '70' },
+      { key: 'riskRate', label: '凶险概率', type: 'number', ph: '20 即 20%' },
+      { key: 'treasureRate', label: '机缘概率', type: 'number', ph: '12 即 12%' },
       { key: 'image', label: '配图', type: 'image' },
-      { key: 'summary', label: '简介', wide: true, ph: '一句话点明此历练之凶险…' }
+      { key: 'summary', label: '简介', wide: true, ph: '一句话点明此境之凶险与造化…' }
     ]
   },
   debate: {

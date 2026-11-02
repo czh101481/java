@@ -21,7 +21,7 @@ public class OverviewVO {
     /** 功法阁精选（最新 3 条） */
     private List<SearchItemVO> artFeatured;
 
-    /** 历练录精选 */
+    /** 域外秘境精选 */
     private List<SearchItemVO> trialFeatured;
 
     /** 宗门论道精选 */

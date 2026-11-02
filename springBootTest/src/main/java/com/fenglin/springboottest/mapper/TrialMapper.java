@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.fenglin.springboottest.entity.Trial;
 
 /**
- * 历练录 Mapper
+ * 秘境 Mapper
  */
 public interface TrialMapper extends BaseMapper<Trial> {
 }

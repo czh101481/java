@@ -14,7 +14,7 @@
       <nav class="nav-links">
         <a class="nav-item active">首 页</a>
         <a class="nav-item" @click="goModule('art')">功 法 阁</a>
-        <a class="nav-item" @click="goModule('trial')">历 练 录</a>
+        <a class="nav-item" @click="goModule('trial')">域 外 秘 境</a>
         <a class="nav-item" @click="goModule('debate')">宗 门 论 道</a>
         <a class="nav-item" @click="goModule('codex')">魔 典 秘 录</a>
         <a class="nav-item" @click="goArchive()">魔 枢 典 册</a>
@@ -318,6 +318,72 @@
       >{{ reincarnating ? '轮 回 中 ……' : '开 启 轮 回 · 转 世 重 修' }}</button>
     </section>
 
+    <!-- 域外秘境（副本玩法）：可进入、可结算，有开启境界 / 入场消耗 / 每日次数 -->
+    <section class="secret" v-if="realms.length">
+      <div class="sec-title">
+        <span>域 外 秘 境</span>
+        <em>探幽夺宝 · 九死一生 · 每日有数</em>
+      </div>
+
+      <div class="secret-grid">
+        <div
+          v-for="r in realms"
+          :key="r.id"
+          class="secret-card"
+          :class="{ locked: !r.unlocked, done: r.unlocked && r.left === 0 }"
+        >
+          <div class="sc-head">
+            <span class="sc-icon">⛩</span>
+            <span class="sc-name" @click="openDetail({ type: 'trial', id: r.id })">{{ r.title }}</span>
+            <span class="sc-danger" :class="'d-' + dangerKey(r.difficulty)">{{ r.difficulty }}</span>
+          </div>
+
+          <div class="sc-summary">{{ r.summary }}</div>
+
+          <div class="sc-meta">
+            <span>{{ r.region || '未知之域' }}</span>
+            <span>守关 · {{ r.boss || '未知' }}</span>
+          </div>
+
+          <div class="sc-stat">
+            <span>开启 <b>{{ r.realmReq }}</b></span>
+            <span>入场 <b>{{ r.costExp }}</b></span>
+            <span>产出 <b>{{ r.rewardMin }}~{{ r.rewardMax }}</b></span>
+          </div>
+          <div class="sc-stat">
+            <span>机缘 <b>{{ r.treasureRate }}%</b></span>
+            <span>凶险 <b>{{ r.riskRate }}%</b></span>
+            <span>今日余 <b>{{ r.left }}/{{ r.dailyLimit }}</b></span>
+          </div>
+
+          <button
+            class="sc-btn"
+            type="button"
+            :disabled="!r.canEnter || enteringId === r.id"
+            @click="onEnterRealm(r)"
+          >{{ enteringId === r.id ? '探 索 中 ……' : enterText(r) }}</button>
+
+          <div class="sc-deny" v-if="!r.canEnter">{{ r.deny }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 秘境战报 -->
+    <div class="realm-toast" v-if="realmReport" @click="realmReport = null">
+      <div class="rt-title">
+        {{ realmReport.result === 'treasure' ? '机 缘 天 降' : realmReport.result === 'injured' ? '负 伤 而 退' : '功 成 而 归' }}
+      </div>
+      <div class="rt-name">{{ realmReport.title }}</div>
+      <div class="rt-detail">{{ realmReport.detail }}</div>
+      <div class="rt-num">
+        <span>所得 <b class="up">+{{ realmReport.gain }}</b></span>
+        <span v-if="realmReport.cost">入场 <b class="down">-{{ realmReport.cost }}</b></span>
+        <span v-if="realmReport.injury">负伤 <b class="down">-{{ realmReport.injury }}</b></span>
+        <span>净得 <b :class="realmReport.net >= 0 ? 'up' : 'down'">{{ realmReport.net >= 0 ? '+' : '' }}{{ realmReport.net }}</b></span>
+      </div>
+      <div class="rt-hint">点 击 收 起</div>
+    </div>
+
     <!-- 魔门英杰榜（按境界位阶 + 煞气修为实时排行） -->
     <section class="rank" v-if="rankList.length">
       <div class="sec-title">
@@ -557,7 +623,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession, saveSession, me } from '../api/auth'
-import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer } from '../api/home'
+import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer, secretRealms, enterRealm } from '../api/home'
 import { archiveCategories } from '../api/archive'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
@@ -581,7 +647,7 @@ const TYPE_REQ = { art: 0, trial: 1, debate: 2, codex: 3, archive: 4 }
 const ladder = ref([
   { index: 0, name: '引煞', title: '初入魔门', desc: '引煞入体，初踏魔途' },
   { index: 1, name: '凝煞', title: '煞气凝形', desc: '煞气凝形，根基渐固' },
-  { index: 2, name: '魔卒', title: '魔门行伍', desc: '位列行伍，可入历练' },
+  { index: 2, name: '魔卒', title: '魔门行伍', desc: '位列行伍，可入秘境' },
   { index: 3, name: '魔尉', title: '统御百夫', desc: '百夫之长，可窥魔典' },
   { index: 4, name: '魔将', title: '坐镇一方', desc: '坐镇一方，执掌典册' },
   { index: 5, name: '血煞', title: '威震魔域', desc: '煞名远播，威震群魔' },
@@ -807,6 +873,55 @@ async function onReincarnate() {
   } finally {
     reincarnating.value = false
   }
+}
+
+// ==================== 域外秘境（副本玩法） ====================
+
+const realms = ref([])          // 秘境一览（含今日剩余与可否进入）
+const enteringId = ref(null)    // 正在探索的秘境 id
+const realmReport = ref(null)   // 战报弹层
+let realmTimer = null
+
+async function loadRealms() {
+  try {
+    const res = await secretRealms()
+    if (res.data.code === 200) realms.value = res.data.data?.list || []
+  } catch (e) { /* 静默 */ }
+}
+
+// 进入秘境：结算一次探索，弹战报并刷新境界 / 秘境状态 / 榜单
+async function onEnterRealm(r) {
+  if (!r.canEnter || enteringId.value) return
+  enteringId.value = r.id
+  try {
+    const res = await enterRealm(r.id)
+    if (res.data.code === 200) {
+      realmReport.value = res.data.data
+      if (realmTimer) clearTimeout(realmTimer)
+      realmTimer = setTimeout(() => { realmReport.value = null }, 8000)
+      await refreshStatus()
+      await loadRealms()
+      await loadRank()
+    } else {
+      alert(res.data.msg || '秘境之门未启。')
+      await loadRealms()
+    }
+  } catch (e) {
+    alert(e.message || '魔门无应，连通失败')
+  } finally {
+    enteringId.value = null
+  }
+}
+
+function enterText(r) {
+  if (!r.unlocked) return '修 为 不 足'
+  if (r.left <= 0) return '今 日 已 尽'
+  return '进 入 秘 境'
+}
+
+// 凶险等级 → 配色档位（低 1 / 中 2 / 高 3 / 绝 4）
+function dangerKey(d) {
+  return { 低: 1, 中: 2, 高: 3, 绝: 4 }[d] || 2
 }
 
 // 导航栏境界徽章配色（随境界变化）
@@ -1070,7 +1185,7 @@ const dust = Array.from({ length: 48 }, () => ({
 // 模块静态元信息（key 对应后端的 type）
 const moduleMeta = {
   art:    { icon: '☥', title: '功 法 阁', desc: '修魔之术，万千法门', unit: '部' },
-  trial:  { icon: '⚔', title: '历 练 录', desc: '入世历劫，淬炼真我', unit: '程' },
+  trial:  { icon: '⛩', title: '域 外 秘 境', desc: '探幽夺宝，九死一生', unit: '境' },
   debate: { icon: '⚛', title: '宗 门 论 道', desc: '群魔聚议，论道证心', unit: '题' },
   codex:  { icon: '✠', title: '魔 典 秘 录', desc: '上古残卷，禁忌之知', unit: '卷' }
 }
@@ -1148,12 +1263,16 @@ onMounted(async () => {
   // 拉取魔门英杰榜（境界 + 煞气排行）
   await loadRank()
 
+  // 域外秘境一览（含今日剩余次数）
+  await loadRealms()
+
   // 今日论道（随机取一道未答论题）
   await loadDailyQuiz()
 })
 
 onBeforeUnmount(() => {
   if (tickerTimer) clearInterval(tickerTimer)
+  if (realmTimer) clearTimeout(realmTimer)
 })
 
 async function onSearch() {
@@ -2525,6 +2644,94 @@ function goAdmin() {
   transform: translateY(-2px);
 }
 .reincarnate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ==================== 域外秘境 ==================== */
+.secret-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  width: min(1080px, 92%);
+  margin: 0 auto;
+}
+.secret-card {
+  padding: 16px 18px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 59, 107, 0.2);
+  background: linear-gradient(150deg, rgba(34, 6, 20, 0.66), rgba(8, 2, 10, 0.78));
+  transition: 0.28s;
+}
+.secret-card:hover {
+  border-color: rgba(255, 59, 107, 0.5);
+  box-shadow: 0 0 26px rgba(179, 24, 58, 0.26);
+  transform: translateY(-3px);
+}
+.secret-card.locked { opacity: 0.62; }
+.secret-card.done { border-style: dashed; }
+.sc-head { display: flex; align-items: center; gap: 10px; }
+.sc-icon { font-size: 20px; color: #ff3b6b; text-shadow: 0 0 12px rgba(255, 59, 107, 0.7); }
+.sc-name {
+  flex: 1; font-size: 15px; letter-spacing: 2px; color: #e8dcc8; cursor: pointer;
+  text-shadow: 0 0 10px rgba(255, 59, 107, 0.3);
+}
+.sc-name:hover { color: #ff6b8f; }
+.sc-danger {
+  padding: 2px 10px; border-radius: 12px; font-size: 11px; letter-spacing: 1px;
+  border: 1px solid rgba(255, 59, 107, 0.45); color: #ff6b8f;
+}
+.sc-danger.d-1 { border-color: rgba(126, 224, 160, 0.5); color: #7ee0a0; }
+.sc-danger.d-3 { border-color: rgba(255, 140, 60, 0.6); color: #ff9a4d; }
+.sc-danger.d-4 { border-color: rgba(255, 59, 107, 0.9); color: #ff3b6b; box-shadow: 0 0 12px rgba(255, 59, 107, 0.35); }
+.sc-summary {
+  margin-top: 10px; font-size: 12px; line-height: 1.7; color: rgba(232, 220, 200, 0.6);
+}
+.sc-meta {
+  margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: 11px; letter-spacing: 1px; color: rgba(217, 176, 102, 0.85);
+}
+.sc-stat {
+  margin-top: 6px; display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.5);
+}
+.sc-stat b { color: #e8dcc8; font-weight: normal; }
+.sc-btn {
+  margin-top: 12px; width: 100%; padding: 9px; cursor: pointer;
+  font-family: inherit; font-size: 13px; letter-spacing: 4px; color: #fff;
+  border: none; border-radius: 9px;
+  background: linear-gradient(135deg, #b3183a, #4a0d24);
+  box-shadow: 0 0 16px rgba(179, 24, 58, 0.45);
+  transition: 0.25s;
+}
+.sc-btn:hover:not(:disabled) { box-shadow: 0 0 24px rgba(255, 59, 107, 0.55); transform: translateY(-2px); }
+.sc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.sc-deny { margin-top: 8px; font-size: 11px; line-height: 1.6; color: rgba(255, 107, 143, 0.8); }
+
+/* 秘境战报 */
+.realm-toast {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  z-index: 60;
+  width: 320px;
+  padding: 16px 18px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 59, 107, 0.5);
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(52, 8, 24, 0.96), rgba(12, 3, 9, 0.96));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(179, 24, 58, 0.28);
+  animation: realmIn 0.4s ease;
+}
+@keyframes realmIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.rt-title { font-size: 14px; letter-spacing: 5px; color: #ff6b8f; text-shadow: 0 0 12px rgba(255, 59, 107, 0.6); }
+.rt-name { margin-top: 6px; font-size: 12px; letter-spacing: 2px; color: rgba(217, 176, 102, 0.9); }
+.rt-detail { margin: 10px 0 12px; font-size: 12px; line-height: 1.8; color: rgba(232, 220, 200, 0.75); }
+.rt-num { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: rgba(232, 220, 200, 0.6); }
+.rt-num b { font-weight: normal; }
+.rt-num .up { color: #ff6b8a; }
+.rt-num .down { color: #7ee0a0; }
+.rt-hint { margin-top: 12px; font-size: 11px; letter-spacing: 3px; color: rgba(232, 220, 200, 0.35); }
 
 /* 榜单维度切换 */
 .rank-tabs {

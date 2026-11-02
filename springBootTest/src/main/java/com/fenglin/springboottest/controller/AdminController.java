@@ -22,6 +22,7 @@ import com.fenglin.springboottest.mapper.CodexMapper;
 import com.fenglin.springboottest.mapper.DebateMapper;
 import com.fenglin.springboottest.mapper.DemonUserMapper;
 import com.fenglin.springboottest.mapper.OriginConfigMapper;
+import com.fenglin.springboottest.mapper.RealmLogMapper;
 import com.fenglin.springboottest.mapper.TrialMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
@@ -51,7 +52,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 后台管理系统接口
  * 基底址：/api/admin
  * 功能：管理员登录（仅登录，无注册，凭 demon_user 表 permission=0 的账号）+ 五大内容模块数据管理 CRUD：
- *      功法阁（demon_art）/ 历练录（demon_trial）/ 宗门论道（demon_debate）/
+ *      功法阁（demon_art）/ 域外秘境（demon_trial）/ 宗门论道（demon_debate）/
  *      魔典秘录（demon_codex）/ 魔枢典册（demon_archive）
  * 图片同步：GET /api/admin/images?dir=art|trial|codex → 扫描 static/images 下实际存在的图片
  * 说明：管理员凭 demon_user 表认定（permission=0），密码为演示明文比对；
@@ -77,6 +78,8 @@ public class AdminController {
     private OriginConfigMapper originConfigMapper;
     @Autowired
     private AnnouncementMapper announcementMapper;
+    @Autowired
+    private RealmLogMapper realmLogMapper;
     @Autowired
     private RealmConfigLoader realmConfigLoader;
     @Autowired
@@ -195,9 +198,9 @@ public class AdminController {
         return Result.success("已将该功法从功法阁除名。");
     }
 
-    // ==================== 历练录（demon_trial） ====================
+    // ==================== 域外秘境（demon_trial） ====================
 
-    /** 历练录列表 GET /api/admin/trial/list?kw= → 全量（id 倒序，kw 过滤历练名/地域/简介） */
+    /** 秘境列表 GET /api/admin/trial/list?kw= → 全量（id 倒序，kw 过滤秘境名/所在域/守关/简介） */
     @GetMapping("/trial/list")
     public Result<List<Trial>> trialList(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -209,13 +212,19 @@ public class AdminController {
         LambdaQueryWrapper<Trial> qw = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(kw)) {
             String k = kw.trim();
-            qw.like(Trial::getTitle, k).or().like(Trial::getRegion, k).or().like(Trial::getSummary, k);
+            qw.like(Trial::getTitle, k).or().like(Trial::getRegion, k)
+                    .or().like(Trial::getBoss, k).or().like(Trial::getSummary, k);
         }
         qw.orderByDesc(Trial::getId);
         return Result.success(trialMapper.selectList(qw));
     }
 
-    /** 新增历练 POST /api/admin/trial（JSON body：title/region/realmReq/difficulty/summary/image） */
+    /**
+     * 新增秘境 POST /api/admin/trial
+     * body：title/region/realmReq/difficulty/boss/costExp/dailyLimit/rewardMin/rewardMax/
+     *      riskRate/treasureRate/summary/image
+     * 玩法字段留空时按「凶险」自动套用预设数值
+     */
     @PostMapping("/trial")
     public Result<?> trialAdd(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -225,20 +234,15 @@ public class AdminController {
             return Result.error(401, denied);
         }
         if (trial == null || !StringUtils.hasText(trial.getTitle())) {
-            return Result.error(400, "历练名不可为空。");
+            return Result.error(400, "秘境名不可为空。");
         }
-        if (!StringUtils.hasText(trial.getRealmReq())) {
-            trial.setRealmReq("引煞");
-        }
-        if (!StringUtils.hasText(trial.getDifficulty())) {
-            trial.setDifficulty("中");
-        }
+        fillRealmDefaults(trial);
         trial.setId(null);
         trialMapper.insert(trial);
         return Result.success(trial);
     }
 
-    /** 修改历练 PUT /api/admin/trial/{id} */
+    /** 修改秘境 PUT /api/admin/trial/{id}（玩法字段留空则按凶险补预设值） */
     @PutMapping("/trial/{id}")
     public Result<?> trialUpdate(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -249,17 +253,18 @@ public class AdminController {
             return Result.error(401, denied);
         }
         if (trialMapper.selectById(id) == null) {
-            return Result.error(404, "魔渊之中并无此历练。");
+            return Result.error(404, "魔域之中并无此秘境。");
         }
         if (trial == null || !StringUtils.hasText(trial.getTitle())) {
-            return Result.error(400, "历练名不可为空。");
+            return Result.error(400, "秘境名不可为空。");
         }
+        fillRealmDefaults(trial);
         trial.setId(id);
         trialMapper.updateById(trial);
         return Result.success(trialMapper.selectById(id));
     }
 
-    /** 删除历练 DELETE /api/admin/trial/{id} */
+    /** 删除秘境 DELETE /api/admin/trial/{id}（连同探索日志一并除名） */
     @DeleteMapping("/trial/{id}")
     public Result<?> trialDelete(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -269,10 +274,54 @@ public class AdminController {
             return Result.error(401, denied);
         }
         if (trialMapper.selectById(id) == null) {
-            return Result.error(404, "魔渊之中并无此历练。");
+            return Result.error(404, "魔域之中并无此秘境。");
         }
+        realmLogMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
+                com.fenglin.springboottest.entity.RealmLog>()
+                .eq(com.fenglin.springboottest.entity.RealmLog::getTrialId, id));
         trialMapper.deleteById(id);
-        return Result.success("已将该历练从历练录抹去。");
+        return Result.success("已将该秘境自魔域抹去，相关探索记录亦随之湮灭。");
+    }
+
+    // ==================== 秘境玩法数值预设 ====================
+
+    /** 凶险 → {入场消耗, 每日次数, 产出下限, 产出上限, 凶险%, 机缘%} */
+    private static final Map<String, int[]> REALM_PRESET = Map.of(
+            "低", new int[]{0, 5, 10, 30, 10, 8},
+            "中", new int[]{20, 3, 30, 70, 20, 12},
+            "高", new int[]{60, 2, 80, 160, 30, 18},
+            "绝", new int[]{150, 1, 200, 400, 45, 25});
+
+    /** 玩法字段缺省时按凶险补齐，保证后台只填名字也能得到一个可玩的秘境 */
+    private void fillRealmDefaults(Trial t) {
+        if (!StringUtils.hasText(t.getRealmReq())) {
+            t.setRealmReq("引煞");
+        }
+        if (!StringUtils.hasText(t.getDifficulty())) {
+            t.setDifficulty("中");
+        }
+        int[] p = REALM_PRESET.getOrDefault(t.getDifficulty(), REALM_PRESET.get("中"));
+        if (t.getCostExp() == null) {
+            t.setCostExp(p[0]);
+        }
+        if (t.getDailyLimit() == null || t.getDailyLimit() <= 0) {
+            t.setDailyLimit(p[1]);
+        }
+        if (t.getRewardMin() == null) {
+            t.setRewardMin(p[2]);
+        }
+        if (t.getRewardMax() == null) {
+            t.setRewardMax(Math.max(p[3], t.getRewardMin()));
+        }
+        if (t.getRiskRate() == null) {
+            t.setRiskRate(p[4]);
+        }
+        if (t.getTreasureRate() == null) {
+            t.setTreasureRate(p[5]);
+        }
+        if (t.getBoss() == null) {
+            t.setBoss("");
+        }
     }
 
     // ==================== 宗门论道（demon_debate） ====================

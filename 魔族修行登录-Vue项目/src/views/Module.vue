@@ -75,6 +75,13 @@
           <div class="row-summary">{{ it.summary }}</div>
         </div>
         <span class="row-extra">{{ it.extra }}</span>
+        <button
+          v-if="realmState[it.id]"
+          class="row-enter"
+          type="button"
+          :disabled="!realmState[it.id].canEnter || enteringId === it.id"
+          @click.stop="onEnterRealm(it.id)"
+        >{{ enterLabel(realmState[it.id]) }}</button>
         <span class="row-go">入 内 ⟶</span>
       </div>
     </section>
@@ -88,7 +95,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
-import { homeList, imgUrl } from '../api/home'
+import { homeList, imgUrl, secretRealms, enterRealm } from '../api/home'
 // 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
 import { REALM_NAMES } from '../config/realm'
 
@@ -108,14 +115,14 @@ const realmIndex = computed(() => {
 
 const META = {
   art:    { icon: '☥', title: '功 法 阁', desc: '修魔之术，万千法门', unit: '部' },
-  trial:  { icon: '⚔', title: '历 练 录', desc: '入世历劫，淬炼真我', unit: '程' },
+  trial:  { icon: '⛩', title: '域 外 秘 境', desc: '探幽夺宝，九死一生', unit: '境' },
   debate: { icon: '⚛', title: '宗 门 论 道', desc: '群魔聚议，论道证心', unit: '题' },
   codex:  { icon: '✠', title: '魔 典 秘 录', desc: '上古残卷，禁忌之知', unit: '卷' }
 }
 const meta = computed(() => META[type.value] || META.art)
 const navModules = [
   { key: 'art', title: '功 法 阁' },
-  { key: 'trial', title: '历 练 录' },
+  { key: 'trial', title: '域 外 秘 境' },
   { key: 'debate', title: '宗 门 论 道' },
   { key: 'codex', title: '魔 典 秘 录' }
 ]
@@ -141,6 +148,54 @@ async function load() {
     items.value = []
   } finally {
     loading.value = false
+  }
+  await loadRealmState()
+}
+
+// ==================== 域外秘境：玩法状态与进入结算 ====================
+
+const realmState = ref({})    // 秘境 id → { left / canEnter / deny / … }
+const enteringId = ref(null)
+
+// 仅秘境模块需要拉取（其余模块留空，按钮不渲染）
+async function loadRealmState() {
+  realmState.value = {}
+  if (type.value !== 'trial') return
+  try {
+    const res = await secretRealms()
+    if (res.data.code === 200) {
+      const m = {}
+      for (const r of (res.data.data?.list || [])) m[r.id] = r
+      realmState.value = m
+    }
+  } catch (e) { /* 静默 */ }
+}
+
+function enterLabel(st) {
+  if (!st) return '进 入 秘 境'
+  if (enteringId.value === st.id) return '探 索 中 ……'
+  if (!st.unlocked) return '修 为 不 足'
+  if (st.left <= 0) return '今 日 已 尽'
+  return `进 入 · 余 ${st.left}`
+}
+
+async function onEnterRealm(id) {
+  const st = realmState.value[id]
+  if (!st?.canEnter || enteringId.value) return
+  enteringId.value = id
+  try {
+    const res = await enterRealm(id)
+    if (res.data.code === 200) {
+      const d = res.data.data
+      alert(`${d.detail}\n\n所得 ${d.gain}${d.cost ? ` ／ 入场 -${d.cost}` : ''}${d.injury ? ` ／ 负伤 -${d.injury}` : ''}\n净得 ${d.net >= 0 ? '+' : ''}${d.net} 煞气`)
+      await loadRealmState()
+    } else {
+      alert(res.data.msg || '秘境之门未启。')
+    }
+  } catch (e) {
+    alert(e.message || '魔门无应，连通失败')
+  } finally {
+    enteringId.value = null
   }
 }
 
@@ -353,6 +408,16 @@ watch(type, () => {
   border: 1px solid rgba(255, 59, 107, 0.45);
 }
 .row-go { flex: 0 0 auto; font-size: 12px; color: rgba(217, 176, 102, 0.75); letter-spacing: 2px; }
+/* 秘境行内「进入」按钮 */
+.row-enter {
+  flex: 0 0 auto; padding: 6px 14px; border-radius: 16px; cursor: pointer;
+  font-family: inherit; font-size: 12px; letter-spacing: 2px; color: #fff;
+  border: none; background: linear-gradient(135deg, #b3183a, #4a0d24);
+  box-shadow: 0 0 14px rgba(179, 24, 58, 0.5);
+  transition: 0.25s;
+}
+.row-enter:hover:not(:disabled) { box-shadow: 0 0 22px rgba(255, 59, 107, 0.6); transform: translateY(-2px); }
+.row-enter:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .mod-foot {
   text-align: center; margin-top: 44px; font-size: 12px;

@@ -41,9 +41,14 @@ public final class Realm {
             "魔道通玄，圣威昭昭",
             "超然物外，万法皆空");
 
-    /** 内置默认冲击煞气（索引即目标位阶） */
+    /**
+     * 内置默认冲击煞气（索引即目标位阶）
+     *
+     * 重要语义：自 v2 起煞气为「累计总修为」，冲境只判达标、**不再扣除**。
+     * 因此下表是「晋升该境所需的累计煞气总量」，而非一次性的消耗值。
+     */
     private static final List<Integer> DEFAULT_THRESHOLDS = List.of(
-            100, 300, 800, 1500, 2400, 3800, 8000, 12000, 15000, 20000);
+            100, 400, 1200, 3000, 6000, 10000, 16000, 24000, 35000, 50000);
 
     /** 十境之名（索引即位阶）—— 运行时值，可被 demon_realm 表覆盖 */
     public static volatile List<String> NAMES = DEFAULT_NAMES;
@@ -91,6 +96,58 @@ public final class Realm {
 
     /** 切磋败者所失煞气 */
     public static final int SPAR_LOSS = 10;
+
+    // ==================== v2 玩法数值 ====================
+
+    /** 战力公式中每一重境界的权重：战力 = 境阶 × 本值 + 煞气。
+     *  取 8000 是为了让「境界」真正压过「囤煞气」——跨一重需 8000 煞气优势才追得平，
+     *  从而杜绝旧版「突破反而变弱、不如囤气霸榜」的畸形最优解。 */
+    public static final int POWER_PER_REALM = 8000;
+
+    /** 切磋天运波动上限（0 ~ 本值随机） */
+    public static final int SPAR_RANDOM = 600;
+
+    /** 每日签到基础煞气 */
+    public static final int SIGN_BASE = 10;
+
+    /** 连签每多一天额外煞气 */
+    public static final int SIGN_STEP = 5;
+
+    /** 连签加成封顶天数（第 7 天起不再递增） */
+    public static final int SIGN_STREAK_CAP = 7;
+
+    /** 连满 7 天的额外赏赐 */
+    public static final int SIGN_BONUS_7 = 50;
+
+    /** 参悟触发机缘奇遇的概率（0.12 = 12%） */
+    public static final double CHANCE_RATE = 0.12;
+
+    /** 研读一篇典籍所得煞气 */
+    public static final int READ_GAIN = 8;
+
+    /** 每日研读上限（篇，超出不再给煞气） */
+    public static final int DAILY_READ_LIMIT = 5;
+
+    /** 冲境（渡劫）失败概率（0.20 = 20%） */
+    public static final double BREAK_FAIL_RATE = 0.20;
+
+    /** 渡劫失败扣损：当前煞气的比例 */
+    public static final double BREAK_FAIL_LOSS_RATE = 0.10;
+
+    /** 渡劫失败扣损上限 */
+    public static final int BREAK_FAIL_LOSS_CAP = 500;
+
+    /** 连败达此次数后本次渡劫必定成功（保底，避免卡死劝退） */
+    public static final int BREAK_FAIL_GUARANTEE = 2;
+
+    /** 每习得一部功法带来的参悟加成（0.05 = +5%），最多叠加 ART_BONUS_CAP 部 */
+    public static final double ART_BONUS = 0.05;
+
+    /** 功法参悟加成叠加上限（部） */
+    public static final int ART_BONUS_CAP = 4;
+
+    /** 每一世转生带来的永久参悟加成（0.10 = +10%） */
+    public static final double REINCARNATE_BONUS = 0.10;
 
     /** 境界不足提示文案（%s 为所需境界名） */
     public static final String DENY_MSG = "修为不足，需修至「%s」境方可入内。";

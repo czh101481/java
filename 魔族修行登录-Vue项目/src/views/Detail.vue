@@ -66,6 +66,24 @@
         </div>
         <div class="content">{{ info.content }}</div>
 
+        <!-- v2：研读本篇（首次 +8 煞气并计入图鉴收集度）/ 功法习得 -->
+        <div class="act-row">
+          <button
+            class="act-btn"
+            type="button"
+            :disabled="readDone || reading"
+            @click="onRead"
+          >{{ readDone ? '已 曾 研 读' : reading ? '研 读 中 ……' : '研 读 本 篇' }}</button>
+          <button
+            v-if="type === 'art'"
+            class="act-btn art"
+            type="button"
+            :disabled="learnDone || learning"
+            @click="onLearn"
+          >{{ learnDone ? '已 习 此 功' : learning ? '习 得 中 ……' : '习 得 此 功' }}</button>
+          <span v-if="actMsg" class="act-msg">{{ actMsg }}</span>
+        </div>
+
         <!-- 宗门论道 · 答题论道（答对 +10 煞气，答错 -5） -->
         <template v-if="type === 'debate' && quiz">
           <div class="divider"><span>论 道 问 答</span></div>
@@ -116,7 +134,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
-import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl } from '../api/home'
+import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, learnArt } from '../api/home'
 // 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
 import { REALM_NAMES } from '../config/realm'
 
@@ -164,6 +182,53 @@ async function load() {
     info.value = null
   } finally {
     loading.value = false
+  }
+}
+
+// ==================== v2：研读 / 习得 ====================
+const reading = ref(false)
+const learning = ref(false)
+const readDone = ref(false)
+const learnDone = ref(false)
+const actMsg = ref('')
+
+async function onRead() {
+  if (reading.value || readDone.value) return
+  reading.value = true
+  try {
+    const res = await readDoc(type.value, id.value)
+    if (res.data.code === 200) {
+      readDone.value = true
+      const d = res.data.data
+      actMsg.value = d.msg + (d.collection ? `（图鉴 ${d.collection.percent}%）` : '')
+    } else {
+      // 已研读过也算完成态，不再重复提示
+      readDone.value = true
+      actMsg.value = res.data.msg || ''
+    }
+  } catch (e) {
+    actMsg.value = e.message || '研读无应。'
+  } finally {
+    reading.value = false
+  }
+}
+
+async function onLearn() {
+  if (learning.value || learnDone.value) return
+  learning.value = true
+  try {
+    const res = await learnArt(id.value)
+    if (res.data.code === 200) {
+      learnDone.value = true
+      actMsg.value = res.data.data.msg
+    } else {
+      actMsg.value = res.data.msg || '习得无应。'
+      if (res.data.code === 400) learnDone.value = true
+    }
+  } catch (e) {
+    actMsg.value = e.message || '习得无应。'
+  } finally {
+    learning.value = false
   }
 }
 
@@ -448,4 +513,29 @@ onMounted(() => {
   .panel { padding: 24px 20px 28px; }
   .title { font-size: 24px; letter-spacing: 4px; }
 }
+/* ==================== v2：研读 / 习得 ==================== */
+.act-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.act-btn {
+  padding: 9px 20px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 59, 107, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 59, 107, 0.1);
+  color: #ffd9e2;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 3px;
+  transition: 0.2s;
+}
+.act-btn:hover:not(:disabled) { background: rgba(255, 59, 107, 0.25); }
+.act-btn.art { border-color: rgba(217, 176, 102, 0.5); background: rgba(217, 176, 102, 0.1); color: var(--gold); }
+.act-btn.art:hover:not(:disabled) { background: rgba(217, 176, 102, 0.22); }
+.act-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.act-msg { font-size: 12px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.6); }
 </style>

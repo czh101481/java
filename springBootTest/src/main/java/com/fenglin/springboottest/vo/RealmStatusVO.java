@@ -46,4 +46,36 @@ public class RealmStatusVO {
 
     /** 每日切磋上限 */
     private int sparLimit;
+
+    // ==================== v2 玩法状态 ====================
+
+    /** 今日是否已签到 */
+    private boolean signSigned;
+
+    /** 连续签到天数 */
+    private int signStreak;
+
+    /** 累计签到天数 */
+    private int signTotal;
+
+    /** 今日签到可领煞气（已签为 0） */
+    private int signReward;
+
+    /** 切磋胜场 */
+    private int sparWin;
+
+    /** 切磋负场 */
+    private int sparLose;
+
+    /** 转生次数（第几世） */
+    private int reincarnate;
+
+    /** 今日已研读篇数 */
+    private int readCount;
+
+    /** 每日研读上限 */
+    private int readLimit;
+
+    /** 图鉴收集度百分比 */
+    private int collectionPercent;
 }

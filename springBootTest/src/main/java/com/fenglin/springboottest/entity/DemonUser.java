@@ -50,6 +50,35 @@ public class DemonUser {
     /** 当日已答论题数 */
     private Integer quizCountToday;
 
+    // ==================== v2 玩法字段 ====================
+
+    /** 最后签到日期 */
+    private java.time.LocalDate signDate;
+
+    /** 连续签到天数（断签归 1） */
+    private Integer signStreak;
+
+    /** 累计签到天数 */
+    private Integer signTotal;
+
+    /** 切磋胜场 */
+    private Integer sparWin;
+
+    /** 切磋负场 */
+    private Integer sparLose;
+
+    /** 当前连续渡劫失败次数（达上限后必成，成功即清零） */
+    private Integer breakFail;
+
+    /** 转生次数（第几世） */
+    private Integer reincarnate;
+
+    /** 最后研读日期（每日研读上限跨日清零用） */
+    private java.time.LocalDate readDate;
+
+    /** 当日已研读篇数 */
+    private Integer readCountToday;
+
     /** 护法密令（演示为明文，生产请加密） */
     private String password;
 

@@ -247,11 +247,94 @@
       </div>
     </section>
 
+    <!-- 修行日常（v2）：签到 / 参悟 / 今日论道 / 图鉴 / 战绩 / 轮回 -->
+    <section class="daily">
+      <div class="sec-title">
+        <span>修 行 日 常</span>
+        <em>焚香 · 参悟 · 论道 · 图鉴 · 战绩</em>
+      </div>
+
+      <div class="daily-grid">
+        <div class="daily-card">
+          <div class="dc-label">每 日 焚 香</div>
+          <div class="dc-value">连签 {{ signStreak }} 日</div>
+          <button
+            class="dc-btn"
+            type="button"
+            :disabled="signSigned || signing"
+            @click="onSign"
+          >{{ signSigned ? '今 日 已 焚 香' : signing ? '焚 香 中 ……' : `领 ${signReward} 煞气` }}</button>
+        </div>
+
+        <div class="daily-card">
+          <div class="dc-label">参 悟 魔 域</div>
+          <div class="dc-value">{{ exploreCount }} / {{ exploreLimit }} 篇</div>
+          <button
+            class="dc-btn"
+            type="button"
+            :disabled="dailyCapped || exploring"
+            @click="onExplore"
+          >{{ dailyCapped ? '今 日 已 满' : exploring ? '参 悟 中 ……' : '参 悟 一 篇' }}</button>
+        </div>
+
+        <div class="daily-card">
+          <div class="dc-label">今 日 论 道</div>
+          <div class="dc-value">
+            {{ myLevel < TYPE_REQ.debate ? '需 魔 卒 境' : dailyQuiz ? '有 论 待 辩' : '论 题 已 尽' }}
+          </div>
+          <button
+            class="dc-btn"
+            type="button"
+            :disabled="myLevel < TYPE_REQ.debate || !dailyQuiz"
+            @click="quizVisible = true"
+          >入 论 坛</button>
+        </div>
+
+        <div class="daily-card">
+          <div class="dc-label">图 鉴 收 集</div>
+          <div class="dc-value">{{ collectionPercent }}%</div>
+          <div class="dc-bar"><i :style="{ width: collectionPercent + '%' }"></i></div>
+        </div>
+
+        <div class="daily-card">
+          <div class="dc-label">切 磋 战 绩</div>
+          <div class="dc-value">{{ sparWin }} 胜 {{ sparLose }} 负</div>
+          <div class="dc-sub">胜率 {{ sparWinRate }}%</div>
+        </div>
+
+        <div class="daily-card" v-if="myReincarnate > 0">
+          <div class="dc-label">轮 回 之 印</div>
+          <div class="dc-value">第 {{ myReincarnate }} 世</div>
+          <div class="dc-sub">参悟永久 +{{ myReincarnate * 10 }}%</div>
+        </div>
+      </div>
+
+      <button
+        v-if="isMaxRealm"
+        class="reincarnate-btn"
+        type="button"
+        :disabled="reincarnating"
+        @click="onReincarnate"
+      >{{ reincarnating ? '轮 回 中 ……' : '开 启 轮 回 · 转 世 重 修' }}</button>
+    </section>
+
     <!-- 魔门英杰榜（按境界位阶 + 煞气修为实时排行） -->
     <section class="rank" v-if="rankList.length">
       <div class="sec-title">
         <span>魔 门 英 杰 榜</span>
         <em>境界为尊 · 煞气为凭 · 前十列名</em>
+      </div>
+
+      <div class="rank-tabs">
+        <button
+          v-for="t in RANK_TABS"
+          :key="t.v"
+          type="button"
+          class="rank-tab"
+          :class="{ on: rankType === t.v }"
+          @click="switchRankType(t.v)"
+        >{{ t.t }}</button>
+        <span class="rank-metric">按{{ rankMetricLabel }}排序</span>
       </div>
 
       <div class="rank-list">
@@ -271,7 +354,7 @@
             <div class="rank-title">{{ r.title }}</div>
           </div>
           <span class="rank-realm" :style="realmTagStyle(r.index)">{{ r.realmName }}境</span>
-          <span class="rank-exp">煞气 {{ r.exp }}</span>
+          <span class="rank-exp">{{ rankMetricLabel }} {{ r.exp }}</span>
           <button
             v-if="!r.me"
             class="rank-spar"
@@ -282,6 +365,62 @@
         </div>
       </div>
     </section>
+
+    <!-- 机缘奇遇提示（参悟时随机触发，点击即隐） -->
+    <div class="chance-toast" v-if="chanceEvent" @click="chanceEvent = null">
+      <div class="ct-name">机 缘 · {{ chanceEvent.name }}</div>
+      <div class="ct-desc">{{ chanceEvent.desc }}</div>
+      <div class="ct-delta" :class="{ neg: chanceEvent.delta < 0 }">
+        煞气 {{ chanceEvent.delta > 0 ? '+' : '' }}{{ chanceEvent.delta }}
+      </div>
+    </div>
+
+    <!-- 今日论道弹窗 -->
+    <div class="badge-mask" v-if="quizVisible && dailyQuiz" @click.self="quizVisible = false">
+      <div class="badge-modal quiz-modal">
+        <button class="badge-close" type="button" @click="quizVisible = false">✕</button>
+        <h2 class="spar-title">今 日 论 道</h2>
+        <p class="quiz-lead">{{ dailyQuiz.speaker }}：{{ dailyQuiz.summary }}</p>
+
+        <div class="quiz-opts">
+          <button
+            v-for="(o, i) in dailyQuiz.options"
+            :key="i"
+            type="button"
+            class="quiz-opt"
+            :class="{
+              picked: quizChoice === QUIZ_LETTERS[i],
+              right: quizResult && quizResult.answer === QUIZ_LETTERS[i],
+              wrong: quizResult && quizChoice === QUIZ_LETTERS[i] && quizResult.answer !== QUIZ_LETTERS[i]
+            }"
+            :disabled="!!quizResult"
+            @click="quizChoice = QUIZ_LETTERS[i]"
+          >{{ QUIZ_LETTERS[i] }}．{{ o }}</button>
+        </div>
+
+        <div v-if="quizResult" class="quiz-result" :class="{ ok: quizResult.correct }">
+          <b>{{ quizResult.correct ? '论 道 得 胜' : '心 魔 反 噬' }}</b>
+          <span>{{ quizResult.msg }}</span>
+          <em v-if="quizResult.analysis">{{ quizResult.analysis }}</em>
+        </div>
+
+        <div class="modal-foot">
+          <button
+            v-if="!quizResult"
+            class="gold-btn primary"
+            type="button"
+            :disabled="!quizChoice || quizzing"
+            @click="submitQuiz"
+          >{{ quizzing ? '论 辩 中 ……' : '陈 述 己 见' }}</button>
+          <button
+            v-else
+            class="gold-btn"
+            type="button"
+            @click="loadDailyQuiz()"
+          >再 论 一 题</button>
+        </div>
+      </div>
+    </div>
 
     <footer class="home-foot">顺 逆 由 心 · 魔 非 魔 · 道 非 道</footer>
 
@@ -418,7 +557,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession, saveSession, me } from '../api/auth'
-import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin } from '../api/home'
+import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer } from '../api/home'
 import { archiveCategories } from '../api/archive'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
@@ -533,6 +672,143 @@ async function onBreakthrough() {
     breaking.value = false
   }
 }
+// ==================== v2 玩法：签到 / 参悟机缘 / 今日论道 / 转生轮回 ====================
+const signing = ref(false)
+const exploring = ref(false)
+const reincarnating = ref(false)
+const chanceEvent = ref(null)      // 参悟触发的机缘奇遇
+const dailyQuiz = ref(null)        // 今日论道（随机未答论题）
+const quizChoice = ref('')
+const quizResult = ref(null)
+const quizzing = ref(false)
+const quizVisible = ref(false)
+let chanceTimer = null
+
+// 以下均由境界状态接口一并返回
+const signSigned = computed(() => realmStatus.value?.signSigned ?? false)
+const signStreak = computed(() => realmStatus.value?.signStreak ?? 0)
+const signReward = computed(() => realmStatus.value?.signReward ?? 0)
+const sparWin = computed(() => realmStatus.value?.sparWin ?? 0)
+const sparLose = computed(() => realmStatus.value?.sparLose ?? 0)
+const myReincarnate = computed(() => realmStatus.value?.reincarnate ?? 0)
+const collectionPercent = computed(() => realmStatus.value?.collectionPercent ?? 0)
+const sparWinRate = computed(() =>
+  sparWin.value + sparLose.value === 0
+    ? 0
+    : Math.round((sparWin.value * 100) / (sparWin.value + sparLose.value))
+)
+
+async function refreshStatus() {
+  try {
+    const st = await homeRealmStatus()
+    if (st.data.code === 200) realmStatus.value = st.data.data
+  } catch (e) { /* 静默 */ }
+}
+
+// 每日签到：连签递增，连满七日另有大赏
+async function onSign() {
+  if (signing.value || signSigned.value) return
+  signing.value = true
+  try {
+    const res = await doSign()
+    if (res.data.code === 200) {
+      alert(res.data.data.msg)
+      await refreshStatus()
+    } else {
+      alert(res.data.msg || '签到无应。')
+    }
+  } catch (e) {
+    alert(e.message || '魔门无应，连通失败')
+  } finally {
+    signing.value = false
+  }
+}
+
+// 参悟：可能触发机缘奇遇（煞气增减的随机事件）
+async function onExplore() {
+  if (exploring.value || dailyCapped.value) return
+  exploring.value = true
+  try {
+    const res = await explore()
+    if (res.data.code === 200) {
+      const d = res.data.data
+      if (d.chance) {
+        chanceEvent.value = d.chance
+        if (chanceTimer) clearTimeout(chanceTimer)
+        chanceTimer = setTimeout(() => { chanceEvent.value = null }, 7000)
+      }
+      await refreshStatus()
+    } else {
+      alert(res.data.msg || '参悟无应。')
+    }
+  } catch (e) {
+    alert(e.message || '魔门无应，连通失败')
+  } finally {
+    exploring.value = false
+  }
+}
+
+// 今日论道：取一道未答论题
+async function loadDailyQuiz() {
+  if (myLevel.value < TYPE_REQ.debate) return
+  try {
+    const res = await quizRandom()
+    if (res.data.code === 200) {
+      dailyQuiz.value = res.data.data?.quiz || null
+      quizChoice.value = ''
+      quizResult.value = null
+    }
+  } catch (e) { /* 静默 */ }
+}
+
+const QUIZ_LETTERS = ['A', 'B', 'C']
+async function submitQuiz() {
+  if (!dailyQuiz.value || !quizChoice.value || quizzing.value) return
+  quizzing.value = true
+  try {
+    const res = await debateAnswer(dailyQuiz.value.id, quizChoice.value)
+    if (res.data.code === 200) {
+      quizResult.value = res.data.data
+      await refreshStatus()
+    } else {
+      alert(res.data.msg || '论道无应。')
+    }
+  } catch (e) {
+    alert(e.message || '魔门无应，连通失败')
+  } finally {
+    quizzing.value = false
+  }
+}
+
+// 转生轮回：无上境方可，境界归元换取永久参悟加成
+async function onReincarnate() {
+  if (!isMaxRealm.value || reincarnating.value) return
+  if (!confirm('轮回之后境界归元、煞气尽散，仅留每世 +10% 的参悟加成。确定要转生吗？')) return
+  reincarnating.value = true
+  try {
+    const res = await reincarnate()
+    if (res.data.code === 200) {
+      alert(res.data.data.msg)
+      try {
+        const m = await me()
+        if (m.data.code === 200) {
+          user.value = m.data.data
+          saveSession(session.token, user.value)
+        }
+      } catch (e) { /* 静默 */ }
+      await refreshStatus()
+      await loadRank()
+      await loadDailyQuiz()
+    } else {
+      alert(res.data.msg || '轮回之门未启。')
+    }
+  } catch (e) {
+    alert(e.message || '魔门无应，连通失败')
+  } finally {
+    reincarnating.value = false
+  }
+}
+
 // 导航栏境界徽章配色（随境界变化）
 const badgeStyle = computed(() => {
   const c = REALM_COLORS[myLevel.value]
@@ -571,9 +847,26 @@ function realmTagStyle(i) {
   const c = REALM_COLORS[i] || REALM_COLORS[0]
   return { color: c, borderColor: c + '66', textShadow: `0 0 8px ${c}66` }
 }
+// 榜单维度：exp 英杰总榜 / quiz 论道榜 / spar 切磋榜
+const RANK_TABS = [
+  { v: 'exp', t: '英 杰 榜' },
+  { v: 'quiz', t: '论 道 榜' },
+  { v: 'spar', t: '切 磋 榜' }
+]
+const rankType = ref('exp')
+const rankMetricLabel = computed(() =>
+  rankType.value === 'quiz' ? '答对论题' : rankType.value === 'spar' ? '胜场' : '煞气'
+)
+
+async function switchRankType(v) {
+  if (rankType.value === v) return
+  rankType.value = v
+  await loadRank()
+}
+
 async function loadRank() {
   try {
-    const res = await homeRank()
+    const res = await homeRank(rankType.value)
     if (res.data.code === 200) rankList.value = res.data.data || []
   } catch (e) { /* 静默 */ }
 }
@@ -630,10 +923,11 @@ const sparLimit = computed(() => realmStatus.value?.sparLimit ?? 5)
 const sparCount = computed(() => realmStatus.value?.sparCount ?? 0)
 const sparLeft = computed(() => Math.max(0, sparLimit.value - sparCount.value))
 
-/** 单方战力：位阶×1000 + 煞气；境界差 ≥2 时低境一方按六折计（与后端一致） */
+/** 单方战力：位阶×8000 + 煞气；境界差 ≥2 时低境一方按六折计（与后端 Realm.POWER_PER_REALM 一致）
+ *  8000 是 v2 的关键调整：让「一重境界」真正压过囤下来的煞气，杜绝「突破反而变弱」 */
 function sparPower(index, exp, gap) {
   const mod = gap <= -2 ? 0.6 : 1
-  return Math.round((index * 1000 + (exp || 0)) * mod)
+  return Math.round((index * 8000 + (exp || 0)) * mod)
 }
 
 /** 对阵预览：双方战力、预估胜率、境界压制提示 */
@@ -853,6 +1147,9 @@ onMounted(async () => {
 
   // 拉取魔门英杰榜（境界 + 煞气排行）
   await loadRank()
+
+  // 今日论道（随机取一道未答论题）
+  await loadDailyQuiz()
 })
 
 onBeforeUnmount(() => {
@@ -2158,4 +2455,189 @@ function goAdmin() {
   border-color: rgba(255, 59, 107, 0.55);
   transform: translateY(-4px);
 }
+
+/* ==================== v2 修行日常 ==================== */
+.daily { position: relative; z-index: 3; }
+.daily-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  width: min(1080px, 92%);
+  margin: 0 auto;
+}
+.daily-card {
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 59, 107, 0.22);
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(40, 8, 24, 0.6), rgba(12, 2, 10, 0.75));
+}
+.dc-label { font-size: 11px; letter-spacing: 3px; color: rgba(232, 220, 200, 0.5); }
+.dc-value {
+  margin: 8px 0 12px;
+  font-size: 20px;
+  letter-spacing: 2px;
+  color: var(--gold);
+}
+.dc-sub { font-size: 12px; color: rgba(232, 220, 200, 0.55); letter-spacing: 1px; }
+.dc-btn {
+  width: 100%;
+  padding: 8px 10px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 59, 107, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 59, 107, 0.1);
+  color: #ffd9e2;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 2px;
+  transition: 0.2s;
+}
+.dc-btn:hover:not(:disabled) { background: rgba(255, 59, 107, 0.25); }
+.dc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.dc-bar {
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(255, 59, 107, 0.16);
+  overflow: hidden;
+}
+.dc-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #7a1010, var(--gold));
+}
+.reincarnate-btn {
+  display: block;
+  width: min(1080px, 92%);
+  margin: 16px auto 0;
+  padding: 12px;
+  cursor: pointer;
+  border: 1px solid rgba(217, 176, 102, 0.5);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(122, 92, 20, 0.5), rgba(201, 162, 39, 0.22));
+  color: var(--gold);
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 6px;
+  transition: 0.25s;
+}
+.reincarnate-btn:hover:not(:disabled) {
+  box-shadow: 0 0 22px rgba(217, 176, 102, 0.35);
+  transform: translateY(-2px);
+}
+.reincarnate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 榜单维度切换 */
+.rank-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(720px, 92%);
+  margin: 0 auto 14px;
+  flex-wrap: wrap;
+}
+.rank-tab {
+  cursor: pointer;
+  border: 1px solid rgba(255, 59, 107, 0.3);
+  background: transparent;
+  color: rgba(232, 220, 200, 0.7);
+  padding: 5px 16px;
+  border-radius: 16px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  font-family: inherit;
+  transition: 0.2s;
+}
+.rank-tab:hover { border-color: rgba(255, 59, 107, 0.6); color: #fff; }
+.rank-tab.on {
+  background: linear-gradient(135deg, #7a1010, #ff3b6b);
+  border-color: transparent;
+  color: #fff;
+}
+.rank-metric { font-size: 11px; letter-spacing: 2px; color: rgba(232, 220, 200, 0.45); }
+
+/* 机缘奇遇提示 */
+.chance-toast {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  z-index: 60;
+  width: 300px;
+  padding: 16px 18px;
+  cursor: pointer;
+  border: 1px solid rgba(217, 176, 102, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(48, 20, 8, 0.95), rgba(14, 4, 10, 0.95));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  animation: chanceIn 0.4s ease;
+}
+@keyframes chanceIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.ct-name { font-size: 13px; letter-spacing: 3px; color: var(--gold); }
+.ct-desc { margin: 8px 0 10px; font-size: 12px; line-height: 1.7; color: rgba(232, 220, 200, 0.72); }
+.ct-delta { font-size: 15px; letter-spacing: 2px; color: #7ee0a0; }
+.ct-delta.neg { color: #ff6b8a; }
+
+/* 今日论道弹窗 */
+.quiz-modal { width: min(620px, 92vw); }
+.quiz-lead {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: rgba(232, 220, 200, 0.75);
+}
+.quiz-opts { display: flex; flex-direction: column; gap: 10px; }
+.quiz-opt {
+  text-align: left;
+  padding: 12px 14px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 59, 107, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(232, 220, 200, 0.85);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  transition: 0.2s;
+}
+.quiz-opt:hover:not(:disabled) { border-color: rgba(255, 59, 107, 0.6); }
+.quiz-opt.picked { border-color: var(--gold); background: rgba(217, 176, 102, 0.1); }
+.quiz-opt.right { border-color: #4caf7d; background: rgba(76, 175, 125, 0.16); }
+.quiz-opt.wrong { border-color: #a02c48; background: rgba(160, 44, 72, 0.16); }
+.quiz-opt:disabled { cursor: default; }
+.quiz-result {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 2px solid #a02c48;
+  border-radius: 0 8px 8px 0;
+  background: rgba(160, 44, 72, 0.12);
+  font-size: 13px;
+  line-height: 1.8;
+  color: rgba(232, 220, 200, 0.8);
+}
+.quiz-result.ok { border-left-color: #4caf7d; background: rgba(76, 175, 125, 0.12); }
+.quiz-result b { display: block; margin-bottom: 4px; letter-spacing: 3px; color: var(--gold); }
+.quiz-result em { display: block; margin-top: 6px; font-style: normal; color: rgba(232, 220, 200, 0.55); }
+.modal-foot { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+/* 论道弹窗按钮（gold-btn 是后台页的类，首页需自带样式） */
+.modal-foot .gold-btn {
+  padding: 9px 22px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 59, 107, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 59, 107, 0.12);
+  color: #ffd9e2;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 3px;
+  transition: 0.2s;
+}
+.modal-foot .gold-btn.primary {
+  background: linear-gradient(135deg, #7a1010, #ff3b6b);
+  border-color: transparent;
+  color: #fff;
+}
+.modal-foot .gold-btn:hover:not(:disabled) { box-shadow: 0 0 18px rgba(255, 59, 107, 0.45); }
+.modal-foot .gold-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

@@ -65,9 +65,9 @@ export function breakthrough() {
   return http.post('/api/home/breakthrough')
 }
 
-// 魔门排行：按境界+煞气排序的前 10 名修者（持魔契时标记本人）
-export function homeRank() {
-  return http.get('/api/home/rank')
+// 魔门排行：type = exp（英杰总榜，缺省）/ quiz（论道榜）/ spar（切磋榜）
+export function homeRank(type) {
+  return http.get('/api/home/rank', { params: { type: type || 'exp' } })
 }
 
 // 论道问答：取论题与选项（不泄露答案，需魔卒境）
@@ -88,4 +88,41 @@ export function homeBadges() {
 // 修者切磋：与指定道号对战，胜者 +15 煞气、败者 -10
 export function sparring(targetName) {
   return http.post('/api/home/sparring', { targetName })
+}
+
+// ==================== v2 玩法 ====================
+
+// 每日签到状态：今日是否已签 / 连签天数 / 今日可领煞气
+export function signInfo() {
+  return http.get('/api/home/sign')
+}
+
+// 执行签到：连签越久赏赐越厚，连满七日另有大赏
+export function doSign() {
+  return http.post('/api/home/sign')
+}
+
+// 转生轮回：无上境方可，境界归元换取每世 +10% 永久参悟加成
+export function reincarnate() {
+  return http.post('/api/home/reincarnate')
+}
+
+// 研读典籍：首次研读该篇得煞气，并计入图鉴收集度
+export function readDoc(module, id) {
+  return http.post('/api/home/read', { module, id })
+}
+
+// 图鉴收集度：已读篇数 / 全库总篇数
+export function myCollection() {
+  return http.get('/api/home/collection')
+}
+
+// 习得功法：每部 +5% 参悟加成（最多叠加 4 部）
+export function learnArt(artId) {
+  return http.post(`/api/home/learn/${artId}`)
+}
+
+// 随机论题：取一道本人尚未作答的论题，供首页「今日论道」直接开答
+export function quizRandom() {
+  return http.get('/api/home/quiz/random')
 }

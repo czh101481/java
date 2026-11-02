@@ -1,30 +1,32 @@
 <template>
-  <!-- 后台管理系统 · 五大内容模块统一管理 -->
+  <!-- 后台管理系统 · 五大内容模块 + 修者权限 / 魔种天赋 / 魔门公告 统一管理 -->
   <div class="admin-page">
-    <!-- 顶栏：模块页签 -->
-    <header class="admin-nav">
-      <div class="admin-brand">
-        <span class="mark">后台管理系统</span>
-        <span class="sub">魔 门 藏 经 殿 · 数 据 管 理</span>
-      </div>
-      <div class="admin-meta">
-        <span class="who">执印人 · {{ username || 'admin' }}</span>
-        <router-link class="ghost-btn" to="/home">前 往 首 页</router-link>
-        <button class="ghost-btn warn" type="button" @click="onLogout">退 出 后 台</button>
-      </div>
-    </header>
+    <!-- 顶栏 + 模块页签：滚动时吸顶常驻 -->
+    <div class="admin-head">
+      <header class="admin-nav">
+        <div class="admin-brand">
+          <span class="mark">后台管理系统</span>
+          <span class="sub">魔 门 藏 经 殿 · 数 据 管 理</span>
+        </div>
+        <div class="admin-meta">
+          <span class="who">执印人 · {{ username || 'admin' }}</span>
+          <router-link class="ghost-btn" to="/home">前 往 首 页</router-link>
+          <button class="ghost-btn warn" type="button" @click="onLogout">退 出 后 台</button>
+        </div>
+      </header>
 
-    <!-- 模块切换 -->
-    <nav class="mod-tabs">
-      <button
-        v-for="(m, key) in MODULES"
-        :key="key"
-        type="button"
-        class="mod-tab"
-        :class="{ on: modKey === key }"
-        @click="switchModule(key)"
-      >{{ m.label }}</button>
-    </nav>
+      <!-- 模块切换 -->
+      <nav class="mod-tabs">
+        <button
+          v-for="(m, key) in MODULES"
+          :key="key"
+          type="button"
+          class="mod-tab"
+          :class="{ on: modKey === key }"
+          @click="switchModule(key)"
+        >{{ m.label }}</button>
+      </nav>
+    </div>
 
     <!-- 工具栏 -->
     <section class="toolbar">
@@ -41,7 +43,12 @@
         </select>
         <button type="submit" class="gold-btn">检 索</button>
       </form>
-      <button type="button" class="gold-btn primary" @click="openForm(null)">+ {{ cur.addLabel }}</button>
+      <button
+        v-if="!cur.noAdd"
+        type="button"
+        class="gold-btn primary"
+        @click="openForm(null)"
+      >+ {{ cur.addLabel }}</button>
     </section>
 
     <!-- 数据表 -->
@@ -73,7 +80,12 @@
             >{{ render(row, c) }}</td>
             <td>
               <button type="button" class="row-btn" @click="openForm(row)">修 改</button>
-              <button type="button" class="row-btn danger" @click="onDelete(row)">删 除</button>
+              <button
+                v-if="!cur.noDelete"
+                type="button"
+                class="row-btn danger"
+                @click="onDelete(row)"
+              >删 除</button>
             </td>
           </tr>
         </tbody>
@@ -141,12 +153,15 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { imgUrl } from '../api/home'
 import {
+  announcementAdd, announcementDelete, announcementList, announcementUpdate,
   archiveAdd, archiveDelete, archiveList, archiveUpdate,
   artAdd, artDelete, artList, artUpdate,
   codexAdd, codexDelete, codexList, codexUpdate,
   debateAdd, debateDelete, debateList, debateUpdate,
   clearAdminSession, getAdminSession,
-  imageList, trialAdd, trialDelete, trialList, trialUpdate
+  imageList, originAdd, originDelete, originList, originUpdate,
+  trialAdd, trialDelete, trialList, trialUpdate,
+  userList, userUpdate
 } from '../api/admin'
 // 境界下拉选项：由后端 demon_realm 表驱动（默认值与表一致）
 import { REALM_OPTIONS } from '../config/realm'
@@ -161,6 +176,15 @@ const CATS = [
   { v: 'ancient', t: '上古秘录' }
 ]
 const CAT_MAP = Object.fromEntries(CATS.map(o => [o.v, o.t]))
+
+// 权限：0 管理员（可见后台入口并可登录）/ 1 普通修者
+const PERMS = [
+  { v: 0, t: '管理员' },
+  { v: 1, t: '普通修者' }
+]
+const PERM_MAP = Object.fromEntries(PERMS.map(o => [o.v, o.t]))
+// 公告类别
+const LEVELS = ['通告', '警示', '喜讯', '秘辛'].map(v => ({ v, t: v }))
 
 // ==================== 模块配置（配置驱动：列表列 + 表单字段） ====================
 const MODULES = {
@@ -260,6 +284,69 @@ const MODULES = {
       { key: 'sortOrder', label: '分类内排序', type: 'number', ph: '0' },
       { key: 'summary', label: '一句话提要', wide: true, ph: '一句概括此条目…' },
       { key: 'content', label: '正文', type: 'textarea', wide: true, ph: '典册正文（换行保留）…' }
+    ]
+  },
+  // 修者名录：仅可修改权限（授予 / 收回管理员），不提供新增与删除
+  user: {
+    label: '修 者 名 录', short: '修者', noAdd: true, noDelete: true,
+    api: { list: userList, update: userUpdate },
+    imgDir: '', titleKey: 'name', addLabel: '',
+    kwPlaceholder: '按道号 / 灵识印记检索…',
+    columns: [
+      { key: 'name', label: '道号' },
+      { key: 'cultivation', label: '境界', w: '90px' },
+      { key: 'exp', label: '煞气', w: '90px' },
+      { key: 'permission', label: '权限', w: '100px', map: PERM_MAP },
+      { key: 'email', label: '灵识印记', dim: true }
+    ],
+    fields: [
+      { key: 'name', label: '道号', ph: '修者道号' },
+      { key: 'cultivation', label: '境界', type: 'select', options: REALMS },
+      { key: 'exp', label: '煞气', type: 'number', ph: '0' },
+      { key: 'permission', label: '权限', type: 'select', options: PERMS }
+    ]
+  },
+  // 魔种天赋：改完自动重载，立即对玩法生效
+  origin: {
+    label: '魔 种 天 赋', short: '魔种',
+    api: { list: originList, add: originAdd, update: originUpdate, del: originDelete },
+    imgDir: '', titleKey: 'origin', addLabel: '录 入 新 魔 种',
+    kwPlaceholder: '按魔种名 / 天赋名检索…',
+    columns: [
+      { key: 'origin', label: '魔种' },
+      { key: 'title', label: '天赋名', w: '120px' },
+      { key: 'exploreBonus', label: '参悟加成', w: '90px' },
+      { key: 'sparPowerBonus', label: '战力加成', w: '90px' },
+      { key: 'sparRewardBonus', label: '掠夺加成', w: '90px' },
+      { key: 'insightChance', label: '顿悟概率', w: '90px' },
+      { key: 'sort', label: '排序', w: '70px' }
+    ],
+    fields: [
+      { key: 'origin', label: '魔种名', required: true, ph: '如：血煞（须与修者魔种一致）' },
+      { key: 'title', label: '天赋名', ph: '如：血煞战体' },
+      { key: 'exploreBonus', label: '参悟加成', type: 'number', ph: '0.50 即 +50%' },
+      { key: 'sparPowerBonus', label: '战力加成', type: 'number', ph: '0.12 即 +12%' },
+      { key: 'sparRewardBonus', label: '掠夺加成', type: 'number', ph: '1.00 即奖励翻倍' },
+      { key: 'insightChance', label: '顿悟概率', type: 'number', ph: '0.25 即 25%' },
+      { key: 'sort', label: '展示顺序', type: 'number', ph: '0' },
+      { key: 'description', label: '天赋描述', type: 'textarea', wide: true, ph: '一句点明此魔种之偏向…' }
+    ]
+  },
+  // 魔门公告：首页顶部滚动条即时展示
+  announce: {
+    label: '魔 门 公 告', short: '公告',
+    api: { list: announcementList, add: announcementAdd, update: announcementUpdate, del: announcementDelete },
+    imgDir: '', titleKey: 'title', addLabel: '发 布 新 公 告',
+    kwPlaceholder: '按标题 / 正文检索…',
+    columns: [
+      { key: 'title', label: '标题' },
+      { key: 'level', label: '类别', w: '90px' },
+      { key: 'content', label: '正文', dim: true }
+    ],
+    fields: [
+      { key: 'title', label: '标题', required: true, ph: '如：魔门大比将于望日开启' },
+      { key: 'level', label: '类别', type: 'select', options: LEVELS },
+      { key: 'content', label: '正文', type: 'textarea', wide: true, ph: '公告正文…' }
     ]
   }
 }
@@ -421,14 +508,40 @@ function onLogout() {
 
 <style scoped>
 .admin-page {
-  min-height: 100vh;
+  /* 与首页 / 典册一致：撑满视口并自成滚动区，长表格可上下滚动 */
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background:
     radial-gradient(1200px 600px at 80% -10%, rgba(122, 92, 20, 0.18), transparent 60%),
     radial-gradient(900px 500px at 0% 110%, rgba(160, 44, 72, 0.12), transparent 60%),
     #120a1e;
   color: #e8dcc8;
-  padding: 24px 32px 48px;
+  /* 底部留白：避开全局固定的「顺逆由心」低语 */
+  padding: 0 32px 72px;
   box-sizing: border-box;
+}
+/* 滚动条（暗金风） */
+.admin-page::-webkit-scrollbar { width: 10px; height: 10px; }
+.admin-page::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); }
+.admin-page::-webkit-scrollbar-thumb {
+  background: rgba(201, 162, 39, 0.35);
+  border-radius: 6px;
+}
+.admin-page::-webkit-scrollbar-thumb:hover { background: rgba(201, 162, 39, 0.6); }
+
+/* 吸顶头部：顶栏 + 模块页签 */
+.admin-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0 -32px;
+  padding: 20px 32px 14px;
+  background: linear-gradient(180deg, #120a1e 0%, rgba(18, 10, 30, 0.95) 72%, rgba(18, 10, 30, 0.72) 100%);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(201, 162, 39, 0.25);
 }
 
 /* 顶栏 */
@@ -436,8 +549,7 @@ function onLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(201, 162, 39, 0.25);
+  gap: 16px;
 }
 .admin-brand .mark {
   font-size: 22px;
@@ -465,7 +577,7 @@ function onLogout() {
 .mod-tabs {
   display: flex;
   gap: 10px;
-  margin: 18px 0 0;
+  margin: 16px 0 0;
   flex-wrap: wrap;
 }
 .mod-tab {
@@ -689,5 +801,14 @@ function onLogout() {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 14px;
+}
+
+/* ===== 窄屏适配 ===== */
+@media (max-width: 720px) {
+  .admin-page { padding: 0 16px 72px; }
+  .admin-head { margin: 0 -16px; padding: 16px 16px 12px; }
+  .admin-nav { flex-wrap: wrap; }
+  .admin-brand .sub { display: none; }
+  .toolbar { flex-wrap: wrap; }
 }
 </style>

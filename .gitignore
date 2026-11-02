@@ -20,6 +20,9 @@ log/
 # 自带的 Maven 发行包（二进制，体积大，不入库；构建请用系统 Maven 或 mvnw 自动下载）
 springBootTest/tools/
 
+# Maven Wrapper 二进制（mvnw 首次运行会自动下载，不入库）
+.mvn/wrapper/maven-wrapper.jar
+
 # ===================== Node / Vue (fanren-login-vue) =====================
 node_modules/
 dist/

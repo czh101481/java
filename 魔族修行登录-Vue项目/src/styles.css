@@ -18,7 +18,10 @@ body {
   font-family: "STKaiti", "KaiTi", "Songti SC", "SimSun", serif;
   background: radial-gradient(ellipse at 50% 30%, #1c0c30 0%, var(--void) 60%, #050208 100%);
   color: var(--bone);
-  overflow: hidden;
+  /* 横向锁死（背景法阵不溢出），纵向放行：
+     否则长页面（如后台管理）超出视口的部分将完全无法滚动到 */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #app {

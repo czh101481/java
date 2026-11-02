@@ -131,6 +131,56 @@ export function archiveDelete(id) {
   return adminHttp.delete(`/api/admin/archive/${id}`)
 }
 
+// ==================== 修者名录（demon_user）· 权限管理 ====================
+// 列表已由后端剔除密令；仅支持修改（授予 / 收回管理员权限），不提供新增与删除
+export function userList(kw) {
+  return adminHttp.get('/api/admin/user/list', { params: { kw: kw || '' } })
+}
+
+export function userUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/user/${id}`, payload)
+}
+
+// ==================== 魔种天赋（demon_origin） ====================
+// 增删改后后端自动重载天赋配置，无需重启
+export function originList(kw) {
+  return adminHttp.get('/api/admin/origin/list', { params: { kw: kw || '' } })
+}
+
+export function originAdd(payload) {
+  return adminHttp.post('/api/admin/origin', payload)
+}
+
+export function originUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/origin/${id}`, payload)
+}
+
+export function originDelete(id) {
+  return adminHttp.delete(`/api/admin/origin/${id}`)
+}
+
+// 手动重载魔种天赋配置（一般无需调用，增删改已自动重载）
+export function originReload() {
+  return adminHttp.post('/api/admin/origin/reload')
+}
+
+// ==================== 魔门公告（demon_announcement） ====================
+export function announcementList(kw) {
+  return adminHttp.get('/api/admin/announcement/list', { params: { kw: kw || '' } })
+}
+
+export function announcementAdd(payload) {
+  return adminHttp.post('/api/admin/announcement', payload)
+}
+
+export function announcementUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/announcement/${id}`, payload)
+}
+
+export function announcementDelete(id) {
+  return adminHttp.delete(`/api/admin/announcement/${id}`)
+}
+
 // ==================== 图片同步 ====================
 // 扫描后端 static/images/{dir} 实际存在的图片，返回相对路径清单
 export function imageList(dir) {

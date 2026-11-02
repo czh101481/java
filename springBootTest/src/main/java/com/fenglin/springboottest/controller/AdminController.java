@@ -5,17 +5,23 @@ import com.fenglin.springboottest.common.Realm;
 import com.fenglin.springboottest.common.Result;
 import com.fenglin.springboottest.config.RealmConfigLoader;
 import com.fenglin.springboottest.dto.AdminLoginDTO;
+import com.fenglin.springboottest.common.Origins;
+import com.fenglin.springboottest.config.OriginConfigLoader;
+import com.fenglin.springboottest.entity.Announcement;
 import com.fenglin.springboottest.entity.Archive;
 import com.fenglin.springboottest.entity.Art;
 import com.fenglin.springboottest.entity.Codex;
 import com.fenglin.springboottest.entity.Debate;
 import com.fenglin.springboottest.entity.DemonUser;
+import com.fenglin.springboottest.entity.OriginConfig;
 import com.fenglin.springboottest.entity.Trial;
+import com.fenglin.springboottest.mapper.AnnouncementMapper;
 import com.fenglin.springboottest.mapper.ArchiveMapper;
 import com.fenglin.springboottest.mapper.ArtMapper;
 import com.fenglin.springboottest.mapper.CodexMapper;
 import com.fenglin.springboottest.mapper.DebateMapper;
 import com.fenglin.springboottest.mapper.DemonUserMapper;
+import com.fenglin.springboottest.mapper.OriginConfigMapper;
 import com.fenglin.springboottest.mapper.TrialMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
@@ -68,7 +74,13 @@ public class AdminController {
     @Autowired
     private DemonUserMapper userMapper;
     @Autowired
+    private OriginConfigMapper originConfigMapper;
+    @Autowired
+    private AnnouncementMapper announcementMapper;
+    @Autowired
     private RealmConfigLoader realmConfigLoader;
+    @Autowired
+    private OriginConfigLoader originConfigLoader;
 
     /** 允许扫描的配图目录（白名单） */
     private static final Set<String> IMAGE_DIRS = Set.of("art", "trial", "codex");
@@ -582,6 +594,259 @@ public class AdminController {
         data.put("realms", Realm.NAMES);
         data.put("thresholds", Realm.THRESHOLDS);
         return Result.success(data);
+    }
+
+    // ==================== 修者名录（demon_user）· 权限管理 ====================
+
+    /**
+     * 修者名录 GET /api/admin/user/list?kw= → id 倒序，kw 过滤道号 / 灵识印记
+     * 安全：密令（password）一律置空后返回，绝不外泄到后台界面
+     */
+    @GetMapping("/user/list")
+    public Result<List<DemonUser>> userList(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "kw", required = false, defaultValue = "") String kw) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        LambdaQueryWrapper<DemonUser> qw = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(kw)) {
+            String k = kw.trim();
+            qw.like(DemonUser::getName, k).or().like(DemonUser::getEmail, k);
+        }
+        qw.orderByDesc(DemonUser::getId);
+        List<DemonUser> users = userMapper.selectList(qw);
+        users.forEach(u -> u.setPassword(null));
+        return Result.success(users);
+    }
+
+    /**
+     * 修改修者 PUT /api/admin/user/{id}
+     * 可改：permission（0 管理员 / 1 普通修者）、name、cultivation、exp
+     * 不可改：password —— 永不被覆盖，避免后台误将密令清空
+     * 保护：不允许把最后一位管理员降为普通修者，否则后台将再无人可入
+     */
+    @PutMapping("/user/{id}")
+    public Result<?> userUpdate(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id,
+            @RequestBody DemonUser patch) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        DemonUser old = userMapper.selectById(id);
+        if (old == null) {
+            return Result.error(404, "魔门之中并无此修者。");
+        }
+        if (patch == null) {
+            return Result.error(400, "无可改之数。");
+        }
+        DemonUser up = new DemonUser();
+        up.setId(id);
+        if (patch.getPermission() != null) {
+            int p = patch.getPermission();
+            if (p != 0 && p != 1) {
+                return Result.error(400, "权限只可为 0（管理员）或 1（普通修者）。");
+            }
+            boolean demoteAdmin = p == 1 && old.getPermission() != null && old.getPermission() == 0;
+            if (demoteAdmin) {
+                Long admins = userMapper.selectCount(
+                        new LambdaQueryWrapper<DemonUser>().eq(DemonUser::getPermission, 0));
+                if (admins != null && admins <= 1) {
+                    return Result.error(400, "魔门不可无执印人：此为最后一位管理员，不可降为普通修者。");
+                }
+            }
+            up.setPermission(p);
+        }
+        if (StringUtils.hasText(patch.getName())) {
+            up.setName(patch.getName().trim());
+        }
+        if (StringUtils.hasText(patch.getCultivation())) {
+            up.setCultivation(patch.getCultivation().trim());
+        }
+        if (patch.getExp() != null) {
+            up.setExp(patch.getExp());
+        }
+        up.setPassword(null);
+        userMapper.updateById(up);
+        DemonUser fresh = userMapper.selectById(id);
+        if (fresh != null) {
+            fresh.setPassword(null);
+        }
+        return Result.success(fresh);
+    }
+
+    // ==================== 魔种天赋（demon_origin） ====================
+
+    /** 魔种天赋列表 GET /api/admin/origin/list?kw= → sort 升序，kw 过滤魔种名 / 天赋名 */
+    @GetMapping("/origin/list")
+    public Result<List<OriginConfig>> originList(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "kw", required = false, defaultValue = "") String kw) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        LambdaQueryWrapper<OriginConfig> qw = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(kw)) {
+            String k = kw.trim();
+            qw.like(OriginConfig::getOrigin, k).or().like(OriginConfig::getTitle, k);
+        }
+        qw.orderByAsc(OriginConfig::getSort);
+        return Result.success(originConfigMapper.selectList(qw));
+    }
+
+    /** 新增魔种 POST /api/admin/origin（入库后自动重载天赋配置，立即生效） */
+    @PostMapping("/origin")
+    public Result<?> originAdd(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody OriginConfig cfg) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        if (cfg == null || !StringUtils.hasText(cfg.getOrigin())) {
+            return Result.error(400, "魔种名不可为空。");
+        }
+        if (cfg.getSort() == null) {
+            cfg.setSort(99);
+        }
+        cfg.setId(null);
+        originConfigMapper.insert(cfg);
+        originConfigLoader.load();
+        return Result.success(cfg);
+    }
+
+    /** 修改魔种 PUT /api/admin/origin/{id}（自动重载天赋配置） */
+    @PutMapping("/origin/{id}")
+    public Result<?> originUpdate(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id,
+            @RequestBody OriginConfig cfg) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        if (originConfigMapper.selectById(id) == null) {
+            return Result.error(404, "魔门之中并无此魔种。");
+        }
+        if (cfg == null || !StringUtils.hasText(cfg.getOrigin())) {
+            return Result.error(400, "魔种名不可为空。");
+        }
+        cfg.setId(id);
+        originConfigMapper.updateById(cfg);
+        originConfigLoader.load();
+        return Result.success(originConfigMapper.selectById(id));
+    }
+
+    /** 删除魔种 DELETE /api/admin/origin/{id}（自动重载天赋配置） */
+    @DeleteMapping("/origin/{id}")
+    public Result<?> originDelete(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        if (originConfigMapper.selectById(id) == null) {
+            return Result.error(404, "魔门之中并无此魔种。");
+        }
+        originConfigMapper.deleteById(id);
+        originConfigLoader.load();
+        return Result.success("已将该魔种自魔门除名。");
+    }
+
+    /** 重新加载魔种天赋 POST /api/admin/origin/reload → 改完表无需重启后端 */
+    @PostMapping("/origin/reload")
+    public Result<Map<String, Object>> reloadOrigin(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String err = checkAdmin(authorization);
+        if (err != null) {
+            return Result.error(401, err);
+        }
+        originConfigLoader.load();
+        Map<String, Object> data = new HashMap<>();
+        data.put("origins", Origins.all().stream().map(Origins.Bonus::getOrigin).toList());
+        return Result.success(data);
+    }
+
+    // ==================== 魔门公告（demon_announcement） ====================
+
+    /** 公告列表 GET /api/admin/announcement/list?kw= → id 倒序，kw 过滤标题 / 正文 */
+    @GetMapping("/announcement/list")
+    public Result<List<Announcement>> announcementList(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "kw", required = false, defaultValue = "") String kw) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        LambdaQueryWrapper<Announcement> qw = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(kw)) {
+            String k = kw.trim();
+            qw.like(Announcement::getTitle, k).or().like(Announcement::getContent, k);
+        }
+        qw.orderByDesc(Announcement::getId);
+        return Result.success(announcementMapper.selectList(qw));
+    }
+
+    /** 发布公告 POST /api/admin/announcement */
+    @PostMapping("/announcement")
+    public Result<?> announcementAdd(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody Announcement a) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        if (a == null || !StringUtils.hasText(a.getTitle())) {
+            return Result.error(400, "公告标题不可为空。");
+        }
+        if (!StringUtils.hasText(a.getLevel())) {
+            a.setLevel("通告");
+        }
+        a.setId(null);
+        announcementMapper.insert(a);
+        return Result.success(a);
+    }
+
+    /** 修改公告 PUT /api/admin/announcement/{id} */
+    @PutMapping("/announcement/{id}")
+    public Result<?> announcementUpdate(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id,
+            @RequestBody Announcement a) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        if (announcementMapper.selectById(id) == null) {
+            return Result.error(404, "魔门之中并无此公告。");
+        }
+        if (a == null || !StringUtils.hasText(a.getTitle())) {
+            return Result.error(400, "公告标题不可为空。");
+        }
+        a.setId(id);
+        announcementMapper.updateById(a);
+        return Result.success(announcementMapper.selectById(id));
+    }
+
+    /** 删除公告 DELETE /api/admin/announcement/{id} */
+    @DeleteMapping("/announcement/{id}")
+    public Result<?> announcementDelete(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        if (announcementMapper.selectById(id) == null) {
+            return Result.error(404, "魔门之中并无此公告。");
+        }
+        announcementMapper.deleteById(id);
+        return Result.success("已将该公告自魔门撤下。");
     }
 
     /** 管理员鉴权：有效返回 null，无效返回提示 */

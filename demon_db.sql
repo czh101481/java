@@ -1,7 +1,7 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : test
+ Source Server         : demon_db
  Source Server Type    : MySQL
  Source Server Version : 80039 (8.0.39)
  Source Host           : localhost:3306
@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 29/10/2026 15:10:50
+ Date: 02/11/2026 09:58:22
 */
 
 SET NAMES utf8mb4;
@@ -156,7 +156,7 @@ CREATE TABLE `demon_debate`  (
   `analysis` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '论道解析',
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '宗门论道' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 21 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '宗门论道' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_debate
@@ -169,6 +169,98 @@ INSERT INTO `demon_debate` VALUES (5, '群魔共治', '噬魂大王', '魔域当
 INSERT INTO `demon_debate` VALUES (6, '寂灭与轮回', '寂灭尊者', '魔修可证寂灭，抑或只入轮回？', '寂灭为归，轮回为苦', '轮回为归，寂灭为断', '寂灭与轮回皆途，道心所向即是归处', 'C', '执着寂灭是断，执着轮回是迷；魔修之路不在归处，而在道心所向。', '2026-10-26 09:02:42');
 INSERT INTO `demon_debate` VALUES (7, '力量之价', '血河老祖', '无敌之力，是否必以本心为祭？', '力量即一切，本心可弃', '本心为本，力量为用，不可倒置', '力量与本心并行不悖，无需取舍', 'B', '以本心祭力量者，终成力量的傀儡；力为用、心为本，用不伤本方是正途。', '2026-10-26 09:02:42');
 INSERT INTO `demon_debate` VALUES (8, '魔域之疆', '幽冥夫人', '魔域当有边界，还是无垠扩张？', '魔域当有边界，守成方安', '魔域当无垠扩张，停滞即死亡', '疆界在心不在土，心之所在即魔域', 'C', '有形之疆终有尽时，无形之疆随道心而长；守成与扩张皆是外相，心疆无边方是真无垠。', '2026-10-26 09:02:42');
+INSERT INTO `demon_debate` VALUES (9, '煞气何来', '引煞长老', '魔道修行以煞气为基，世人皆言煞气乃杀伐之气，那么它究竟从何而生？', '众生执念所积，观魔域万象而自聚', '杀戮取命，唯杀生方得煞气', '天授之，生而有之', 'A', '煞气非杀伐所生，乃众生执念汇聚。故参悟魔域、论道辨析皆可纳煞，不必染血。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (10, '境界压制之虚实', '萧寒山', '高境者临敌，其压制之力究竟源于境界本身，还是源于积累的煞气？', '纯粹是位阶之差，与煞气无关', '只看煞气多寡，位阶虚名而已', '位阶定根本，煞气填血肉，二者相合方成战力', 'C', '战力者，位阶乘千再加煞气。位阶是骨架，煞气是血肉。境界差两重以上，低者战力折损三成。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (11, '四系魔种之辨', '虚妄上人', '血煞、幽冥、噬魂、虚妄四系，择其一而后终身为限，此择是否要紧？', '各系天赋不同，择种即定其修行偏向', '只是名号，全无实际差别', '可随时改易，随心而变', 'A', '四系各有所长：血煞善战、幽冥纳煞、噬魂掠夺、虚妄顿悟。择种，便是择一条路数的开头。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (12, '心魔何以为魔', '寂灭尊者', '修行者走火入魔，究竟是被外力侵蚀，还是自心失守？', '外魔入侵，防之当在外', '心念一乱，自心即魔', '修行过急，必然走火', 'B', '魔自心生。外境只是引子，真正动摇道心的，从来都是自己的执念。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (13, '切磋是否夺人道行', '血河老祖', '同门切磋，胜负既定便各有增损。那么切磋算不算夺人道行？', '不算，煞气往来如活水，流转方能精进', '算，故当禁止', '只在胜负悬殊时才算', 'A', '煞气不是死物。切磋取其流转，败者失、胜者得，如磨刀石相互砥砺，并非掠夺。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (14, '境界与功法', '魔祖', '已至高位者，是否还需回头修习低阶功法？', '不必，境界已足，功法皆小道', '全看功法之名是否够响亮', '境界为体，功法为用，体用不可偏废', 'C', '境界是修为的容量，功法是运用的法门。空有境界而无功法，如持巨鼎而不知如何举。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (15, '历练之所求', '燕孤鸿', '入历练之地，究竟为取宝、为杀敌、还是为阅世？', '为阅世，见天地而后知自身之限', '为杀，杀得多者功高', '为宝，有所得方不虚此行', 'A', '历练之本，在于见未曾见之物、遇未曾遇之险。宝物可失，所见长存。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (16, '魔籍为何留名', '典册执笔', '修者一代代凋零，魔枢典册却仍载其名，意义何在？', '为留存来处，使后来者知今身所承', '为论功行赏，记其境界高低', '仅为管理之便，无甚深意', 'A', '典册记的不是名次，是来处。知其承，方知其往。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (17, '掠夺之力有度否', '噬魂大王', '噬魂一系胜则夺人煞气，那么这种掠夺是否有上限？', '无上限，胜者当得其全部', '有上限，只取其该失之数，不敢尽取', '掠夺与胜负无关，只看境界差', 'B', '掠夺之力亦有分寸。噬魂一系胜时多得一份，而非尽夺。道有边际，方能长存。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (18, '无上何解', '魔祖', '十境之末为「无上」。既名无上，是否意味修行到此为止？', '否，「无上」只是当前十重之顶，非道之尽头', '是，到此已极，无可再进', '无上即虚无，本质是放弃修行', 'A', '「无上」是这十重体系之顶，不是道的顶。名可尽，而道不可尽。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (19, '静修与争锋', '幽冥夫人', '一方闭关千年不出，一方日日与人争锋，孰能更快进境？', '闭关者，心不散则进境速', '争锋者，切磋纳煞最快', '二者各有其途，唯不宜偏废', 'C', '闭关纳煞如储蓄，争锋切磋如练刀。蓄而不练则钝，练而不蓄则竭。', '2026-11-02 09:49:29');
+INSERT INTO `demon_debate` VALUES (20, '道号与真我', '无名者', '修者以道号入籍受拜，那么道号是否影响其修行命途？', '影响，名入魔碑即是咒', '不影响，名只是名，来去无痕', '只在他人唤你时才短暂有意义', 'A', '道号入碑，朝夕被唤，久而久之便成了自家所认的「我是谁」。名不是咒，却比咒更长久。', '2026-11-02 09:49:29');
+
+-- ----------------------------
+-- Table structure for demon_origin
+-- ----------------------------
+DROP TABLE IF EXISTS `demon_origin`;
+CREATE TABLE `demon_origin`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `origin` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '魔种名（与 demon_user.realm 对应）',
+  `title` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '天赋名',
+  `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '天赋描述',
+  `explore_bonus` decimal(4, 2) NOT NULL DEFAULT 0.00 COMMENT '参悟煞气加成倍率',
+  `spar_power_bonus` decimal(4, 2) NOT NULL DEFAULT 0.00 COMMENT '切磋战力加成倍率',
+  `spar_reward_bonus` decimal(4, 2) NOT NULL DEFAULT 0.00 COMMENT '切磋胜利额外奖励倍率',
+  `insight_chance` decimal(4, 2) NOT NULL DEFAULT 0.00 COMMENT '参悟顿悟（双倍）概率',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '展示顺序',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_origin`(`origin` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '魔种天赋配置（四系差异化）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of demon_origin
+-- ----------------------------
+INSERT INTO `demon_origin` VALUES (1, '血煞', '战意滔天', '血煞入体，愈战愈勇。与人切磋时战力大涨，正面硬撼无人可挡。', 0.00, 0.12, 0.00, 0.00, 1, '2026-11-02 09:42:19', '2026-11-02 09:42:19');
+INSERT INTO `demon_origin` VALUES (2, '幽冥', '幽息吞吐', '幽冥之体，静默纳煞。参悟魔域所得煞气远胜他人，进境最速。', 0.50, 0.00, 0.00, 0.00, 2, '2026-11-02 09:42:19', '2026-11-02 09:42:19');
+INSERT INTO `demon_origin` VALUES (3, '噬魂', '夺魂摄魄', '噬魂之术，胜则食髓。切磋得胜时可将败者煞气一并吞下，掠夺倍增。', 0.00, 0.00, 1.00, 0.00, 3, '2026-11-02 09:42:19', '2026-11-02 09:42:19');
+INSERT INTO `demon_origin` VALUES (4, '虚妄', '虚妄顿悟', '虚妄之心，真假难辨。参悟时偶得顿悟，煞气瞬间翻倍。', 0.00, 0.00, 0.00, 0.25, 4, '2026-11-02 09:42:19', '2026-11-02 09:42:19');
+
+-- ----------------------------
+-- Table structure for demon_quiz_record
+-- ----------------------------
+DROP TABLE IF EXISTS `demon_quiz_record`;
+CREATE TABLE `demon_quiz_record`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` bigint NOT NULL COMMENT '作答修者 id',
+  `debate_id` bigint NOT NULL COMMENT '论题 id（demon_debate.id）',
+  `correct` tinyint NOT NULL DEFAULT 0 COMMENT '是否答对：1 是 / 0 否',
+  `awarded` int NOT NULL DEFAULT 0 COMMENT '本次结算的煞气变动（可为负）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '作答时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_user_debate`(`user_id` ASC, `debate_id` ASC) USING BTREE COMMENT '同一人同一题仅一次，防重复刷分',
+  INDEX `idx_user`(`user_id` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '论道答题记录（防重复刷分）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of demon_quiz_record
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for demon_realm
+-- ----------------------------
+DROP TABLE IF EXISTS `demon_realm`;
+CREATE TABLE `demon_realm`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `idx` int NOT NULL COMMENT '位阶（0 起，0=引煞，9=无上）',
+  `name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '境界名',
+  `title` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '境界称号',
+  `description` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '境界描述',
+  `threshold` int NULL DEFAULT 0 COMMENT '冲击该境所需煞气（引煞为 0）',
+  `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '落成时间',
+  `updated_at` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_idx`(`idx` ASC) USING BTREE,
+  UNIQUE INDEX `uk_name`(`name` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '修行境界配置表（十境）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of demon_realm
+-- ----------------------------
+INSERT INTO `demon_realm` VALUES (1, 0, '引煞', '初入魔门', '引煞入体，初踏魔途', 100, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
+INSERT INTO `demon_realm` VALUES (2, 1, '凝煞', '煞气凝形', '煞气凝形，根基渐固', 300, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
+INSERT INTO `demon_realm` VALUES (3, 2, '魔卒', '魔门行伍', '位列行伍，可入历练', 800, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
+INSERT INTO `demon_realm` VALUES (4, 3, '魔尉', '统御百夫', '百夫之长，可窥魔典', 1500, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
+INSERT INTO `demon_realm` VALUES (5, 4, '魔将', '坐镇一方', '坐镇一方，执掌典册', 2400, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
+INSERT INTO `demon_realm` VALUES (6, 5, '血煞', '威震魔域', '煞名远播，威震群魔', 3800, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
+INSERT INTO `demon_realm` VALUES (7, 6, '魔尊', '魔道至尊', '魔威盖世，群魔俯首', 8000, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
+INSERT INTO `demon_realm` VALUES (8, 7, '魔祖', '万法归魔', '一念通天，统御群修', 12000, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
+INSERT INTO `demon_realm` VALUES (9, 8, '魔圣', '圣魔临世', '魔道通玄，圣威昭昭', 15000, '2026-11-02 09:13:01', '2026-11-02 09:18:54');
+INSERT INTO `demon_realm` VALUES (10, 9, '无上', '无上魔道', '超然物外，万法皆空', 20000, '2026-11-02 09:13:01', '2026-11-02 09:13:01');
 
 -- ----------------------------
 -- Table structure for demon_trial
@@ -190,9 +282,9 @@ CREATE TABLE `demon_trial`  (
 -- Records of demon_trial
 -- ----------------------------
 INSERT INTO `demon_trial` VALUES (1, '万骨荒原试炼', '万骨荒原', '魔卒', '高', '于白骨遍野之地淬炼杀性，活过三息者方入门。', '2026-10-26 09:02:42', '/images/trial/trial-1.jpg');
-INSERT INTO `demon_trial` VALUES (2, '血海浮屠', '血海', '魔尉', '绝', '渡血海而不溺，方证凶煞之身。', '2026-10-26 09:02:42', '/images/trial/trial-2.jpg');
+INSERT INTO `demon_trial` VALUES (2, '血海浮屠', '血海', '血煞', '绝', '渡血海而不溺，方证凶煞之身。', '2026-10-26 09:02:42', '/images/trial/trial-2.jpg');
 INSERT INTO `demon_trial` VALUES (3, '幻月迷宫', '幻月渊', '魔卒', '中', '破幻月迷宫，明心见性，幻破则境开。', '2026-10-26 09:02:42', '/images/trial/trial-3.jpg');
-INSERT INTO `demon_trial` VALUES (4, '魔渊深处', '无底魔渊', '魔将', '绝', '下探魔渊，窥见本源，然归来者寥寥。', '2026-10-26 09:02:42', '/images/trial/trial-4.jpg');
+INSERT INTO `demon_trial` VALUES (4, '魔渊深处', '无底魔渊', '魔尊', '绝', '下探魔渊，窥见本源，然归来者寥寥。', '2026-10-26 09:02:42', '/images/trial/trial-4.jpg');
 INSERT INTO `demon_trial` VALUES (5, '群魔论战', '魔域演武场', '魔尉', '中', '与同辈论战，砥砺道行，败者亦有所悟。', '2026-10-26 09:02:42', '/images/trial/trial-5.jpg');
 INSERT INTO `demon_trial` VALUES (6, '煞风峡谷', '煞风峡', '魔卒', '中', '穿煞风而过，炼体亦炼心，怯者退。', '2026-10-26 09:02:42', '/images/trial/trial-6.jpg');
 INSERT INTO `demon_trial` VALUES (7, '冥河摆渡', '冥河', '魔尉', '高', '渡冥河寻彼岸，迷者沉，悟者渡。', '2026-10-26 09:02:42', '/images/trial/trial-7.jpg');
@@ -212,6 +304,10 @@ CREATE TABLE `demon_user`  (
   `exp` int NULL DEFAULT 0 COMMENT '煞气修为',
   `exp_date` date NULL DEFAULT NULL COMMENT '最后参悟日期（跨日清零）',
   `exp_count_today` int NULL DEFAULT 0 COMMENT '当日已参悟次数',
+  `spar_date` date NULL DEFAULT NULL COMMENT '最后切磋日期（跨日清零）',
+  `spar_count_today` int NULL DEFAULT 0 COMMENT '当日已切磋次数',
+  `quiz_date` date NULL DEFAULT NULL COMMENT '最后论道日期（跨日清零）',
+  `quiz_count_today` int NULL DEFAULT 0 COMMENT '当日已答论题数',
   `password` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '护法密令（演示为明文，生产请加密）',
   `permission` tinyint NULL DEFAULT 1 COMMENT '权限：1 默认权限 / 0 管理员权限',
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '入籍时间',
@@ -219,17 +315,30 @@ CREATE TABLE `demon_user`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_name`(`name` ASC) USING BTREE,
   UNIQUE INDEX `uk_email`(`email` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '魔族修者表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 26 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '魔族修者表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_user
 -- ----------------------------
-INSERT INTO `demon_user` VALUES (2, '魔祖', 'demo@demon.com', '血煞', '魔祖', 9190, '2026-10-29', 3, '123456', 0, '2026-10-26 09:02:43', '2026-10-29 15:03:43');
-INSERT INTO `demon_user` VALUES (3, '血河老祖', 'xuehe@demon.com', '血煞', '血煞', 5200, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:03:49');
-INSERT INTO `demon_user` VALUES (4, '幽冥夫人', 'youming@demon.com', '幽冥', '血煞', 4570, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:03:57');
-INSERT INTO `demon_user` VALUES (5, '噬魂大王', 'shihun@demon.com', '噬魂', '血煞', 4100, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:04:07');
-INSERT INTO `demon_user` VALUES (6, '寂灭尊者', 'jimie@demon.com', '虚妄', '血煞', 3790, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:04:24');
-INSERT INTO `demon_user` VALUES (7, '虚妄上人', 'xuwang@demon.com', '虚妄', '血煞', 2500, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-10-29 15:04:29');
-INSERT INTO `demon_user` VALUES (8, 'gay', 'gay@qq.com', '噬魂', '魔卒', 180, '2026-10-29', 1, 'gaygay', 1, '2026-10-29 14:45:03', '2026-10-29 15:05:02');
+INSERT INTO `demon_user` VALUES (2, '魔祖', 'demo@demon.com', '血煞', '无上', 20000, '2026-10-29', 3, '2026-11-02', 1, NULL, 0, '123456', 0, '2026-10-26 09:02:43', '2026-11-02 09:25:46');
+INSERT INTO `demon_user` VALUES (3, '血河老祖', 'xuehe@demon.com', '血煞', '魔圣', 15200, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-02 09:26:38');
+INSERT INTO `demon_user` VALUES (4, '幽冥夫人', 'youming@demon.com', '幽冥', '魔圣', 15560, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-02 09:26:45');
+INSERT INTO `demon_user` VALUES (5, '噬魂大王', 'shihun@demon.com', '噬魂', '魔祖', 9100, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-02 09:26:55');
+INSERT INTO `demon_user` VALUES (6, '寂灭尊者', 'jimie@demon.com', '虚妄', '魔祖', 8790, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-02 09:27:01');
+INSERT INTO `demon_user` VALUES (7, '虚妄上人', 'xuwang@demon.com', '虚妄', '魔祖', 8500, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-02 09:27:08');
+INSERT INTO `demon_user` VALUES (8, 'gay', 'gay@qq.com', '噬魂', '魔卒', 180, '2026-10-29', 1, NULL, 0, NULL, 0, 'gaygay', 1, '2026-10-29 14:45:03', '2026-11-02 09:46:43');
+INSERT INTO `demon_user` VALUES (13, '苏九幽', 'sujiuyou@demon.com', '幽冥', '引煞', 30, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:46:43');
+INSERT INTO `demon_user` VALUES (14, '沈无咎', 'shenwujiu@demon.com', '虚妄', '引煞', 75, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:46:43');
+INSERT INTO `demon_user` VALUES (15, '陆青罗', 'luqingluo@demon.com', '噬魂', '凝煞', 160, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:30:35');
+INSERT INTO `demon_user` VALUES (16, '白无相', 'baiwuxiang@demon.com', '血煞', '凝煞', 260, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:46:43');
+INSERT INTO `demon_user` VALUES (17, '韩断刃', 'handuanren@demon.com', '血煞', '魔卒', 520, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:50:05');
+INSERT INTO `demon_user` VALUES (18, '楚红绡', 'chuhongxiao@demon.com', '幽冥', '魔尉', 1100, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:30:35');
+INSERT INTO `demon_user` VALUES (19, '燕孤鸿', 'yanguhong@demon.com', '虚妄', '魔尉', 1380, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:30:35');
+INSERT INTO `demon_user` VALUES (20, '萧寒山', 'xiaohanshan@demon.com', '血煞', '魔将', 2050, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:30:35');
+INSERT INTO `demon_user` VALUES (21, '姜夜叉', 'jiangyecha@demon.com', '噬魂', '魔将', 2300, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:30:35');
+INSERT INTO `demon_user` VALUES (22, '柳三变', 'liusanbian@demon.com', '噬魂', '血煞', 3100, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:30:35');
+INSERT INTO `demon_user` VALUES (23, '殷离火', 'yinlihuo@demon.com', '幽冥', '血煞', 3600, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:30:35');
+INSERT INTO `demon_user` VALUES (24, '封夜白', 'fengyebai@demon.com', '虚妄', '魔尊', 5190, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:33:19');
+INSERT INTO `demon_user` VALUES (25, '顾长生', 'guchangsheng@demon.com', '血煞', '魔尊', 7415, NULL, 0, '2026-11-02', 1, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-02 09:33:19');
 
 SET FOREIGN_KEY_CHECKS = 1;

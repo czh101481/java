@@ -65,10 +65,13 @@ public final class Realm {
     /** 十境配置是否已由 demon_realm 表覆盖（false = 仍用内置默认值） */
     private static volatile boolean loadedFromTable = false;
 
-    /** 各功能模块所需最低境界位阶：art 0 / trial 1 / debate 2 / codex 3 / archive 4 */
+    /**
+     * 各功能模块所需最低境界位阶（与 demon_realm 表描述、魔枢典册「典册封禁之律」一致）：
+     * art 引煞（无门槛）/ trial 魔卒 / debate 魔卒 / codex 魔尉 / archive 魔将
+     */
     public static final Map<String, Integer> FEATURE_REQUIREMENT = Map.of(
             "art", 0,
-            "trial", 1,
+            "trial", 2,
             "debate", 2,
             "codex", 3,
             "archive", 4);

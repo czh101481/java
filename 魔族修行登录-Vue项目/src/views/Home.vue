@@ -18,6 +18,7 @@
         <a class="nav-item" @click="goModule('debate')">宗 门 论 道</a>
         <a class="nav-item" @click="goModule('codex')">魔 典 秘 录</a>
         <a class="nav-item" @click="goArchive()">魔 枢 典 册</a>
+        <a class="nav-item" @click="goSocial()">传 音<span v-if="socialUnread" class="nav-badge">{{ socialUnread }}</span></a>
       </nav>
 
       <div class="nav-user">
@@ -625,6 +626,7 @@ import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession, saveSession, me } from '../api/auth'
 import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, exploreRandom, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer, secretRealms, enterRealm } from '../api/home'
 import { archiveCategories } from '../api/archive'
+import { messageUnread } from '../api/social'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
 
@@ -634,6 +636,10 @@ const user = ref(session.user)
 const keyword = ref('')
 const searchResult = ref(null)
 const searching = ref(false)
+
+// 传音未读数（导航红点）
+const socialUnread = ref(0)
+let socialTimer = null
 
 const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
 
@@ -1268,11 +1274,16 @@ onMounted(async () => {
 
   // 今日论道（随机取一道未答论题）
   await loadDailyQuiz()
+
+  // 传音未读红点（首页轮询刷新）
+  await loadSocialUnread()
+  socialTimer = setInterval(loadSocialUnread, 8000)
 })
 
 onBeforeUnmount(() => {
   if (tickerTimer) clearInterval(tickerTimer)
   if (realmTimer) clearTimeout(realmTimer)
+  if (socialTimer) clearInterval(socialTimer)
 })
 
 async function onSearch() {
@@ -1306,6 +1317,19 @@ function onLogout() {
 // 进入后台管理系统（管理员登录页）
 function goAdmin() {
   router.push('/admin/login')
+}
+
+// 进入传音 · 魔友
+function goSocial() {
+  router.push('/social')
+}
+
+// 拉取传音未读数（导航红点），失败静默
+async function loadSocialUnread() {
+  try {
+    const res = await messageUnread()
+    if (res.data.code === 200) socialUnread.value = res.data.data?.total ?? 0
+  } catch (e) { /* 静默 */ }
 }
 </script>
 
@@ -1480,6 +1504,19 @@ function goAdmin() {
   color: #fff;
   background: linear-gradient(135deg, rgba(179, 24, 58, 0.35), rgba(106, 44, 156, 0.35));
   box-shadow: 0 0 16px rgba(255, 59, 107, 0.3);
+}
+.nav-badge {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border-radius: 9px;
+  background: var(--crimson-glow);
+  color: #1a030a;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .nav-user { display: flex; align-items: center; gap: 12px; }

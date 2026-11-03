@@ -66,8 +66,15 @@
         </div>
         <div class="content">{{ info.content }}</div>
 
-        <!-- v2：研读本篇（首次 +8 煞气并计入图鉴收集度）/ 功法习得 -->
+        <!-- v2：参悟此篇（每篇每日一次）/ 研读本篇 / 功法习得 -->
         <div class="act-row">
+          <button
+            v-if="type === 'art' || type === 'codex' || type === 'archive'"
+            class="act-btn explore"
+            type="button"
+            :disabled="exploredToday || exploring"
+            @click="onExploreThis"
+          >{{ exploredToday ? '今 日 已 参 悟' : exploring ? '参 悟 中 ……' : '参 悟 此 篇' }}</button>
           <button
             class="act-btn"
             type="button"
@@ -204,8 +211,6 @@ async function load() {
     const res = await homeDetail(type.value, id.value)
     if (res.data.code === 200) {
       info.value = res.data.data
-      // 参悟魔域：浏览内容积累煞气修为（每次 +5，静默失败不影响阅读）
-      explore(type.value, id.value).catch(() => {})
       // 论道页额外拉取问答题目（401/403 时静默，正文照常展示）
       if (type.value === 'debate') {
         try {
@@ -273,6 +278,8 @@ const learning = ref(false)
 const readDone = ref(false)
 const learnDone = ref(false)
 const actMsg = ref('')
+const exploring = ref(false)
+const exploredToday = ref(false)
 
 async function onRead() {
   if (reading.value || readDone.value) return
@@ -311,6 +318,30 @@ async function onLearn() {
     actMsg.value = e.message || '习得无应。'
   } finally {
     learning.value = false
+  }
+}
+
+// 参悟此篇：每篇每日仅可参悟一次，每日总量受上限约束
+async function onExploreThis() {
+  if (exploring.value || exploredToday.value) return
+  exploring.value = true
+  try {
+    const res = await explore(type.value, id.value)
+    if (res.data.code === 200) {
+      const d = res.data.data
+      exploredToday.value = true
+      actMsg.value = `参悟《${d.title}》得 ${d.gain} 煞气` + (d.insight ? '（顿悟·双倍）' : '')
+    } else {
+      // 今日已参悟此篇 → 置为已参悟态，避免反复点击
+      if (res.data.code === 400 && res.data.msg && res.data.msg.indexOf('已参悟') >= 0) {
+        exploredToday.value = true
+      }
+      actMsg.value = res.data.msg || '参悟无应。'
+    }
+  } catch (e) {
+    actMsg.value = e.message || '参悟无应。'
+  } finally {
+    exploring.value = false
   }
 }
 
@@ -618,6 +649,8 @@ onMounted(() => {
 .act-btn:hover:not(:disabled) { background: rgba(255, 59, 107, 0.25); }
 .act-btn.art { border-color: rgba(217, 176, 102, 0.5); background: rgba(217, 176, 102, 0.1); color: var(--gold); }
 .act-btn.art:hover:not(:disabled) { background: rgba(217, 176, 102, 0.22); }
+.act-btn.explore { border-color: rgba(167, 139, 250, 0.55); background: rgba(167, 139, 250, 0.12); color: #c4b5fd; }
+.act-btn.explore:hover:not(:disabled) { background: rgba(167, 139, 250, 0.26); }
 .act-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .act-msg { font-size: 12px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.6); }
 .act-msg.deny { color: rgba(255, 107, 143, 0.85); }

@@ -4,6 +4,7 @@ import com.fenglin.springboottest.common.Realm;
 import com.fenglin.springboottest.common.Result;
 import com.fenglin.springboottest.common.TokenManager;
 import com.fenglin.springboottest.entity.DemonUser;
+import com.fenglin.springboottest.entity.ExploreLog;
 import com.fenglin.springboottest.mapper.DemonUserMapper;
 import com.fenglin.springboottest.service.ContentService;
 import com.fenglin.springboottest.vo.AnnouncementVO;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -86,6 +89,9 @@ public class HomeController {
 
     @Autowired
     private com.fenglin.springboottest.mapper.ArchiveMapper archiveMapper;
+
+    @Autowired
+    private com.fenglin.springboottest.mapper.ExploreLogMapper exploreLogMapper;
 
     @Autowired
     private com.fenglin.springboottest.service.GameService gameService;
@@ -270,27 +276,90 @@ public class HomeController {
     }
 
     /**
-     * 参悟魔域 POST /api/home/explore → 浏览内容积累煞气修为（每次 +5，需持魔契）
-     * 每日上限 10 篇（跨日自动清零），达到上限返回提示
+     * 参悟此篇 POST /api/home/explore → 必须指定具体篇章（art/codex/archive），
+     * 每篇每日仅可参悟一次，每日总上限见 Realm.DAILY_EXPLORE_LIMIT；达上限返回提示
      */
     @org.springframework.web.bind.annotation.PostMapping("/explore")
     public Result<?> explore(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        DemonUser user = currentUser(authorization);
+        if (user == null) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        String type = body == null ? null : (String) body.get("type");
+        Object idObj = body == null ? null : body.get("id");
+        Long id = idObj == null ? null : Long.valueOf(idObj.toString());
+        if (!"art".equals(type) && !"codex".equals(type) && !"archive".equals(type)) {
+            return Result.error(400, "参悟须指明具体篇章（功法阁 / 魔典秘录 / 魔枢典册）。");
+        }
+        if (id == null) {
+            return Result.error(400, "未指明参悟哪一篇。");
+        }
+        return exploreContent(user, type, id);
+    }
+
+    /**
+     * 随机参悟 POST /api/home/explore/random → 后端从今日尚未参悟的
+     * 功法 / 秘录 / 典籍中挑一篇参悟（每日上限仍生效）
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/explore/random")
+    public Result<?> exploreRandom(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         DemonUser user = currentUser(authorization);
         if (user == null) {
             return Result.error(401, "未持魔契，请先入魔道。");
         }
-        // 每日参悟计数：跨日自动清零
-        java.time.LocalDate today = java.time.LocalDate.now();
-        int countToday = user.getExpCountToday() == null ? 0 : user.getExpCountToday();
-        boolean newDay = user.getExpDate() == null || !today.equals(user.getExpDate());
-        if (newDay) {
-            countToday = 0;
-        }
-        if (countToday >= Realm.DAILY_EXPLORE_LIMIT) {
+        if (exploreCountToday(user.getId()) >= Realm.DAILY_EXPLORE_LIMIT) {
             return Result.error(400, String.format(
                     "今日煞气已吸满（参悟 %d/%d 篇），魔渊亦需休憩，明日再修。",
-                    countToday, Realm.DAILY_EXPLORE_LIMIT));
+                    Realm.DAILY_EXPLORE_LIMIT, Realm.DAILY_EXPLORE_LIMIT));
+        }
+        // 收集今日已参悟的 (type,id)，用于排除
+        java.util.Set<String> done = new java.util.HashSet<>();
+        for (ExploreLog log : exploreLogMapper.selectList(
+                new LambdaQueryWrapper<ExploreLog>()
+                        .eq(ExploreLog::getUserId, user.getId())
+                        .ge(ExploreLog::getCreatedAt, java.time.LocalDate.now().atStartOfDay()))) {
+            done.add(log.getContentType() + ":" + log.getContentId());
+        }
+        java.util.List<String[]> pool = new java.util.ArrayList<>();
+        for (com.fenglin.springboottest.entity.Art a : artMapper.selectList(null)) {
+            if (!done.contains("art:" + a.getId())) {
+                pool.add(new String[]{"art", String.valueOf(a.getId()), a.getName()});
+            }
+        }
+        for (com.fenglin.springboottest.entity.Codex c : codexMapper.selectList(null)) {
+            if (!done.contains("codex:" + c.getId())) {
+                pool.add(new String[]{"codex", String.valueOf(c.getId()), c.getTitle()});
+            }
+        }
+        for (com.fenglin.springboottest.entity.Archive a : archiveMapper.selectList(null)) {
+            if (!done.contains("archive:" + a.getId())) {
+                pool.add(new String[]{"archive", String.valueOf(a.getId()), a.getTitle()});
+            }
+        }
+        if (pool.isEmpty()) {
+            return Result.error(400, "魔域诸篇今日皆已参悟，明日再临。");
+        }
+        java.util.Random rnd = new java.util.Random();
+        String[] pick = pool.get(rnd.nextInt(pool.size()));
+        return exploreContent(user, pick[0], Long.valueOf(pick[1]));
+    }
+
+    /** 参悟核心：校验存在 / 每日上限 / 每篇每日一次 → 结算煞气并落日志 */
+    private Result<?> exploreContent(DemonUser user, String type, Long id) {
+        String title = contentTitle(type, id);
+        if (title == null) {
+            return Result.error(404, "魔渊之中并无此篇。");
+        }
+        if (exploreCountToday(user.getId()) >= Realm.DAILY_EXPLORE_LIMIT) {
+            return Result.error(400, String.format(
+                    "今日煞气已吸满（参悟 %d/%d 篇），魔渊亦需休憩，明日再修。",
+                    Realm.DAILY_EXPLORE_LIMIT, Realm.DAILY_EXPLORE_LIMIT));
+        }
+        if (exploredToday(user.getId(), type, id)) {
+            return Result.error(400, String.format("今日已参悟此篇《%s》，不可重复参悟。", title));
         }
 
         // 魔种天赋「幽息吞吐」提升参悟收益，「虚妄顿悟」有概率双倍；
@@ -318,15 +387,20 @@ public class HomeController {
         }
 
         int newExp = Math.max(0, (user.getExp() == null ? 0 : user.getExp()) + gain);
-        int newCount = countToday + 1;
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
                 new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
-        uw.eq("id", user.getId())
-                .set("exp", newExp)
-                .set("exp_date", today)
-                .set("exp_count_today", newCount);
+        uw.eq("id", user.getId()).set("exp", newExp);
         userMapper.update(null, uw);
 
+        ExploreLog log = new ExploreLog();
+        log.setUserId(user.getId());
+        log.setContentType(type);
+        log.setContentId(id);
+        log.setTitle(title);
+        log.setGain(gain);
+        exploreLogMapper.insert(log);
+
+        int newCount = (int) exploreCountToday(user.getId());
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("exp", newExp);
         data.put("gain", gain);
@@ -335,7 +409,44 @@ public class HomeController {
         data.put("exploreCount", newCount);
         data.put("exploreLimit", Realm.DAILY_EXPLORE_LIMIT);
         data.put("chance", chance);
+        data.put("title", title);
+        data.put("exploredToday", true);
         return Result.success(data);
+    }
+
+    /** 今日已参悟总篇数（基于 demon_explore_log） */
+    private long exploreCountToday(Long userId) {
+        return exploreLogMapper.selectCount(
+                new LambdaQueryWrapper<ExploreLog>()
+                        .eq(ExploreLog::getUserId, userId)
+                        .ge(ExploreLog::getCreatedAt, java.time.LocalDate.now().atStartOfDay()));
+    }
+
+    /** 今日是否已参悟过该篇 */
+    private boolean exploredToday(Long userId, String type, Long id) {
+        return exploreLogMapper.selectCount(
+                new LambdaQueryWrapper<ExploreLog>()
+                        .eq(ExploreLog::getUserId, userId)
+                        .eq(ExploreLog::getContentType, type)
+                        .eq(ExploreLog::getContentId, id)
+                        .ge(ExploreLog::getCreatedAt, java.time.LocalDate.now().atStartOfDay())) > 0;
+    }
+
+    /** 取内容标题；内容不存在返回 null */
+    private String contentTitle(String type, Long id) {
+        if ("art".equals(type)) {
+            com.fenglin.springboottest.entity.Art a = artMapper.selectById(id);
+            return a == null ? null : a.getName();
+        }
+        if ("codex".equals(type)) {
+            com.fenglin.springboottest.entity.Codex c = codexMapper.selectById(id);
+            return c == null ? null : c.getTitle();
+        }
+        if ("archive".equals(type)) {
+            com.fenglin.springboottest.entity.Archive a = archiveMapper.selectById(id);
+            return a == null ? null : a.getTitle();
+        }
+        return null;
     }
 
     /**
@@ -1069,14 +1180,11 @@ public class HomeController {
         boolean maxed = index >= Realm.NAMES.size() - 1;
         int need = maxed ? 0 : Realm.thresholdOf(index + 1);
 
-        // 今日参悟次数（跨日视为 0）
-        java.time.LocalDate today = java.time.LocalDate.now();
-        int countToday = user.getExpCountToday() == null ? 0 : user.getExpCountToday();
-        if (user.getExpDate() == null || !today.equals(user.getExpDate())) {
-            countToday = 0;
-        }
+        // 今日参悟次数（基于 demon_explore_log，每篇每日一次，跨日自动清零）
+        int countToday = (int) exploreCountToday(user.getId());
 
         // 今日切磋次数（跨日视为 0）
+        java.time.LocalDate today = java.time.LocalDate.now();
         int sparCount = user.getSparCountToday() == null ? 0 : user.getSparCountToday();
         if (user.getSparDate() == null || !today.equals(user.getSparDate())) {
             sparCount = 0;

@@ -55,9 +55,14 @@ export function myOrigin() {
   return http.get('/api/home/origin')
 }
 
-// 参悟魔域：浏览内容详情时调用，积累煞气修为（每次 +5）
+// 参悟此篇：必须指定具体篇章（type=art|codex|archive，id），每篇每日仅一次
 export function explore(type, id) {
   return http.post('/api/home/explore', { type, id })
+}
+
+// 随机参悟：后端从今日尚未参悟的功法/秘录/典籍中挑一篇参悟
+export function exploreRandom() {
+  return http.post('/api/home/explore/random')
 }
 
 // 冲击境界：煞气攒足则晋升一境

@@ -268,13 +268,13 @@
 
         <div class="daily-card">
           <div class="dc-label">参 悟 魔 域</div>
-          <div class="dc-value">{{ exploreCount }} / {{ exploreLimit }} 篇</div>
+          <div class="dc-value">今日 {{ exploreCount }} / {{ exploreLimit }} 篇</div>
           <button
             class="dc-btn"
             type="button"
             :disabled="dailyCapped || exploring"
             @click="onExplore"
-          >{{ dailyCapped ? '今 日 已 满' : exploring ? '参 悟 中 ……' : '参 悟 一 篇' }}</button>
+          >{{ dailyCapped ? '今 日 已 满' : exploring ? '参 悟 中 ……' : '随 机 参 悟' }}</button>
         </div>
 
         <div class="daily-card">
@@ -623,7 +623,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession, saveSession, me } from '../api/auth'
-import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer, secretRealms, enterRealm } from '../api/home'
+import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, exploreRandom, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer, secretRealms, enterRealm } from '../api/home'
 import { archiveCategories } from '../api/archive'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
@@ -790,12 +790,12 @@ async function onSign() {
   }
 }
 
-// 参悟：可能触发机缘奇遇（煞气增减的随机事件）
+// 参悟：随机参悟一篇今日尚未参悟的功法/秘录/典籍（可能触发机缘奇遇）
 async function onExplore() {
   if (exploring.value || dailyCapped.value) return
   exploring.value = true
   try {
-    const res = await explore()
+    const res = await exploreRandom()
     if (res.data.code === 200) {
       const d = res.data.data
       if (d.chance) {

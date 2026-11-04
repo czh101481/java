@@ -42,6 +42,11 @@ export function me() {
   return http.get('/api/auth/me')
 }
 
+// 更换头像（avatar 为预设 key；传 null 回退道号首字）
+export function updateAvatar(avatar) {
+  return http.post('/api/auth/avatar', { avatar })
+}
+
 // 本地令牌存取
 export function saveSession(token, user) {
   localStorage.setItem('demon_token', token)

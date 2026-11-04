@@ -1,6 +1,7 @@
 package com.fenglin.springboottest.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.fenglin.springboottest.common.Result;
 import com.fenglin.springboottest.common.TokenManager;
 import com.fenglin.springboottest.dto.LoginDTO;
@@ -12,11 +13,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * 魔族修行 · 认证业务
  */
 @Service
 public class AuthService {
+
+    /** 允许的头像代号（与前端 src/config/avatars.js 保持一致） */
+    private static final Set<String> AVATAR_KEYS = new HashSet<>(Arrays.asList(
+            "blood", "ghost", "soul", "bone", "flame", "moon",
+            "shadow", "thunder", "curse", "spider", "abyss", "nightmare"));
 
     @Autowired
     private DemonUserMapper userMapper;
@@ -84,6 +94,39 @@ public class AuthService {
         DemonUser user = userMapper.selectById(userId);
         if (user == null) {
             return Result.error(404, "修者不复存在。");
+        }
+        user.setPassword(null);
+        return Result.success(user);
+    }
+
+    /** 更换头像：校验令牌 + 代号白名单，成功后返回最新修者信息 */
+    public Result<DemonUser> updateAvatar(String token, String avatar) {
+        if (!StringUtils.hasText(token)) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        Long userId = tokenManager.getUserId(token);
+        if (userId == null) {
+            return Result.error(401, "魔契已逝，请重入魔道。");
+        }
+        // 允许置空（回退为道号首字）；非空则须在白名单内
+        if (StringUtils.hasText(avatar) && !AVATAR_KEYS.contains(avatar)) {
+            return Result.error(400, "此头像乃虚妄之相，不可取用。");
+        }
+        DemonUser user = userMapper.selectById(userId);
+        if (user == null) {
+            return Result.error(404, "修者不复存在。");
+        }
+        if (StringUtils.hasText(avatar)) {
+            DemonUser patch = new DemonUser();
+            patch.setId(userId);
+            patch.setAvatar(avatar);
+            userMapper.updateById(patch);
+            user.setAvatar(avatar);
+        } else {
+            // 置空须用 UpdateWrapper，updateById 会跳过 null 字段
+            userMapper.update(null, new UpdateWrapper<DemonUser>()
+                    .eq("id", userId).set("avatar", null));
+            user.setAvatar(null);
         }
         user.setPassword(null);
         return Result.success(user);

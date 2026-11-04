@@ -22,6 +22,9 @@ public class FriendVO {
     /** 境界（引煞→无上） */
     private String cultivation;
 
+    /** 头像代号（前端预设头像 key，可能为空） */
+    private String avatar;
+
     /** 最近一条消息预览（心得卡片显示标题） */
     private String lastMessage;
 

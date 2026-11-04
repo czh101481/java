@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS demon_user (
   exp_count_today INT      DEFAULT 0                         COMMENT '当日已参悟次数',
   password    VARCHAR(100) NOT NULL                          COMMENT '护法密令（演示为明文，生产请加密）',
   permission  TINYINT      DEFAULT 1                         COMMENT '权限：1 默认权限 / 0 管理员权限',
+  avatar      VARCHAR(32)  DEFAULT NULL                      COMMENT '头像代号（前端预设头像 key）',
   created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP          COMMENT '入籍时间',
   updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP
                           ON UPDATE CURRENT_TIMESTAMP        COMMENT '更新时间',

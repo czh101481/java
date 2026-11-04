@@ -26,7 +26,7 @@
             :class="{ active: activeFriend && activeFriend.userId === f.userId }"
             @click="selectFriend(f)"
           >
-            <span class="fi-avatar">{{ (f.name || '魔').slice(0, 1) }}</span>
+            <span class="fi-avatar" :style="av(f).style">{{ av(f).char }}</span>
             <div class="fi-main">
               <div class="fi-top">
                 <span class="fi-name">{{ f.name }}</span>
@@ -43,7 +43,7 @@
         <div v-else-if="activeTab === 'requests'" class="request-list">
           <div v-if="!requests.length" class="side-empty">暂 无 呈 予 你 的 道 友 契 约 。</div>
           <div v-for="r in requests" :key="r.applyId" class="request-item">
-            <span class="ri-avatar">{{ (r.name || '魔').slice(0, 1) }}</span>
+            <span class="ri-avatar" :style="av(r).style">{{ av(r).char }}</span>
             <div class="ri-main">
               <div class="ri-name">{{ r.name }} <em>{{ r.realm }} · {{ r.cultivation }}境</em></div>
               <div class="ri-msg">{{ r.message || '愿结同道之好。' }}</div>
@@ -63,7 +63,7 @@
           </form>
           <div v-if="!searchResults.length" class="side-empty">输 入 道 号 ， 寻 觅 可 结 交 的 修 者 。</div>
           <div v-for="u in searchResults" :key="u.id" class="add-item">
-            <span class="ai-avatar">{{ (u.name || '魔').slice(0, 1) }}</span>
+            <span class="ai-avatar" :style="av(u).style">{{ av(u).char }}</span>
             <div class="ai-main">
               <div class="ai-name">{{ u.name }}</div>
               <div class="ai-sub">{{ u.realm }} · {{ u.cultivation }}境</div>
@@ -80,7 +80,7 @@
     <main class="main">
       <template v-if="activeFriend">
         <header class="conv-head">
-          <span class="ch-avatar">{{ (activeFriend.name || '魔').slice(0, 1) }}</span>
+          <span class="ch-avatar" :style="av(activeFriend).style">{{ av(activeFriend).char }}</span>
           <div class="ch-who">
             <div class="ch-name">{{ activeFriend.name }}</div>
             <div class="ch-sub">{{ activeFriend.realm }} · {{ activeFriend.cultivation }}境</div>
@@ -172,9 +172,13 @@ import {
   searchUsers, messageHistory, sendMessage, messageUnread
 } from '../api/social'
 import { homeSearch } from '../api/home'
+import { renderAvatar } from '../config/avatars'
 
 const router = useRouter()
 const session = getSession()
+
+// 头像渲染：统一走预设配置，无预设回退道号首字
+const av = (o) => renderAvatar(o && o.avatar, o && o.name)
 
 const activeTab = ref('friends')
 const friends = ref([])

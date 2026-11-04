@@ -25,6 +25,9 @@ public class ApplyVO {
     /** 境界 */
     private String cultivation;
 
+    /** 头像代号（前端预设头像 key，可能为空） */
+    private String avatar;
+
     /** 留言 */
     private String message;
 

@@ -85,6 +85,9 @@ public class DemonUser {
     /** 权限：1 默认权限 / 0 管理员权限（仅 0 可见后台入口并可登录后台） */
     private Integer permission;
 
+    /** 头像代号：前端预设头像的 key（如 blood/ghost/…），为空则回退道号首字 */
+    private String avatar;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

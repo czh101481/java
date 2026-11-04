@@ -112,6 +112,7 @@ public class SocialService {
             vo.setName(u == null ? "无名" : u.getName());
             vo.setRealm(u == null ? "" : u.getRealm());
             vo.setCultivation(u == null ? "" : u.getCultivation());
+            vo.setAvatar(u == null ? null : u.getAvatar());
             vo.setMessage(r.getMessage());
             vo.setCreatedAt(r.getCreatedAt());
             list.add(vo);
@@ -180,6 +181,7 @@ public class SocialService {
             vo.setName(u == null ? "无名" : u.getName());
             vo.setRealm(u == null ? "" : u.getRealm());
             vo.setCultivation(u == null ? "" : u.getCultivation());
+            vo.setAvatar(u == null ? null : u.getAvatar());
 
             // 最近一条消息预览
             Message last = messageMapper.selectOne(new LambdaQueryWrapper<Message>()
@@ -237,6 +239,7 @@ public class SocialService {
             m.put("name", u.getName());
             m.put("realm", u.getRealm());
             m.put("cultivation", u.getCultivation());
+            m.put("avatar", u.getAvatar());
             list.add(m);
         }
         return Result.success(list);

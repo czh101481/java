@@ -41,4 +41,17 @@ public class AuthController {
         }
         return authService.me(token);
     }
+
+    /** 更换头像 POST /api/auth/avatar  body: { avatar }  header: Authorization: Bearer <token> */
+    @PostMapping("/avatar")
+    public Result<DemonUser> updateAvatar(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody java.util.Map<String, Object> body) {
+        String token = null;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            token = authorization.substring(7);
+        }
+        Object av = body == null ? null : body.get("avatar");
+        return authService.updateAvatar(token, av == null ? null : String.valueOf(av));
+    }
 }

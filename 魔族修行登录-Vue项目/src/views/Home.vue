@@ -37,7 +37,7 @@
           title="进入后台管理系统"
           @click="goAdmin"
         >后 台 管 理</button>
-        <div class="avatar" title="查看个人道牌" @click="openBadges">{{ initial }}</div>
+        <div class="avatar" title="查看个人道牌 / 更换头像" @click="openBadges" :style="myAvatar.style">{{ myAvatar.char }}</div>
         <button class="logout" type="button" @click="onLogout">断魔契</button>
       </div>
     </header>
@@ -498,11 +498,42 @@
 
         <template v-if="badges">
           <div class="badge-head">
-            <div class="badge-avatar" :style="badgeAvatarStyle">{{ badges.name.slice(0, 1) }}</div>
+            <div class="badge-avatar" :style="badgeAvatarStyle">{{ myAvatar.char }}</div>
             <div class="badge-who">
               <div class="badge-name">{{ badges.name }}</div>
               <div class="badge-title">{{ badges.title }} · {{ badges.cultivation }}境（第 {{ badges.index + 1 }} 重）</div>
             </div>
+          </div>
+
+          <!-- 头像面具：从预设魔纹中择一 -->
+          <div class="avatar-picker">
+            <div class="ap-title">择 一 张 面 具</div>
+            <div class="ap-grid">
+              <button
+                type="button"
+                class="ap-item"
+                :class="{ on: !user?.avatar }"
+                title="默认（道号首字）"
+                @click="pickAvatar(null)"
+              >
+                <span class="ap-face" :style="{ background: 'linear-gradient(135deg, #ff3b6b, #4a0d24)' }">{{ (user?.name || '魔').slice(0, 1) }}</span>
+                <span class="ap-name">默认</span>
+              </button>
+              <button
+                v-for="a in AVATARS"
+                :key="a.key"
+                type="button"
+                class="ap-item"
+                :class="{ on: user?.avatar === a.key }"
+                :title="a.name"
+                @click="pickAvatar(a.key)"
+              >
+                <span class="ap-face" :style="{ background: `linear-gradient(135deg, ${a.c1}, ${a.c2})`, boxShadow: `0 0 10px ${a.c1}66`, borderColor: a.c1 + '99' }">{{ a.char }}</span>
+                <span class="ap-name">{{ a.name }}</span>
+              </button>
+            </div>
+            <div class="ap-hint" v-if="avatarSaving">面 具 刻 印 中 ……</div>
+            <div class="ap-hint ok" v-else-if="avatarSaved">已 换 新 面 目</div>
           </div>
 
           <!-- 魔种天赋：本命魔种与独有成长偏向 -->
@@ -623,10 +654,11 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
-import { getSession, clearSession, saveSession, me } from '../api/auth'
+import { getSession, clearSession, saveSession, me, updateAvatar } from '../api/auth'
 import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, exploreRandom, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer, secretRealms, enterRealm } from '../api/home'
 import { archiveCategories } from '../api/archive'
 import { messageUnread } from '../api/social'
+import { AVATARS, renderAvatar } from '../config/avatars'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
 
@@ -641,7 +673,32 @@ const searching = ref(false)
 const socialUnread = ref(0)
 let socialTimer = null
 
-const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
+// ==================== 头像 ====================
+const myAvatar = computed(() => renderAvatar(user.value?.avatar, user.value?.name))
+const avatarSaving = ref(false)
+const avatarSaved = ref(false)
+let avatarSavedTimer = null
+
+async function pickAvatar(key) {
+  if (avatarSaving.value) return
+  if ((user.value?.avatar || null) === (key || null)) return
+  avatarSaving.value = true
+  avatarSaved.value = false
+  try {
+    const res = await updateAvatar(key)
+    if (res.data.code === 200) {
+      user.value = res.data.data
+      saveSession(session.token, user.value)
+      avatarSaved.value = true
+      clearTimeout(avatarSavedTimer)
+      avatarSavedTimer = setTimeout(() => { avatarSaved.value = false }, 1800)
+    }
+  } catch (e) {
+    /* 静默：失败保留原头像 */
+  } finally {
+    avatarSaving.value = false
+  }
+}
 
 // ==================== 境界体系（引煞 → 无上，共十境） ====================
 // 位阶 0 起；demon_user.cultivation 存当前境界名（与魔种 realm 相互独立）
@@ -1284,6 +1341,7 @@ onBeforeUnmount(() => {
   if (tickerTimer) clearInterval(tickerTimer)
   if (realmTimer) clearTimeout(realmTimer)
   if (socialTimer) clearInterval(socialTimer)
+  if (avatarSavedTimer) clearTimeout(avatarSavedTimer)
 })
 
 async function onSearch() {
@@ -2334,6 +2392,55 @@ async function loadSocialUnread() {
 }
 .badge-name { font-size: 20px; letter-spacing: 4px; color: var(--bone); text-shadow: 0 0 12px var(--crimson-glow); }
 .badge-title { font-size: 12px; letter-spacing: 2px; color: var(--gold); margin-top: 6px; }
+/* 头像面具选择器 */
+.avatar-picker {
+  margin: 4px 0 20px;
+  padding: 14px 16px;
+  border: 1px solid rgba(217, 176, 102, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 59, 107, 0.04);
+}
+.ap-title {
+  font-size: 12px; letter-spacing: 4px; color: var(--gold);
+  margin-bottom: 12px;
+}
+.ap-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+.ap-item {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: transparent; border: none; cursor: pointer;
+  font-family: inherit; padding: 4px 0;
+  transition: transform 0.2s ease;
+}
+.ap-item:hover { transform: translateY(-2px); }
+.ap-face {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #fff;
+  border: 1px solid rgba(217, 176, 102, 0.35);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.ap-item.on .ap-face {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(217, 176, 102, 0.55), 0 0 16px rgba(255, 59, 107, 0.5);
+}
+.ap-name {
+  font-size: 10px; letter-spacing: 1px;
+  color: rgba(232, 220, 200, 0.55);
+}
+.ap-item.on .ap-name { color: var(--gold); }
+.ap-hint {
+  margin-top: 10px; font-size: 11px; letter-spacing: 3px;
+  color: rgba(232, 220, 200, 0.5); text-align: center;
+}
+.ap-hint.ok { color: #57e0a0; }
+@media (max-width: 640px) {
+  .ap-grid { grid-template-columns: repeat(4, 1fr); }
+}
 /* 魔种天赋条 */
 .badge-origin {
   display: flex;

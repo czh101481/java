@@ -26,7 +26,7 @@
             :class="{ active: activeFriend && activeFriend.userId === f.userId }"
             @click="selectFriend(f)"
           >
-            <span class="fi-avatar" :style="av(f).style">
+            <span class="fi-avatar" title="双击放大头像" :style="av(f).style" @dblclick.stop="openViewer(f)">
               <img v-if="av(f).img" :src="av(f).img" alt="" />
               <template v-else>{{ av(f).char }}</template>
             </span>
@@ -46,7 +46,7 @@
         <div v-else-if="activeTab === 'requests'" class="request-list">
           <div v-if="!requests.length" class="side-empty">暂 无 呈 予 你 的 道 友 契 约 。</div>
           <div v-for="r in requests" :key="r.applyId" class="request-item">
-            <span class="ri-avatar" :style="av(r).style">
+            <span class="ri-avatar" title="双击放大头像" :style="av(r).style" @dblclick.stop="openViewer(r)">
               <img v-if="av(r).img" :src="av(r).img" alt="" />
               <template v-else>{{ av(r).char }}</template>
             </span>
@@ -69,7 +69,7 @@
           </form>
           <div v-if="!searchResults.length" class="side-empty">输 入 道 号 ， 寻 觅 可 结 交 的 修 者 。</div>
           <div v-for="u in searchResults" :key="u.id" class="add-item">
-            <span class="ai-avatar" :style="av(u).style">
+            <span class="ai-avatar" title="双击放大头像" :style="av(u).style" @dblclick.stop="openViewer(u)">
               <img v-if="av(u).img" :src="av(u).img" alt="" />
               <template v-else>{{ av(u).char }}</template>
             </span>
@@ -89,7 +89,7 @@
     <main class="main">
       <template v-if="activeFriend">
         <header class="conv-head">
-          <span class="ch-avatar" :style="av(activeFriend).style">
+          <span class="ch-avatar" title="双击放大头像" :style="av(activeFriend).style" @dblclick.stop="openViewer(activeFriend)">
             <img v-if="av(activeFriend).img" :src="av(activeFriend).img" alt="" />
             <template v-else>{{ av(activeFriend).char }}</template>
           </span>
@@ -172,6 +172,9 @@
         </div>
       </div>
     </div>
+
+    <!-- 头像大图浮层（双击头像打开） -->
+    <AvatarViewer :open="viewerOpen" :avatar="viewerAvatar" :name="viewerName" @close="viewerOpen = false" />
   </div>
 </template>
 
@@ -185,12 +188,24 @@ import {
 } from '../api/social'
 import { homeSearch } from '../api/home'
 import { renderAvatar } from '../config/avatars'
+import AvatarViewer from '../components/AvatarViewer.vue'
 
 const router = useRouter()
 const session = getSession()
 
 // 头像渲染：统一走预设配置，无预设回退道号首字
 const av = (o) => renderAvatar(o && o.avatar, o && o.name)
+
+// 双击头像 → 打开大图浮层
+const viewerOpen = ref(false)
+const viewerAvatar = ref(null)
+const viewerName = ref('')
+function openViewer(o) {
+  if (!o) return
+  viewerAvatar.value = o.avatar || null
+  viewerName.value = o.name || ''
+  viewerOpen.value = true
+}
 
 const activeTab = ref('friends')
 const friends = ref([])
@@ -544,6 +559,8 @@ onBeforeUnmount(() => {
   font-size: 18px;
   color: #fff;
   overflow: hidden;
+  cursor: zoom-in;
+  user-select: none;
   background: radial-gradient(circle at 35% 30%, var(--violet-glow), #1a030a 80%);
   box-shadow: 0 0 12px rgba(176, 102, 255, 0.5);
 }

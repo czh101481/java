@@ -255,6 +255,7 @@ public class HomeController {
             items.add(new com.fenglin.springboottest.vo.RankItemVO(
                     i + 1,
                     u.getName(),
+                    u.getAvatar(),
                     Realm.name(index),
                     index,
                     Realm.TITLES.get(index),

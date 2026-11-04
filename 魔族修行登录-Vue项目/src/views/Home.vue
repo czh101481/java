@@ -37,7 +37,13 @@
           title="进入后台管理系统"
           @click="goAdmin"
         >后 台 管 理</button>
-        <div class="avatar" title="查看个人道牌 / 更换头像" @click="openBadges" :style="myAvatar.style">
+        <div
+          class="avatar"
+          title="单击查看道牌 / 双击放大头像"
+          @click="onNavAvatarClick"
+          @dblclick="onNavAvatarDblClick"
+          :style="myAvatar.style"
+        >
           <img v-if="myAvatar.img" :src="myAvatar.img" alt="头像" />
           <template v-else>{{ myAvatar.char }}</template>
         </div>
@@ -409,13 +415,21 @@
 
       <div class="rank-list">
         <div
-          v-for="r in rankList"
+          v-for="r in rankRows"
           :key="r.rank"
           class="rank-row"
           :class="{ me: r.me, podium: r.rank <= 3 }"
         >
           <span class="rank-no">{{ rankMark(r.rank) }}</span>
-          <span class="rank-avatar">{{ r.name.slice(0, 1) }}</span>
+          <span
+            class="rank-avatar"
+            :style="r.av.style"
+            :title="`双击放大 ${r.name} 的头像`"
+            @dblclick.stop="openAvatarViewer(r.avatar, r.name)"
+          >
+            <img v-if="r.av.img" :src="r.av.img" :alt="r.name" />
+            <template v-else>{{ r.av.char }}</template>
+          </span>
           <div class="rank-main">
             <div class="rank-name">
               {{ r.name }}
@@ -501,7 +515,12 @@
 
         <template v-if="badges">
           <div class="badge-head">
-            <div class="badge-avatar" :style="badgeAvatarStyle">
+            <div
+              class="badge-avatar"
+              title="双击放大头像"
+              :style="badgeAvatarStyle"
+              @dblclick.stop="openAvatarViewer(user?.avatar, user?.name)"
+            >
               <img v-if="myAvatar.img" :src="myAvatar.img" alt="头像" />
               <template v-else>{{ myAvatar.char }}</template>
             </div>
@@ -671,6 +690,8 @@
         </div>
       </div>
     </div>
+    <!-- 头像大图浮层（双击头像打开） -->
+    <AvatarViewer :open="viewerOpen" :avatar="viewerAvatar" :name="viewerName" @close="closeAvatarViewer" />
   </div>
 </template>
 
@@ -678,6 +699,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
+import AvatarViewer from '../components/AvatarViewer.vue'
 import { getSession, clearSession, saveSession, me, updateAvatar, uploadAvatar } from '../api/auth'
 import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, exploreRandom, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer, secretRealms, enterRealm } from '../api/home'
 import { archiveCategories } from '../api/archive'
@@ -724,6 +746,7 @@ async function pickAvatar(key) {
       user.value = res.data.data
       saveSession(session.token, user.value)
       flashSaved()
+      loadRank() // 头像同步到魔门英杰榜
     } else {
       avatarError.value = res.data.msg || '换相失败'
     }
@@ -760,6 +783,7 @@ async function onPickFile(ev) {
       user.value = res.data.data
       saveSession(session.token, user.value)
       flashSaved()
+      loadRank() // 头像同步到魔门英杰榜
     } else {
       avatarError.value = res.data.msg || '上传失败'
     }
@@ -769,6 +793,33 @@ async function onPickFile(ev) {
     avatarUploading.value = false
   }
 }
+
+// ==================== 头像大图（双击打开） ====================
+const viewerOpen = ref(false)
+const viewerAvatar = ref(null)
+const viewerName = ref('')
+let navClickTimer = null
+
+function openAvatarViewer(key, name) {
+  viewerAvatar.value = key || null
+  viewerName.value = name || ''
+  viewerOpen.value = true
+}
+function closeAvatarViewer() {
+  viewerOpen.value = false
+}
+
+// 导航头像：单击查看道牌，双击放大头像（短延时区分，避免双击时同时弹出道牌）
+function onNavAvatarClick() {
+  clearTimeout(navClickTimer)
+  navClickTimer = setTimeout(() => { openBadges() }, 230)
+}
+function onNavAvatarDblClick() {
+  clearTimeout(navClickTimer)
+  openAvatarViewer(user.value?.avatar, user.value?.name)
+}
+
+onBeforeUnmount(() => clearTimeout(navClickTimer))
 
 // ==================== 境界体系（引煞 → 无上，共十境） ====================
 // 位阶 0 起；demon_user.cultivation 存当前境界名（与魔种 realm 相互独立）
@@ -1085,6 +1136,11 @@ function denyMsg(reqIndex) {
 
 // ==================== 魔门英杰榜 ====================
 const rankList = ref([])
+
+// 榜单行附带渲染好的头像（预设魔纹或上传图片），随榜单数据同步
+const rankRows = computed(() =>
+  rankList.value.map((r) => ({ ...r, av: renderAvatar(r.avatar, r.name) }))
+)
 
 // 名次标记：前三用金/银/铜符，其余用数字
 function rankMark(n) {
@@ -2149,7 +2205,11 @@ async function loadSocialUnread() {
   background: linear-gradient(135deg, var(--crimson), #4a0d24);
   border: 1px solid rgba(217, 176, 102, 0.4);
   box-shadow: 0 0 12px rgba(255, 59, 107, 0.4);
+  overflow: hidden;
+  cursor: zoom-in;
+  user-select: none;
 }
+.rank-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .rank-main { flex: 1; min-width: 0; }
 .rank-name { font-size: 15px; letter-spacing: 2px; color: var(--bone); display: flex; align-items: center; gap: 8px; }
 .rank-me {
@@ -2463,6 +2523,7 @@ async function loadSocialUnread() {
   overflow: hidden;
 }
 .badge-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.badge-avatar { cursor: zoom-in; user-select: none; }
 .badge-name { font-size: 20px; letter-spacing: 4px; color: var(--bone); text-shadow: 0 0 12px var(--crimson-glow); }
 .badge-title { font-size: 12px; letter-spacing: 2px; color: var(--gold); margin-top: 6px; }
 /* 头像面具选择器 */

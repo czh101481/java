@@ -18,6 +18,9 @@ public class RankItemVO {
     /** 修者道号 */
     private String name;
 
+    /** 头像：预设 key（blood/moon…）或上传图片路径（/uploads/avatars/xxx.png），空则用道号首字 */
+    private String avatar;
+
     /** 境界名 */
     private String realmName;
 

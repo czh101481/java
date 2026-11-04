@@ -16,10 +16,37 @@ http.interceptors.request.use((config) => {
   return config
 })
 
-// 统一拦截：把后端 Result 的错误信息抛给调用方
+// 统一拦截：把后端 Result 的错误信息抛给调用方；
+// 令牌失效时自动清本地会话并回登录页——否则用户会卡在原页反复看到「魔契已逝」。
+//
+// 注意：本后端的错误码放在响应体 code 里（HTTP 状态一律 200），
+// 所以必须在「成功回调」里也要检查 body.code === 401，不能只看 HTTP 状态。
+const AUTH_ENTRY = ['/api/auth/login', '/api/auth/register']
+
+function isAuthEntry(url) {
+  return AUTH_ENTRY.some(p => (url || '').indexOf(p) >= 0)
+}
+
+function onTokenExpired() {
+  clearLocalSession()
+  if (!window.location.hash.startsWith('#/login')) {
+    window.location.hash = '#/login'
+  }
+}
+
 http.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const body = res.data
+    if (body && body.code === 401 && !isAuthEntry(res.config && res.config.url)) {
+      onTokenExpired()
+    }
+    return res
+  },
   (err) => {
+    // 兜底：真正返回 HTTP 401 的场景（网关 / 容器层拦截等）
+    if (err.response && err.response.status === 401 && !isAuthEntry(err.config && err.config.url)) {
+      onTokenExpired()
+    }
     const msg =
       (err.response && err.response.data && err.response.data.msg) ||
       '魔门无应，连通失败'
@@ -40,6 +67,16 @@ export function register(payload) {
 // 持令问询（当前修者信息）
 export function me() {
   return http.get('/api/auth/me')
+}
+
+// 断魔契（登出）：通知后端作废令牌
+export function logout() {
+  return http.post('/api/auth/logout')
+}
+
+// 改密令：成功后后端会作废该修者其他设备上的令牌
+export function changePassword(oldPassword, newPassword) {
+  return http.post('/api/auth/password', { oldPassword, newPassword })
 }
 
 // 更换头像（avatar 为预设 key；传 null 回退道号首字）
@@ -69,7 +106,21 @@ export function getSession() {
   return { token, user }
 }
 
-export function clearSession() {
+// 只清本地存储（不发请求），供 401 拦截与内部复用，避免递归
+function clearLocalSession() {
   localStorage.removeItem('demon_token')
   localStorage.removeItem('demon_user')
+}
+
+// 主动断魔契：先让后端作废令牌，再清本地。
+// 后端连不上也照常退出——本地退出不该被网络问题卡住。
+export function clearSession() {
+  const token = localStorage.getItem('demon_token')
+  if (token) {
+    axios.post(`${API_BASE}/api/auth/logout`, null, {
+      headers: { Authorization: 'Bearer ' + token },
+      timeout: 3000
+    }).catch(() => {})
+  }
+  clearLocalSession()
 }

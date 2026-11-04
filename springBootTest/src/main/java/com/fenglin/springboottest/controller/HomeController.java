@@ -19,6 +19,8 @@ import com.fenglin.springboottest.vo.SearchResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -96,6 +98,12 @@ public class HomeController {
     @Autowired
     private com.fenglin.springboottest.service.GameService gameService;
 
+    @Autowired
+    private com.fenglin.springboottest.service.InteractionService interactionService;
+
+    @Autowired
+    private com.fenglin.springboottest.service.CommentService commentService;
+
     // ==================== v2 加成计算 ====================
 
     /** 修者参悟综合倍率：魔种天赋 × 转生加成 × 习得功法加成（与秘境产出共用同一套数值） */
@@ -148,7 +156,21 @@ public class HomeController {
         if (denied != null) {
             return Result.error(403, denied);
         }
-        return Result.success(contentService.list(type, kw));
+        List<SearchItemVO> items = contentService.list(type, kw);
+        // 批量回填互动计数（一条 IN 查询，避免逐条统计）
+        if (!items.isEmpty()) {
+            List<Long> ids = new ArrayList<>();
+            for (SearchItemVO it : items) {
+                if (it.getId() != null) ids.add(it.getId());
+            }
+            Map<Long, long[]> counts = interactionService.countsOf(type, ids);
+            for (SearchItemVO it : items) {
+                long[] c = counts.get(it.getId());
+                it.setLikeCount(c == null ? 0L : c[0]);
+                it.setFavoriteCount(c == null ? 0L : c[1]);
+            }
+        }
+        return Result.success(items);
     }
 
     /** 内容详情 GET /api/home/detail?type=art&id=1 → 单条完整信息（含正文与属性表；需境界达标） */
@@ -165,7 +187,113 @@ public class HomeController {
         if (vo == null) {
             return Result.error(404, "魔渊之中并无此记载");
         }
+        // 附带互动状态：点赞数 / 收藏数 / 本人是否已赞已藏
+        Map<String, Object> st = interactionService.stats(currentUserId(authorization), type, id);
+        vo.setLikeCount((Long) st.get("likeCount"));
+        vo.setFavoriteCount((Long) st.get("favoriteCount"));
+        vo.setLiked((Boolean) st.get("liked"));
+        vo.setFavorited((Boolean) st.get("favorited"));
+        vo.setCommentCount(commentService.count(type, id));
         return Result.success(vo);
+    }
+
+    // ==================== 内容评论 ====================
+
+    /** 发表评论 POST /api/home/comment → 返回新评论（含作者信息） */
+    @PostMapping("/comment")
+    public Result<?> addComment(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) com.fenglin.springboottest.dto.CommentDTO dto) {
+        Long userId = currentUserId(authorization);
+        if (userId == null) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        if (dto == null) {
+            return Result.error(400, "空言无物，魔域不收。");
+        }
+        return commentService.add(userId, dto.getType(), dto.getId(), dto.getContent());
+    }
+
+    /** 评论列表 GET /api/home/comments?type=&id=&limit=&offset= → 倒序分页 */
+    @GetMapping("/comments")
+    public Result<?> comments(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "type", required = false, defaultValue = "") String type,
+            @RequestParam(value = "id", required = false) Long id,
+            @RequestParam(value = "limit", required = false, defaultValue = "20") int limit,
+            @RequestParam(value = "offset", required = false, defaultValue = "0") int offset) {
+        if (!StringUtils.hasText(type) || id == null) {
+            return Result.error(400, "未指明所阅篇章。");
+        }
+        return Result.success(commentService.list(currentUserId(authorization), type, id, limit, offset));
+    }
+
+    /** 删除评论 DELETE /api/home/comment/{id} → 本人或管理员可删（软删） */
+    @org.springframework.web.bind.annotation.DeleteMapping("/comment/{id}")
+    public Result<?> deleteComment(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @org.springframework.web.bind.annotation.PathVariable Long id) {
+        DemonUser me = currentUser(authorization);
+        if (me == null) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        boolean admin = me.getPermission() != null && me.getPermission() == 0;
+        return commentService.delete(id, me.getId(), admin);
+    }
+
+    // ==================== 内容互动：点赞 / 收藏 ====================
+
+    /** 点赞（切换式） POST /api/home/like → { liked, likeCount, favorited, favoriteCount } */
+    @PostMapping("/like")
+    public Result<?> like(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) com.fenglin.springboottest.dto.InteractionDTO dto) {
+        Long userId = currentUserId(authorization);
+        if (userId == null) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        if (dto == null) {
+            return Result.error(400, "未指明所互动的篇章。");
+        }
+        String bad = interactionService.validate(dto.getType(), dto.getId());
+        if (bad != null) {
+            return Result.error(404, bad);
+        }
+        return Result.success(interactionService.toggleLike(userId, dto.getType(), dto.getId()));
+    }
+
+    /** 收藏（切换式） POST /api/home/favorite → { favorited, favoriteCount, liked, likeCount } */
+    @PostMapping("/favorite")
+    public Result<?> favorite(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) com.fenglin.springboottest.dto.InteractionDTO dto) {
+        Long userId = currentUserId(authorization);
+        if (userId == null) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        if (dto == null) {
+            return Result.error(400, "未指明所收藏的篇章。");
+        }
+        String bad = interactionService.validate(dto.getType(), dto.getId());
+        if (bad != null) {
+            return Result.error(404, bad);
+        }
+        return Result.success(interactionService.toggleFavorite(userId, dto.getType(), dto.getId()));
+    }
+
+    /** 我的收藏 GET /api/home/favorites → 收藏条目（按收藏时间倒序） */
+    @GetMapping("/favorites")
+    public Result<?> favorites(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        Long userId = currentUserId(authorization);
+        if (userId == null) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        List<com.fenglin.springboottest.vo.FavoriteItemVO> list = interactionService.myFavorites(userId);
+        Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("total", list.size());
+        data.put("list", list);
+        return Result.success(data);
     }
 
     /** 境界阶梯 GET /api/home/realms → 十境全量 + 各功能门槛（公开） */

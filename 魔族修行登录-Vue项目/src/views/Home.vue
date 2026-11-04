@@ -19,6 +19,7 @@
         <a class="nav-item" @click="goModule('codex')">魔 典 秘 录</a>
         <a class="nav-item" @click="goArchive()">魔 枢 典 册</a>
         <a class="nav-item" @click="goSocial()">传 音<span v-if="socialUnread" class="nav-badge">{{ socialUnread }}</span></a>
+        <a class="nav-item" @click="goFavorites()">收 藏</a>
       </nav>
 
       <div class="nav-user">
@@ -29,6 +30,12 @@
           </span>
           <span class="user-realm" v-if="user?.realm">魔种 · {{ user.realm }}</span>
         </div>
+        <button
+          class="admin-btn"
+          type="button"
+          title="账号阁：身份信息 / 换密令"
+          @click="goAccount"
+        >账 号</button>
         <!-- 仅管理员权限（permission=0）可见后台入口 -->
         <button
           v-if="user?.permission === 0"
@@ -1506,6 +1513,16 @@ function goAdmin() {
 // 进入传音 · 魔友
 function goSocial() {
   router.push('/social')
+}
+
+// 进入收藏阁
+function goFavorites() {
+  router.push('/favorites')
+}
+
+// 进入账号阁（身份 / 换密令）
+function goAccount() {
+  router.push('/account')
 }
 
 // 拉取传音未读数（导航红点），失败静默

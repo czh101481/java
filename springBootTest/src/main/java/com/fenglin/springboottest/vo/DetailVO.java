@@ -23,6 +23,61 @@ public class DetailVO {
     /** 属性表：门类/品阶/境界/地域/凶险/论者/卷册 等 */
     private List<Meta> meta = new ArrayList<>();
 
+    /** 点赞总数（道友共鸣） */
+    private Long likeCount = 0L;
+
+    /** 收藏总数 */
+    private Long favoriteCount = 0L;
+
+    /** 当前修者是否已点赞 */
+    private Boolean liked = false;
+
+    /** 当前修者是否已收藏 */
+    private Boolean favorited = false;
+
+    /** 评论条数 */
+    private Long commentCount = 0L;
+
+    public Long getCommentCount() {
+        return commentCount;
+    }
+
+    public void setCommentCount(Long commentCount) {
+        this.commentCount = commentCount;
+    }
+
+    public Long getLikeCount() {
+        return likeCount;
+    }
+
+    public void setLikeCount(Long likeCount) {
+        this.likeCount = likeCount;
+    }
+
+    public Long getFavoriteCount() {
+        return favoriteCount;
+    }
+
+    public void setFavoriteCount(Long favoriteCount) {
+        this.favoriteCount = favoriteCount;
+    }
+
+    public Boolean getLiked() {
+        return liked;
+    }
+
+    public void setLiked(Boolean liked) {
+        this.liked = liked;
+    }
+
+    public Boolean getFavorited() {
+        return favorited;
+    }
+
+    public void setFavorited(Boolean favorited) {
+        this.favorited = favorited;
+    }
+
     public String getImg() {
         return img;
     }

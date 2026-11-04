@@ -27,4 +27,10 @@ public class SearchItemVO {
 
     /** 配图相对路径（无图为 null，前端需判空兜底） */
     private String img;
+
+    /** 点赞总数（列表展示热度，缺省 0） */
+    private Long likeCount = 0L;
+
+    /** 收藏总数（列表展示被藏次数，缺省 0） */
+    private Long favoriteCount = 0L;
 }

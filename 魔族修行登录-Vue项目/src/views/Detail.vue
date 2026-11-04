@@ -18,7 +18,8 @@
           :class="{ active: m.key === type }"
           @click="goModule(m.key)"
         >{{ m.title }}</a>
-        <a class="nav-item" @click="goArchive">魔 枢 典 册</a>
+        <a class="nav-item" :class="{ active: type === 'archive' }" @click="goArchive">魔 枢 典 册</a>
+        <a class="nav-item" @click="goFavorites">收 藏 阁</a>
       </nav>
 
       <div class="nav-user">
@@ -41,7 +42,7 @@
         <div class="crumbs">
           <span class="crumb-link" @click="goHome">魔域枢机</span>
           <span class="sep">/</span>
-          <span class="crumb-link" @click="goModule(type)">{{ info.typeName }}</span>
+          <span class="crumb-link" @click="backToList">{{ info.typeName }}</span>
           <span class="sep">/</span>
           <span class="crumb-now">{{ info.title }}</span>
         </div>
@@ -65,6 +66,34 @@
           <span>{{ type === 'trial' ? '秘 境 纪 事' : '秘 传 正 文' }}</span>
         </div>
         <div class="content">{{ info.content }}</div>
+
+        <!-- 内容互动：共鸣（点赞）/ 收藏 -->
+        <div class="react-row">
+          <button
+            class="react-btn"
+            type="button"
+            :class="{ on: liked }"
+            :disabled="reacting"
+            @click="onLike"
+          >
+            <span class="rb-icon">♥</span>
+            <span>{{ liked ? '已 共 鸣' : '共 鸣' }}</span>
+            <b>{{ likeCount }}</b>
+          </button>
+          <button
+            class="react-btn gold"
+            type="button"
+            :class="{ on: favorited }"
+            :disabled="reacting"
+            @click="onFavorite"
+          >
+            <span class="rb-icon">★</span>
+            <span>{{ favorited ? '已 藏 于 阁' : '收 藏' }}</span>
+            <b>{{ favoriteCount }}</b>
+          </button>
+          <span v-if="reactMsg" class="act-msg">{{ reactMsg }}</span>
+          <a class="react-more" @click="goFavorites">收 藏 阁 ⟶</a>
+        </div>
 
         <!-- v2：参悟此篇（每篇每日一次）/ 研读本篇 / 功法习得 -->
         <div class="act-row">
@@ -161,8 +190,59 @@
           </div>
         </template>
 
+        <!-- 魔域留言（内容评论） -->
+        <div class="divider"><span>魔 域 留 言 · {{ commentCount }}</span></div>
+        <div class="cmt">
+          <div class="cmt-form">
+            <textarea
+              v-model="cmtText"
+              class="cmt-input"
+              maxlength="300"
+              rows="3"
+              placeholder="留一言于魔域……（至多三百字）"
+            ></textarea>
+            <div class="cmt-form-foot">
+              <span class="cmt-len">{{ cmtText.length }} / 300</span>
+              <button
+                class="btn cmt-send"
+                type="button"
+                :disabled="posting || !cmtText.trim()"
+                @click="onPostComment"
+              >{{ posting ? '递 言 中 ……' : '留 言' }}</button>
+            </div>
+            <p v-if="cmtMsg" class="act-msg" :class="{ deny: !cmtOk }">{{ cmtMsg }}</p>
+          </div>
+
+          <div v-if="loadingComments" class="cmt-state">留 言 翻 检 中 ……</div>
+          <div v-else-if="!comments.length" class="cmt-empty">此 间 尚 无 人 留 言 ， 可 为 第 一 人 。</div>
+          <div v-else class="cmt-list">
+            <div v-for="c in comments" :key="c.id" class="cmt-item">
+              <div class="cmt-avatar" :style="c.av.style">
+                <img v-if="c.av.img" :src="c.av.img" alt="" />
+                <template v-else>{{ c.av.char }}</template>
+              </div>
+              <div class="cmt-main">
+                <div class="cmt-head">
+                  <span class="cmt-name">{{ c.userName }}</span>
+                  <span class="cmt-realm" v-if="c.cultivation">{{ c.cultivation }}境</span>
+                  <span class="cmt-time">{{ c.createdAt }}</span>
+                  <button v-if="c.mine" class="cmt-del" type="button" @click="onDeleteComment(c)">删 除</button>
+                </div>
+                <div class="cmt-text">{{ c.content }}</div>
+              </div>
+            </div>
+            <button
+              v-if="comments.length < commentCount"
+              class="btn ghost cmt-more"
+              type="button"
+              :disabled="loadingComments"
+              @click="loadMoreComments"
+            >载 入 更 多（余 {{ commentCount - comments.length }} 条）</button>
+          </div>
+        </div>
+
         <div class="actions">
-          <button class="btn ghost" type="button" @click="goModule(type)">⟵ 返 回 {{ info.typeName }}</button>
+          <button class="btn ghost" type="button" @click="backToList">⟵ 返 回 {{ info.typeName }}</button>
           <button class="btn" type="button" @click="goHome">回 魔 域 枢 机</button>
         </div>
       </template>
@@ -177,7 +257,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
-import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, learnArt, secretRealms, enterRealm, myRealmLog } from '../api/home'
+import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, learnArt, secretRealms, enterRealm, myRealmLog, likeContent, favoriteContent, commentList, addComment, deleteComment } from '../api/home'
+import { renderAvatar } from '../config/avatars'
 // 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
 import { REALM_NAMES } from '../config/realm'
 
@@ -211,6 +292,12 @@ async function load() {
     const res = await homeDetail(type.value, id.value)
     if (res.data.code === 200) {
       info.value = res.data.data
+      // 互动状态随详情一并返回
+      liked.value = !!info.value.liked
+      favorited.value = !!info.value.favorited
+      likeCount.value = info.value.likeCount || 0
+      favoriteCount.value = info.value.favoriteCount || 0
+      commentCount.value = info.value.commentCount || 0
       // 论道页额外拉取问答题目（401/403 时静默，正文照常展示）
       if (type.value === 'debate') {
         try {
@@ -225,6 +312,80 @@ async function load() {
     loading.value = false
   }
   await loadRealm()
+  await loadComments(true)
+}
+
+// ==================== 魔域留言（内容评论） ====================
+const comments = ref([])
+const commentCount = ref(0)
+const loadingComments = ref(false)
+const posting = ref(false)
+const cmtText = ref('')
+const cmtMsg = ref('')
+const cmtOk = ref(true)
+
+async function loadComments(reset) {
+  loadingComments.value = true
+  try {
+    const offset = reset ? 0 : comments.value.length
+    const res = await commentList(type.value, id.value, 20, offset)
+    if (res.data.code === 200) {
+      const d = res.data.data
+      // 头像统一在这里算好（预设 key / 上传图片 / 道号首字三种情况）
+      const rows = (d.list || []).map(x => ({ ...x, av: renderAvatar(x.avatar, x.userName) }))
+      comments.value = reset ? rows : comments.value.concat(rows)
+      commentCount.value = d.total || 0
+    }
+  } catch (e) {
+    // 评论区失败不影响正文阅读
+  } finally {
+    loadingComments.value = false
+  }
+}
+
+function loadMoreComments() {
+  if (loadingComments.value) return
+  return loadComments(false)
+}
+
+async function onPostComment() {
+  const text = cmtText.value.trim()
+  if (!text || posting.value) return
+  posting.value = true
+  cmtMsg.value = ''
+  try {
+    const res = await addComment(type.value, id.value, text)
+    if (res.data.code === 200) {
+      cmtOk.value = true
+      cmtText.value = ''
+      cmtMsg.value = '留言已刻入魔域。'
+      await loadComments(true)
+    } else {
+      cmtOk.value = false
+      cmtMsg.value = res.data.msg || '留言无应。'
+    }
+  } catch (e) {
+    cmtOk.value = false
+    cmtMsg.value = e.message || '魔门无应，连通失败'
+  } finally {
+    posting.value = false
+  }
+}
+
+async function onDeleteComment(c) {
+  if (!window.confirm('此言一出，覆水难收。确定删去？')) return
+  try {
+    const res = await deleteComment(c.id)
+    if (res.data.code === 200) {
+      await loadComments(true)
+    } else {
+      cmtOk.value = false
+      cmtMsg.value = res.data.msg || '删除无应。'
+    }
+  } catch (e) {
+    cmtOk.value = false
+    cmtMsg.value = e.message || '魔门无应，连通失败'
+  }
 }
 
 // ==================== 域外秘境：玩法状态 / 进入结算 / 战报 ====================
@@ -368,9 +529,69 @@ async function onAnswer(letter) {
   }
 }
 
+// ==================== 内容互动：点赞 / 收藏 ====================
+const liked = ref(false)
+const favorited = ref(false)
+const likeCount = ref(0)
+const favoriteCount = ref(0)
+const reacting = ref(false)
+const reactMsg = ref('')
+
+async function onLike() {
+  if (reacting.value) return
+  reacting.value = true
+  reactMsg.value = ''
+  try {
+    const res = await likeContent(type.value, id.value)
+    if (res.data.code === 200) {
+      const d = res.data.data
+      liked.value = !!d.liked
+      likeCount.value = d.likeCount || 0
+      favorited.value = !!d.favorited
+      favoriteCount.value = d.favoriteCount || 0
+      reactMsg.value = d.msg || ''
+    } else {
+      reactMsg.value = res.data.msg || '共鸣无应。'
+    }
+  } catch (e) {
+    reactMsg.value = e.message || '魔门无应，连通失败'
+  } finally {
+    reacting.value = false
+  }
+}
+
+async function onFavorite() {
+  if (reacting.value) return
+  reacting.value = true
+  reactMsg.value = ''
+  try {
+    const res = await favoriteContent(type.value, id.value)
+    if (res.data.code === 200) {
+      const d = res.data.data
+      favorited.value = !!d.favorited
+      favoriteCount.value = d.favoriteCount || 0
+      liked.value = !!d.liked
+      likeCount.value = d.likeCount || 0
+      reactMsg.value = d.msg || ''
+    } else {
+      reactMsg.value = res.data.msg || '收藏无应。'
+    }
+  } catch (e) {
+    reactMsg.value = e.message || '魔门无应，连通失败'
+  } finally {
+    reacting.value = false
+  }
+}
+
 function goModule(key) { router.push('/module/' + key) }
+// 返回来处：典册走典籍库，其余走对应模块页
+function backToList() {
+  if (type.value === 'archive') router.push('/archive')
+  else router.push('/module/' + type.value)
+}
 function goHome() { router.push('/home') }
 function goArchive() { router.push('/archive') }
+function goFavorites() { router.push('/favorites') }
 function onLogout() { clearSession(); router.replace('/login') }
 
 onMounted(() => {
@@ -654,6 +875,143 @@ onMounted(() => {
 .act-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .act-msg { font-size: 12px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.6); }
 .act-msg.deny { color: rgba(255, 107, 143, 0.85); }
+
+/* ===== 内容互动：点赞 / 收藏 ===== */
+.react-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 18px; flex-wrap: wrap;
+}
+.react-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 18px; cursor: pointer;
+  font-family: inherit; font-size: 13px; letter-spacing: 2px;
+  color: #ffd9e2;
+  border: 1px solid rgba(255, 59, 107, 0.4);
+  border-radius: 22px;
+  background: rgba(255, 59, 107, 0.08);
+  transition: 0.22s;
+}
+.react-btn:hover:not(:disabled) {
+  border-color: rgba(255, 59, 107, 0.85);
+  box-shadow: 0 0 16px rgba(255, 59, 107, 0.32);
+}
+.react-btn .rb-icon { font-size: 14px; color: rgba(255, 107, 143, 0.85); }
+.react-btn b {
+  font-weight: normal; font-size: 12px;
+  padding: 1px 8px; border-radius: 10px;
+  background: rgba(255, 59, 107, 0.18);
+  color: #fff;
+}
+.react-btn.on {
+  border-color: rgba(255, 59, 107, 0.95);
+  background: linear-gradient(135deg, rgba(179, 24, 58, 0.75), rgba(74, 13, 36, 0.6));
+  box-shadow: 0 0 20px rgba(255, 59, 107, 0.45);
+  color: #fff;
+}
+.react-btn.on .rb-icon { color: #ff3b6b; }
+.react-btn.gold {
+  border-color: rgba(217, 176, 102, 0.4);
+  background: rgba(217, 176, 102, 0.08);
+  color: #f0e2c4;
+}
+.react-btn.gold .rb-icon { color: rgba(217, 176, 102, 0.9); }
+.react-btn.gold b { background: rgba(217, 176, 102, 0.2); }
+.react-btn.gold.on {
+  border-color: rgba(217, 176, 102, 0.95);
+  background: linear-gradient(135deg, rgba(180, 132, 42, 0.6), rgba(74, 54, 13, 0.55));
+  box-shadow: 0 0 20px rgba(217, 176, 102, 0.4);
+  color: #fff8e8;
+}
+.react-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.react-more {
+  margin-left: auto;
+  font-size: 12px; letter-spacing: 2px;
+  color: rgba(217, 176, 102, 0.8);
+  cursor: pointer;
+}
+.react-more:hover { color: #d9b066; text-shadow: 0 0 10px rgba(217, 176, 102, 0.6); }
+
+/* ===== 魔域留言（评论） ===== */
+.cmt { display: flex; flex-direction: column; gap: 16px; }
+.cmt-form {
+  padding: 14px 16px; border-radius: 12px;
+  background: rgba(6, 2, 10, 0.5);
+  border: 1px solid rgba(255, 59, 107, 0.22);
+}
+.cmt-input {
+  width: 100%; box-sizing: border-box;
+  padding: 11px 13px;
+  font-family: inherit; font-size: 13px; line-height: 1.8; letter-spacing: 1px;
+  color: #e8dcc8;
+  background: rgba(10, 3, 8, 0.65);
+  border: 1px solid rgba(255, 59, 107, 0.25);
+  border-radius: 9px;
+  outline: none; resize: vertical;
+  transition: 0.22s;
+}
+.cmt-input:focus {
+  border-color: rgba(255, 59, 107, 0.7);
+  box-shadow: 0 0 14px rgba(255, 59, 107, 0.2);
+}
+.cmt-input::placeholder { color: rgba(232, 220, 200, 0.28); }
+.cmt-form-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 10px;
+}
+.cmt-len { font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.35); }
+.cmt-send { padding: 8px 20px; font-size: 12px; }
+.cmt-state, .cmt-empty {
+  padding: 26px 0; text-align: center;
+  font-size: 12px; letter-spacing: 3px;
+  color: rgba(232, 220, 200, 0.4);
+}
+.cmt-list { display: flex; flex-direction: column; gap: 12px; }
+.cmt-item {
+  display: flex; gap: 12px;
+  padding: 12px 14px; border-radius: 12px;
+  background: rgba(6, 2, 10, 0.4);
+  border: 1px solid rgba(255, 59, 107, 0.14);
+}
+.cmt-avatar {
+  flex: 0 0 auto;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  font-size: 14px; color: #fff;
+  background: linear-gradient(135deg, #b3183a, #4a0d24);
+  border: 1px solid rgba(255, 59, 107, 0.45);
+}
+.cmt-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cmt-main { flex: 1; min-width: 0; }
+.cmt-head {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; margin-bottom: 6px;
+}
+.cmt-name { font-size: 13px; letter-spacing: 1px; color: #e8dcc8; }
+.cmt-realm {
+  font-size: 10px; letter-spacing: 1px;
+  padding: 1px 7px; border-radius: 9px;
+  color: #e8c98a;
+  background: rgba(217, 176, 102, 0.1);
+  border: 1px solid rgba(217, 176, 102, 0.3);
+}
+.cmt-time { font-size: 11px; color: rgba(232, 220, 200, 0.32); }
+.cmt-del {
+  margin-left: auto;
+  padding: 2px 9px; border-radius: 10px; cursor: pointer;
+  font-family: inherit; font-size: 11px; letter-spacing: 1px;
+  color: rgba(255, 157, 180, 0.85);
+  background: transparent;
+  border: 1px solid rgba(255, 59, 107, 0.3);
+  transition: 0.2s;
+}
+.cmt-del:hover { color: #fff; border-color: #ff3b6b; background: rgba(179, 24, 58, 0.4); }
+.cmt-text {
+  font-size: 13px; line-height: 1.9; letter-spacing: 1px;
+  color: rgba(232, 220, 200, 0.82);
+  white-space: pre-wrap; word-break: break-word;
+}
+.cmt-more { align-self: center; padding: 9px 20px; font-size: 12px; }
 
 /* ===== 域外秘境 ===== */
 .realm { margin-top: 14px; }

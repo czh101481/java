@@ -13,9 +13,29 @@ adminHttp.interceptors.request.use((config) => {
   return config
 })
 
+// 后台错误码同样在响应体 code 里（HTTP 恒 200），故成功回调也要查 401
+function onAdminTokenExpired() {
+  localStorage.removeItem('demon_admin_token')
+  localStorage.removeItem('demon_admin_name')
+  if (!window.location.hash.startsWith('#/admin/login')) {
+    window.location.hash = '#/admin/login'
+  }
+}
+
 adminHttp.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const body = res.data
+    const url = (res.config && res.config.url) || ''
+    if (body && body.code === 401 && url.indexOf('/api/admin/login') < 0) {
+      onAdminTokenExpired()
+    }
+    return res
+  },
   (err) => {
+    const url = (err.config && err.config.url) || ''
+    if (err.response && err.response.status === 401 && url.indexOf('/api/admin/login') < 0) {
+      onAdminTokenExpired()
+    }
     const msg =
       (err.response && err.response.data && err.response.data.msg) ||
       '后台无应答，连通失败'
@@ -42,6 +62,14 @@ export function getAdminSession() {
 }
 
 export function clearAdminSession() {
+  const token = localStorage.getItem('demon_admin_token')
+  // 通知后端作废管理令牌（失败不影响本地退出）
+  if (token) {
+    axios.post(`${API_BASE}/api/admin/logout`, null, {
+      headers: { Authorization: 'Bearer ' + token },
+      timeout: 3000
+    }).catch(() => {})
+  }
   localStorage.removeItem('demon_admin_token')
   localStorage.removeItem('demon_admin_name')
 }

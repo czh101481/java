@@ -19,6 +19,7 @@
           @click="goModule(m.key)"
         >{{ m.title }}</a>
         <a class="nav-item" @click="goArchive">魔 枢 典 册</a>
+        <a class="nav-item" @click="goFavorites">收 藏 阁</a>
       </nav>
 
       <div class="nav-user">
@@ -74,6 +75,10 @@
           <div class="row-title">{{ it.title }}</div>
           <div class="row-summary">{{ it.summary }}</div>
         </div>
+        <span class="row-react" v-if="it.likeCount || it.favoriteCount">
+          <span v-if="it.likeCount" class="rr like">♥ {{ it.likeCount }}</span>
+          <span v-if="it.favoriteCount" class="rr fav">★ {{ it.favoriteCount }}</span>
+        </span>
         <span class="row-extra">{{ it.extra }}</span>
         <button
           v-if="realmState[it.id]"
@@ -207,6 +212,9 @@ function goHome() {
 }
 function goArchive() {
   router.push('/archive')
+}
+function goFavorites() {
+  router.push('/favorites')
 }
 function openDetail(id) {
   router.push(`/detail/${type.value}/${id}`)
@@ -408,6 +416,20 @@ watch(type, () => {
   border: 1px solid rgba(255, 59, 107, 0.45);
 }
 .row-go { flex: 0 0 auto; font-size: 12px; color: rgba(217, 176, 102, 0.75); letter-spacing: 2px; }
+/* 行内互动计数：共鸣数 / 收藏数 */
+.row-react { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.row-react .rr {
+  font-size: 11px; letter-spacing: 1px;
+  padding: 3px 9px; border-radius: 12px;
+  background: rgba(255, 59, 107, 0.1);
+  border: 1px solid rgba(255, 59, 107, 0.28);
+}
+.row-react .rr.like { color: rgba(255, 107, 143, 0.9); }
+.row-react .rr.fav {
+  color: rgba(217, 176, 102, 0.9);
+  background: rgba(217, 176, 102, 0.1);
+  border-color: rgba(217, 176, 102, 0.3);
+}
 /* 秘境行内「进入」按钮 */
 .row-enter {
   flex: 0 0 auto; padding: 6px 14px; border-radius: 16px; cursor: pointer;

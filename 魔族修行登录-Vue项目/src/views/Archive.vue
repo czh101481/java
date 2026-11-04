@@ -17,6 +17,7 @@
         <a class="nav-item" @click="goModule('debate')">宗 门 论 道</a>
         <a class="nav-item" @click="goModule('codex')">魔 典 秘 录</a>
         <a class="nav-item active">魔 枢 典 册</a>
+        <a class="nav-item" @click="goFavorites">收 藏 阁</a>
       </nav>
 
       <div class="nav-user">
@@ -101,6 +102,7 @@
               <div class="entry-title">{{ it.title }}</div>
               <div class="entry-sub">{{ it.subtitle }}</div>
             </div>
+            <button class="entry-open" type="button" title="于详情页独览此篇（可收藏）" @click.stop="openDetail(it.id)">独 览</button>
             <span class="entry-arrow">{{ openId === it.id ? '—' : '＋' }}</span>
           </div>
 
@@ -193,6 +195,13 @@ function goHome() {
 }
 function goModule(key) {
   router.push('/module/' + key)
+}
+function goFavorites() {
+  router.push('/favorites')
+}
+// 独览：进入详情页（可点赞/收藏）
+function openDetail(id) {
+  router.push(`/detail/archive/${id}`)
 }
 function onLogout() {
   clearSession()
@@ -408,6 +417,21 @@ watch(activeCat, () => load())
 .entry-title { font-size: 17px; letter-spacing: 2px; color: var(--bone); text-shadow: 0 0 10px rgba(255, 59, 107, 0.35); }
 .entry-sub { font-size: 12px; letter-spacing: 1px; color: rgba(217, 176, 102, 0.75); margin-top: 5px; }
 .entry-arrow { font-size: 16px; color: var(--crimson-glow); }
+/* 独览：跳详情页（可点赞/收藏） */
+.entry-open {
+  flex: 0 0 auto; margin-right: 12px;
+  padding: 4px 12px; border-radius: 14px; cursor: pointer;
+  font-family: inherit; font-size: 11px; letter-spacing: 2px;
+  color: rgba(217, 176, 102, 0.9);
+  background: rgba(217, 176, 102, 0.08);
+  border: 1px solid rgba(217, 176, 102, 0.35);
+  transition: 0.22s;
+}
+.entry-open:hover {
+  color: #fff8e8;
+  border-color: rgba(217, 176, 102, 0.85);
+  box-shadow: 0 0 14px rgba(217, 176, 102, 0.3);
+}
 .entry-summary {
   padding: 0 20px 14px 70px;
   font-size: 13px; line-height: 1.8; letter-spacing: 1px;

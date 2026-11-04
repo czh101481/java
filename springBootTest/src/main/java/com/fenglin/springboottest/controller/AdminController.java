@@ -83,6 +83,8 @@ public class AdminController {
     @Autowired
     private RealmConfigLoader realmConfigLoader;
     @Autowired
+    private com.fenglin.springboottest.service.AuthService authService;
+    @Autowired
     private OriginConfigLoader originConfigLoader;
 
     /** 允许扫描的配图目录（白名单） */
@@ -103,7 +105,7 @@ public class AdminController {
         }
         DemonUser user = userMapper.selectOne(
                 new LambdaQueryWrapper<DemonUser>().eq(DemonUser::getName, dto.getUsername().trim()));
-        if (user == null || !dto.getPassword().equals(user.getPassword())) {
+        if (!authService.verifyPassword(user, dto.getPassword())) {
             return Result.error(401, "管理员账号或密令有误。");
         }
         if (user.getPermission() == null || user.getPermission() != 0) {
@@ -115,6 +117,16 @@ public class AdminController {
         data.put("token", token);
         data.put("username", user.getName());
         return Result.success(data);
+    }
+
+    /** 退出后台 POST /api/admin/logout → 作废当前管理令牌（无令牌也返回成功） */
+    @PostMapping("/logout")
+    public Result<?> logout(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
+            adminTokens.remove(authorization.substring(7).trim());
+        }
+        return Result.success();
     }
 
     /** 功法阁列表 GET /api/admin/art/list?kw= → 全量（id 倒序，kw 过滤功法名/简介） */

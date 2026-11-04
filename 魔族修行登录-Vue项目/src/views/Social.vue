@@ -26,7 +26,10 @@
             :class="{ active: activeFriend && activeFriend.userId === f.userId }"
             @click="selectFriend(f)"
           >
-            <span class="fi-avatar" :style="av(f).style">{{ av(f).char }}</span>
+            <span class="fi-avatar" :style="av(f).style">
+              <img v-if="av(f).img" :src="av(f).img" alt="" />
+              <template v-else>{{ av(f).char }}</template>
+            </span>
             <div class="fi-main">
               <div class="fi-top">
                 <span class="fi-name">{{ f.name }}</span>
@@ -43,7 +46,10 @@
         <div v-else-if="activeTab === 'requests'" class="request-list">
           <div v-if="!requests.length" class="side-empty">暂 无 呈 予 你 的 道 友 契 约 。</div>
           <div v-for="r in requests" :key="r.applyId" class="request-item">
-            <span class="ri-avatar" :style="av(r).style">{{ av(r).char }}</span>
+            <span class="ri-avatar" :style="av(r).style">
+              <img v-if="av(r).img" :src="av(r).img" alt="" />
+              <template v-else>{{ av(r).char }}</template>
+            </span>
             <div class="ri-main">
               <div class="ri-name">{{ r.name }} <em>{{ r.realm }} · {{ r.cultivation }}境</em></div>
               <div class="ri-msg">{{ r.message || '愿结同道之好。' }}</div>
@@ -63,7 +69,10 @@
           </form>
           <div v-if="!searchResults.length" class="side-empty">输 入 道 号 ， 寻 觅 可 结 交 的 修 者 。</div>
           <div v-for="u in searchResults" :key="u.id" class="add-item">
-            <span class="ai-avatar" :style="av(u).style">{{ av(u).char }}</span>
+            <span class="ai-avatar" :style="av(u).style">
+              <img v-if="av(u).img" :src="av(u).img" alt="" />
+              <template v-else>{{ av(u).char }}</template>
+            </span>
             <div class="ai-main">
               <div class="ai-name">{{ u.name }}</div>
               <div class="ai-sub">{{ u.realm }} · {{ u.cultivation }}境</div>
@@ -80,7 +89,10 @@
     <main class="main">
       <template v-if="activeFriend">
         <header class="conv-head">
-          <span class="ch-avatar" :style="av(activeFriend).style">{{ av(activeFriend).char }}</span>
+          <span class="ch-avatar" :style="av(activeFriend).style">
+            <img v-if="av(activeFriend).img" :src="av(activeFriend).img" alt="" />
+            <template v-else>{{ av(activeFriend).char }}</template>
+          </span>
           <div class="ch-who">
             <div class="ch-name">{{ activeFriend.name }}</div>
             <div class="ch-sub">{{ activeFriend.realm }} · {{ activeFriend.cultivation }}境</div>
@@ -531,8 +543,12 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   font-size: 18px;
   color: #fff;
+  overflow: hidden;
   background: radial-gradient(circle at 35% 30%, var(--violet-glow), #1a030a 80%);
   box-shadow: 0 0 12px rgba(176, 102, 255, 0.5);
+}
+.fi-avatar img, .ri-avatar img, .ai-avatar img, .ch-avatar img {
+  width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;
 }
 .fi-main { flex: 1; min-width: 0; }
 .fi-top { display: flex; justify-content: space-between; align-items: center; }

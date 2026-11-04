@@ -37,7 +37,10 @@
           title="进入后台管理系统"
           @click="goAdmin"
         >后 台 管 理</button>
-        <div class="avatar" title="查看个人道牌 / 更换头像" @click="openBadges" :style="myAvatar.style">{{ myAvatar.char }}</div>
+        <div class="avatar" title="查看个人道牌 / 更换头像" @click="openBadges" :style="myAvatar.style">
+          <img v-if="myAvatar.img" :src="myAvatar.img" alt="头像" />
+          <template v-else>{{ myAvatar.char }}</template>
+        </div>
         <button class="logout" type="button" @click="onLogout">断魔契</button>
       </div>
     </header>
@@ -498,7 +501,10 @@
 
         <template v-if="badges">
           <div class="badge-head">
-            <div class="badge-avatar" :style="badgeAvatarStyle">{{ myAvatar.char }}</div>
+            <div class="badge-avatar" :style="badgeAvatarStyle">
+              <img v-if="myAvatar.img" :src="myAvatar.img" alt="头像" />
+              <template v-else>{{ myAvatar.char }}</template>
+            </div>
             <div class="badge-who">
               <div class="badge-name">{{ badges.name }}</div>
               <div class="badge-title">{{ badges.title }} · {{ badges.cultivation }}境（第 {{ badges.index + 1 }} 重）</div>
@@ -531,9 +537,27 @@
                 <span class="ap-face" :style="{ background: `linear-gradient(135deg, ${a.c1}, ${a.c2})`, boxShadow: `0 0 10px ${a.c1}66`, borderColor: a.c1 + '99' }">{{ a.char }}</span>
                 <span class="ap-name">{{ a.name }}</span>
               </button>
+              <button
+                type="button"
+                class="ap-item upload"
+                :class="{ on: isImageAvatar(user?.avatar) }"
+                title="上传自己的图片（≤2MB）"
+                @click="triggerFilePick"
+              >
+                <span
+                  class="ap-face upload-face"
+                  :style="myAvatar.img ? { backgroundImage: `url(${myAvatar.img})` } : {}"
+                >
+                  <span v-if="!myAvatar.img">＋</span>
+                </span>
+                <span class="ap-name">{{ avatarUploading ? '刻印中' : '上传' }}</span>
+              </button>
+              <input ref="fileInput" type="file" accept="image/*" class="ap-input" @change="onPickFile" />
             </div>
-            <div class="ap-hint" v-if="avatarSaving">面 具 刻 印 中 ……</div>
+            <div class="ap-hint" v-if="avatarUploading">图 像 刻 印 中 ……</div>
+            <div class="ap-hint" v-else-if="avatarSaving">面 具 刻 印 中 ……</div>
             <div class="ap-hint ok" v-else-if="avatarSaved">已 换 新 面 目</div>
+            <div class="ap-hint err" v-else-if="avatarError">{{ avatarError }}</div>
           </div>
 
           <!-- 魔种天赋：本命魔种与独有成长偏向 -->
@@ -654,11 +678,11 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
-import { getSession, clearSession, saveSession, me, updateAvatar } from '../api/auth'
+import { getSession, clearSession, saveSession, me, updateAvatar, uploadAvatar } from '../api/auth'
 import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, exploreRandom, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer, secretRealms, enterRealm } from '../api/home'
 import { archiveCategories } from '../api/archive'
 import { messageUnread } from '../api/social'
-import { AVATARS, renderAvatar } from '../config/avatars'
+import { AVATARS, renderAvatar, isImageAvatar } from '../config/avatars'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
 
@@ -677,26 +701,72 @@ let socialTimer = null
 const myAvatar = computed(() => renderAvatar(user.value?.avatar, user.value?.name))
 const avatarSaving = ref(false)
 const avatarSaved = ref(false)
+const avatarUploading = ref(false)
+const avatarError = ref('')
+const fileInput = ref(null)
 let avatarSavedTimer = null
 
+function flashSaved() {
+  avatarSaved.value = true
+  clearTimeout(avatarSavedTimer)
+  avatarSavedTimer = setTimeout(() => { avatarSaved.value = false }, 1800)
+}
+
 async function pickAvatar(key) {
-  if (avatarSaving.value) return
+  if (avatarSaving.value || avatarUploading.value) return
   if ((user.value?.avatar || null) === (key || null)) return
   avatarSaving.value = true
   avatarSaved.value = false
+  avatarError.value = ''
   try {
     const res = await updateAvatar(key)
     if (res.data.code === 200) {
       user.value = res.data.data
       saveSession(session.token, user.value)
-      avatarSaved.value = true
-      clearTimeout(avatarSavedTimer)
-      avatarSavedTimer = setTimeout(() => { avatarSaved.value = false }, 1800)
+      flashSaved()
+    } else {
+      avatarError.value = res.data.msg || '换相失败'
     }
   } catch (e) {
-    /* 静默：失败保留原头像 */
+    avatarError.value = e.message || '换相失败'
   } finally {
     avatarSaving.value = false
+  }
+}
+
+function triggerFilePick() {
+  if (avatarUploading.value) return
+  if (fileInput.value) fileInput.value.click()
+}
+
+async function onPickFile(ev) {
+  const file = ev.target.files && ev.target.files[0]
+  ev.target.value = '' // 允许重复选择同一文件
+  if (!file) return
+  if (!file.type || !file.type.startsWith('image/')) {
+    avatarError.value = '仅可上传图像'
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    avatarError.value = '图像不得超过 2MB'
+    return
+  }
+  avatarUploading.value = true
+  avatarSaved.value = false
+  avatarError.value = ''
+  try {
+    const res = await uploadAvatar(file)
+    if (res.data.code === 200) {
+      user.value = res.data.data
+      saveSession(session.token, user.value)
+      flashSaved()
+    } else {
+      avatarError.value = res.data.msg || '上传失败'
+    }
+  } catch (e) {
+    avatarError.value = e.message || '上传失败'
+  } finally {
+    avatarUploading.value = false
   }
 }
 
@@ -1602,6 +1672,7 @@ async function loadSocialUnread() {
   transition: all 0.25s ease;
 }
 .avatar:hover { transform: scale(1.1); box-shadow: 0 0 22px rgba(255, 59, 107, 0.8); }
+.avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 .logout {
   padding: 7px 14px;
   font-size: 12px;
@@ -2389,7 +2460,9 @@ async function loadSocialUnread() {
   font-size: 28px;
   color: #fff;
   border: 1px solid rgba(255, 59, 107, 0.5);
+  overflow: hidden;
 }
+.badge-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .badge-name { font-size: 20px; letter-spacing: 4px; color: var(--bone); text-shadow: 0 0 12px var(--crimson-glow); }
 .badge-title { font-size: 12px; letter-spacing: 2px; color: var(--gold); margin-top: 6px; }
 /* 头像面具选择器 */
@@ -2428,6 +2501,17 @@ async function loadSocialUnread() {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(217, 176, 102, 0.55), 0 0 16px rgba(255, 59, 107, 0.5);
 }
+/* 上传图块 */
+.ap-input { display: none; }
+.ap-face.upload-face {
+  background-color: rgba(20, 8, 18, 0.85);
+  background-size: cover;
+  background-position: center;
+  border-style: dashed;
+  border-color: rgba(217, 176, 102, 0.5);
+  color: var(--gold);
+  font-size: 20px;
+}
 .ap-name {
   font-size: 10px; letter-spacing: 1px;
   color: rgba(232, 220, 200, 0.55);
@@ -2438,6 +2522,7 @@ async function loadSocialUnread() {
   color: rgba(232, 220, 200, 0.5); text-align: center;
 }
 .ap-hint.ok { color: #57e0a0; }
+.ap-hint.err { color: #ff6b8a; }
 @media (max-width: 640px) {
   .ap-grid { grid-template-columns: repeat(4, 1fr); }
 }

@@ -1,5 +1,7 @@
 // 头像预设：12 款「魔纹」单字头像，key 与后端 AuthService.AVATAR_KEYS 保持一致
-// 只存 key 到 demon_user.avatar，具体字形与配色由此处渲染（换肤只改这里）
+// 只存 key 到 demon_user.avatar；若为上传图片，则存 /uploads/ 路径，渲染时直接用 <img>。
+import { API_BASE } from '../api/auth'
+
 export const AVATARS = [
   { key: 'blood',     char: '血', name: '血煞', c1: '#ff3b6b', c2: '#4a0d24' },
   { key: 'ghost',     char: '幽', name: '幽冥', c1: '#3ad6c9', c2: '#062a2a' },
@@ -21,11 +23,29 @@ export function avatarOf(key) {
   return (key && MAP[key]) || null
 }
 
-// 统一渲染入口：有预设 → 预设字形+渐变；否则回退「道号首字 + 血煞渐变」
+// 是否为「上传的图片」头像（而非预设 key）
+export function isImageAvatar(key) {
+  if (!key) return false
+  return key.startsWith('/uploads/') || /^https?:\/\//.test(key) || key.startsWith('data:') || key.startsWith('blob:')
+}
+
+// 把后端相对路径拼成可访问地址
+export function avatarImageUrl(key) {
+  if (!key) return ''
+  if (/^(https?:|data:|blob:)/.test(key)) return key
+  return API_BASE + key
+}
+
+// 统一渲染入口，返回 { img, char, style }
+//   img 非空 → 用 <img :src="img">；否则用 char + style（预设或道号首字）
 export function renderAvatar(key, fallbackName) {
+  if (isImageAvatar(key)) {
+    return { img: avatarImageUrl(key), char: '', style: {} }
+  }
   const a = avatarOf(key)
   if (a) {
     return {
+      img: '',
       char: a.char,
       style: {
         background: `linear-gradient(135deg, ${a.c1}, ${a.c2})`,
@@ -34,8 +54,5 @@ export function renderAvatar(key, fallbackName) {
       }
     }
   }
-  return {
-    char: (fallbackName || '魔').slice(0, 1),
-    style: {}
-  }
+  return { img: '', char: (fallbackName || '魔').slice(0, 1), style: {} }
 }

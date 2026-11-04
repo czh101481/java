@@ -54,4 +54,16 @@ public class AuthController {
         Object av = body == null ? null : body.get("avatar");
         return authService.updateAvatar(token, av == null ? null : String.valueOf(av));
     }
+
+    /** 上传自定义头像 POST /api/auth/avatar/upload  multipart: file  header: Authorization: Bearer <token> */
+    @PostMapping("/avatar/upload")
+    public Result<DemonUser> uploadAvatar(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        String token = null;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            token = authorization.substring(7);
+        }
+        return authService.uploadAvatar(token, file);
+    }
 }

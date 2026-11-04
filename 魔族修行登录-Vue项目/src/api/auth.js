@@ -47,6 +47,13 @@ export function updateAvatar(avatar) {
   return http.post('/api/auth/avatar', { avatar })
 }
 
+// 上传自定义头像（file 为 File 对象）
+export function uploadAvatar(file) {
+  const fd = new FormData()
+  fd.append('file', file)
+  return http.post('/api/auth/avatar/upload', fd)
+}
+
 // 本地令牌存取
 export function saveSession(token, user) {
   localStorage.setItem('demon_token', token)

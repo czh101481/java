@@ -12,7 +12,12 @@ import com.fenglin.springboottest.vo.LoginVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -116,6 +121,7 @@ public class AuthService {
         if (user == null) {
             return Result.error(404, "修者不复存在。");
         }
+        String old = user.getAvatar();
         if (StringUtils.hasText(avatar)) {
             DemonUser patch = new DemonUser();
             patch.setId(userId);
@@ -128,7 +134,79 @@ public class AuthService {
                     .eq("id", userId).set("avatar", null));
             user.setAvatar(null);
         }
+        // 若原本是上传的图片、现改为预设/默认，清理旧文件
+        deleteUploaded(old);
         user.setPassword(null);
         return Result.success(user);
+    }
+
+    /** 上传自定义头像：校验图片 → 落盘 uploads/avatars → 写库返回最新修者 */
+    public Result<DemonUser> uploadAvatar(String token, MultipartFile file) {
+        if (!StringUtils.hasText(token)) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        Long userId = tokenManager.getUserId(token);
+        if (userId == null) {
+            return Result.error(401, "魔契已逝，请重入魔道。");
+        }
+        if (file == null || file.isEmpty()) {
+            return Result.error(400, "未择取图像，无从刻印。");
+        }
+        if (file.getSize() > 2L * 1024 * 1024) {
+            return Result.error(400, "图像不得超过 2MB。");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return Result.error(400, "仅可上传图像。");
+        }
+        String ext = "jpg";
+        String original = file.getOriginalFilename();
+        if (original != null && original.lastIndexOf('.') >= 0) {
+            ext = original.substring(original.lastIndexOf('.') + 1).toLowerCase();
+        }
+        if (!Arrays.asList("jpg", "jpeg", "png", "gif", "webp", "bmp").contains(ext)) {
+            return Result.error(400, "此图格式不可取用（仅 jpg/png/gif/webp/bmp）。");
+        }
+
+        DemonUser user = userMapper.selectById(userId);
+        if (user == null) {
+            return Result.error(404, "修者不复存在。");
+        }
+
+        String filename = userId + "_" + System.currentTimeMillis() + "." + ext;
+        try {
+            Path dir = Paths.get(System.getProperty("user.dir"), "uploads", "avatars").toAbsolutePath();
+            Files.createDirectories(dir);
+            file.transferTo(dir.resolve(filename).toFile());
+        } catch (IOException e) {
+            return Result.error(500, "刻印失败，图像未能落定。");
+        }
+
+        String url = "/uploads/avatars/" + filename;
+        String old = user.getAvatar();
+        userMapper.update(null, new UpdateWrapper<DemonUser>()
+                .eq("id", userId).set("avatar", url));
+        // 清理上一张自定义头像（仅 /uploads/ 下的文件，预设 key 不动）
+        deleteUploaded(old);
+
+        user.setAvatar(url);
+        user.setPassword(null);
+        return Result.success(user);
+    }
+
+    /** 删除旧的、位于 uploads/ 下的头像文件（不存在或非上传路径则忽略） */
+    private void deleteUploaded(String oldAvatar) {
+        if (oldAvatar == null || !oldAvatar.startsWith("/uploads/")) {
+            return;
+        }
+        try {
+            Path base = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
+            Path old = base.resolve(oldAvatar.replaceFirst("^/+", "")).normalize();
+            if (old.startsWith(base.resolve("uploads")) && Files.exists(old)) {
+                Files.deleteIfExists(old);
+            }
+        } catch (IOException ignored) {
+            /* 清理失败不影响主流程 */
+        }
     }
 }

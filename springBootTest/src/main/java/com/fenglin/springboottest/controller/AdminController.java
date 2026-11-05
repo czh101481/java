@@ -2,6 +2,7 @@ package com.fenglin.springboottest.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.fenglin.springboottest.common.PasswordEncoder;
 import com.fenglin.springboottest.common.Realm;
 import com.fenglin.springboottest.common.Result;
 import com.fenglin.springboottest.config.RealmConfigLoader;
@@ -115,7 +116,7 @@ public class AdminController {
 
     /**
      * 管理员登录 POST /api/admin/login → 仅登录，无注册
-     * 凭 demon_user 表校验：道号 + 明文密令匹配，且 permission = 0（管理员权限）
+     * 凭 demon_user 表校验：道号 + 密令（兼容历史明文与 PBKDF2 哈希），且 permission = 0（管理员权限）
      */
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody AdminLoginDTO dto) {
@@ -125,7 +126,7 @@ public class AdminController {
         }
         DemonUser user = userMapper.selectOne(
                 new LambdaQueryWrapper<DemonUser>().eq(DemonUser::getName, dto.getUsername().trim()));
-        if (user == null || !dto.getPassword().equals(user.getPassword())) {
+        if (user == null || !PasswordEncoder.matches(dto.getPassword(), user.getPassword())) {
             return Result.error(401, "管理员账号或密令有误。");
         }
         if (user.getPermission() == null || user.getPermission() != 0) {

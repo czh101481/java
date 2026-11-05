@@ -10,6 +10,7 @@ import AdminPanel from '../views/AdminPanel.vue'
 import Social from '../views/Social.vue'
 import Vault from '../views/Vault.vue'
 import Cultivate from '../views/Cultivate.vue'
+import Den from '../views/Den.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -28,7 +29,9 @@ const routes = [
   // 藏宝阁（魔晶 / 血玉 · 商店 · 乾坤袋 · 收支簿）
   { path: '/vault', name: 'vault', component: Vault },
   // 修为（战力 / 五维数值 / 九重进度 / 已习功法）
-  { path: '/cultivate', name: 'cultivate', component: Cultivate }
+  { path: '/cultivate', name: 'cultivate', component: Cultivate },
+  // 魔窟（洞府挂机：聚煞阵 / 魔晶矿 / 血玉髓脉，12 小时封顶）
+  { path: '/den', name: 'den', component: Den }
 ]
 
 export default createRouter({

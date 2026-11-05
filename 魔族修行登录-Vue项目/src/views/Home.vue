@@ -20,6 +20,7 @@
         <a class="nav-item" @click="goArchive()">魔 枢 典 册</a>
         <a class="nav-item" @click="goSocial()">传 音<span v-if="socialUnread" class="nav-badge">{{ socialUnread }}</span></a>
         <a class="nav-item" @click="goVault()">藏 宝 阁</a>
+        <a class="nav-item" @click="goDen()">魔 窟</a>
       </nav>
 
       <div class="nav-user">
@@ -1555,6 +1556,10 @@ function goVault() {
 
 function goCultivate() {
   router.push('/cultivate')
+}
+
+function goDen() {
+  router.push('/den')
 }
 
 async function loadWallet() {

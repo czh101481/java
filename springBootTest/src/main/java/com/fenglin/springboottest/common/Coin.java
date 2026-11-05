@@ -95,6 +95,12 @@ public final class Coin {
                 return "鬼市易物";
             case "art":
                 return "功法购得";
+            case "den":
+                return "魔窟产出";
+            case "den_up":
+                return "魔窟扩建";
+            case "den_up_refund":
+                return "扩建退款";
             case "admin":
                 return "魔门赏赐";
             default:

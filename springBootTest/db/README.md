@@ -5,9 +5,10 @@
 
 ## 一、全新安装（推荐，一步到位）
 
-仓库根目录 `demon_db.sql` 是**全量快照**：23 张表的结构 + 全部数据，
-已包含典册 v3/v4（46 条）、23 部功法及配图路径、10 件藏宝阁道具、鬼市/双币/社交/魔窟各表，
-以及 **v1 数值平衡**后的价格与 `demon_den` 每日结算记账列（见 `db/BALANCE.md`）。
+仓库根目录 `demon_db.sql` 是**全量快照**：**24 张表**的结构 + 全部数据，
+已包含典册 v3/v4/v5（46 条）、23 部功法及配图路径、10 件藏宝阁道具、鬼市/双币/社交/魔窟各表，
+**v1 数值平衡**后的价格与 `demon_den` 每日结算记账列，以及 **v1.1 每日循环**
+（论道/研读按日唯一键、`demon_item_use` 用量表、`daily_use_limit` 配置，见 `db/BALANCE.md` 第七节）。
 `魔族修行登录-Vue项目/demon_db.sql` 是同一份副本，两份保持一致。
 
 ```bash
@@ -56,11 +57,15 @@ mysql -uroot -p<口令> --default-character-set=utf8mb4 demon_db < demon_db.sql
 | 9 种子 | 27 | `seed_demo.sql` | 重插演示管理员「魔祖」（明文口令、`permission=0`） |
 | | 28 | `seed_characters.sql` | 各境界演示修者 |
 | | 29 | `seed_elite.sql` | 魔祖境翘楚 |
-| **10 数值平衡** | **30** | `demon_balance_v1.sql` | **最后执行**：给 `demon_den` 加每日结算记账两列、藏宝阁降价、功法血玉价同步；带旧值守卫，可重复跑 |
-| | **31** | `demon_archive_v4.sql` | 典册 9 条正文的硬编码数字改引用式，并写明每日封顶；不增删条目 |
+| **10 数值平衡** | **30** | `demon_balance_v1.sql` | 给 `demon_den` 加每日结算记账两列、藏宝阁降价、功法血玉价同步；带旧值守卫，可重复跑 |
+| | **31** | `demon_archive_v4.sql` | 典册硬编码数字改引用式，并写明每日封顶；不增删条目 |
+| **11 每日循环（v1.1）** | **32** | `demon_daily_v1.sql` | **最后执行**：给 quiz/read 两表加日期列并按日重建唯一键、建 `demon_item_use`、定 `daily_use_limit` 初值；带 `-1` 守卫，可重复跑 |
+| | **33** | `demon_archive_v5.sql` | 典册 4 条正文同步「每日可重复 / 收益递减 / 每日限用」；不增删条目 |
 
 > 注意：21 号 `demon_coin.sql` 与 19 号 `demon_art_catalog.sql` 写的是**旧版价格**，
-> 必须靠 30 号脚本覆盖，顺序不能提前。全新安装走全量快照则无需跑 30/31。
+> 必须靠 30 号脚本覆盖，顺序不能提前。9 号 `demon_gameplay.sql` / 10 号 `demon_gameplay_v2.sql`
+> 已同步按日唯一键的定义，但**已存在的旧库**仍须靠 32 号脚本 ALTER 换键。
+> 全新安装走全量快照则无需跑 30~33。
 
 ## 三、踩过的坑
 
@@ -75,14 +80,19 @@ mysql -uroot -p<口令> --default-character-set=utf8mb4 demon_db < demon_db.sql
 - `seed_demo.sql` 重插魔祖会把口令重置为 6 位明文；后端 `AuthService.verifyPassword`
   在首次登录成功后自动把明文升级成 PBKDF2 哈希，玩家端与后台登录都走
   `PasswordEncoder.matches`，两种存储格式都能登。
+- **MySQL 唯一键含可为 NULL 的列时不生效**（NULL 互不相等）：32 号脚本给
+  `quiz_date` / `read_date` 回填历史日期后必须 `MODIFY ... NOT NULL`，否则按日判重会失效。
 - 校验是否重建成功：
-  `SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='demon_db';` 应为 **23**；
+  `SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='demon_db';` 应为 **24**；
   `demon_archive` 46 条、`demon_art` 23 条、`demon_item` 10 条、`demon_debate` 20 条；
-  `SHOW COLUMNS FROM demon_den LIKE 'collect%';` 应有 `collect_date` / `collected_sec` 两列。
+  `SHOW COLUMNS FROM demon_den LIKE 'collect%';` 应有 `collect_date` / `collected_sec` 两列；
+  `SHOW INDEX FROM demon_quiz_record;` 应有 `uk_user_debate_day` 而无 `uk_user_debate`，
+  `SHOW INDEX FROM demon_read_record;` 应有 `uk_user_ref_day` 而无 `uk_user_ref`。
 
 ## 四、数值平衡
 
 **`db/BALANCE.md` 是数值的唯一事实依据**：每日产出预算、挂机占比、血玉收支、
-常量索引与改动流程全在那里。典册正文已改为引用式，改数值时**不需要**再改典册，
+常量索引与改动流程全在那里；**第七节**另记 v1.1 的递减曲线与道具每日使用上限。
+典册正文已改为引用式，改数值时**不需要**再改典册，
 但每次改完必须：同步 Java 常量 → 写幂等升级脚本 → 编译/冒烟 → 重导根目录
 `demon_db.sql` 与前端副本 → 提交。

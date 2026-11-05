@@ -5,11 +5,13 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
  * 论道答题记录，对应表 demon_quiz_record
- * 唯一键 (user_id, debate_id)：同一修者对同一论题只能作答一次，防止反复刷煞气
+ * 唯一键 (user_id, debate_id, quiz_date)：同一修者对同一论题每日一次，跨日可再辩；
+ * 当日超额作答由 DailyDecay 递减收益，论道榜按 DISTINCT debate_id 统计精通题数。
  */
 @Data
 @TableName("demon_quiz_record")
@@ -23,6 +25,9 @@ public class QuizRecord {
 
     /** 论题 id（demon_debate.id） */
     private Long debateId;
+
+    /** 作答日期（跨日重置，唯一键的一部分） */
+    private LocalDate quizDate;
 
     /** 是否答对：1 是 / 0 否 */
     private Integer correct;

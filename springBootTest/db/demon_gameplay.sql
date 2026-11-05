@@ -34,13 +34,14 @@ CREATE TABLE IF NOT EXISTS demon_quiz_record (
   id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
   user_id     BIGINT       NOT NULL                COMMENT '作答修者 id',
   debate_id   BIGINT       NOT NULL                COMMENT '论题 id（demon_debate.id）',
+  quiz_date   DATE         NOT NULL                COMMENT '作答日期（同一题跨日可再辩）',
   `correct`   TINYINT      NOT NULL DEFAULT 0      COMMENT '是否答对：1 是 / 0 否',
   awarded     INT          NOT NULL DEFAULT 0      COMMENT '本次结算的煞气变动（可为负）',
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '作答时间',
   PRIMARY KEY (id),
-  UNIQUE KEY uk_user_debate (user_id, debate_id) COMMENT '同一人同一题仅一次，防重复刷分',
+  UNIQUE KEY uk_user_debate_day (user_id, debate_id, quiz_date) COMMENT '同一人同一题每日一次，跨日可再辩',
   KEY idx_user (user_id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '论道答题记录（防重复刷分）';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '论道答题记录（按日判重 + 递减结算）';
 
 -- ------------------------------------------------------------
 -- 三、魔种天赋表（ demons 四系差异化成长路线）

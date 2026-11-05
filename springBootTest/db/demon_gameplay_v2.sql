@@ -97,9 +97,11 @@ CREATE TABLE IF NOT EXISTS demon_read_record (
   user_id    BIGINT       NOT NULL,
   module     VARCHAR(20)  NOT NULL COMMENT 'art/trial/debate/codex/archive',
   ref_id     BIGINT       NOT NULL,
+  read_date  DATE         NOT NULL COMMENT '研读日期（同一篇跨日可再读）',
   created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_user_ref (user_id, module, ref_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='修者研读记录（图鉴收集度）';
+  UNIQUE KEY uk_user_ref_day (user_id, module, ref_id, read_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='修者研读记录（按日判重；图鉴按 DISTINCT(module, ref_id) 统计）';
 
 -- ========== 5. 功法习得 ==========
 CREATE TABLE IF NOT EXISTS demon_user_art (

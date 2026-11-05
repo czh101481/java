@@ -228,10 +228,13 @@
               <div class="quiz-msg">{{ quizResult.msg }}</div>
               <div class="quiz-analysis">论者解析：{{ quizResult.analysis }}</div>
               <div v-if="quizResult.quizLimit" class="quiz-analysis">
-                今日论道 {{ quizResult.quizCount }}/{{ quizResult.quizLimit }} 题，尚余 {{ quizResult.quizRemain }} 题。
+                今日第 {{ quizResult.quizCount }} 论 ·
+                {{ quizResult.quizFull ? '全额之赏' : '赏按' + quizResult.decayLabel + '计' }}
+                · 全额 {{ quizResult.quizLimit }} 论，尚余 {{ quizResult.quizRemain }} 论
               </div>
+              <div class="quiz-analysis">同一论题每日可辩一次，跨日再来；超额论道所得递减。</div>
             </div>
-            <p v-else class="quiz-tip">答对 +10 煞气 · 答错心魔反噬 -5 · 慎思而后答</p>
+            <p v-else class="quiz-tip">同一论题每日可辩一次 · 前十论全额，其后递减 · 答对得煞与魔晶，答错反噬</p>
           </div>
         </template>
 
@@ -350,7 +353,7 @@ async function onEnterRealm() {
 // ==================== v2：研读 / 习得 ====================
 // 秘境不是典籍：同一接口在秘境页改称「勘察」（仍计入图鉴收集度）
 const readLabel = computed(() => (type.value === 'trial' ? '勘 察 此 境' : '研 读 本 篇'))
-const readDoneLabel = computed(() => (type.value === 'trial' ? '已 曾 勘 察' : '已 曾 研 读'))
+const readDoneLabel = computed(() => (type.value === 'trial' ? '今 日 已 勘 察' : '今 日 已 读'))
 const reading = ref(false)
 const learning = ref(false)
 const readDone = ref(false)
@@ -367,11 +370,14 @@ async function onRead() {
     if (res.data.code === 200) {
       readDone.value = true
       const d = res.data.data
-      actMsg.value = d.msg + (d.collection ? `（图鉴 ${d.collection.percent}%）` : '')
+      actMsg.value = d.msg
+        + (d.newToCollection ? ' · 首次录入图鉴' : '')
+        + (d.collection ? ` · 收集度 ${d.collection.percent}%` : '')
     } else {
-      // 已研读过也算完成态，不再重复提示
-      readDone.value = true
-      actMsg.value = res.data.msg || ''
+      // 仅「今日已读」算完成态；其余错误允许重试
+      const m = res.data.msg || ''
+      if (m.includes('今日已')) readDone.value = true
+      actMsg.value = m
     }
   } catch (e) {
     actMsg.value = e.message || '研读无应。'

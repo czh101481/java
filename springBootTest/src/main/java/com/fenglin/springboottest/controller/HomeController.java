@@ -122,7 +122,11 @@ public class HomeController {
         return gameService.exploreMultiplier(user);
     }
 
-    /** 是否已研读过某条目 */
+    /**
+     * 是否「曾经」研读过某条目（跨所有日期）。
+     * v1.1 起只用于判定图鉴是否首次收录，不再作为拒绝重读的条件——
+     * 当日判重由 read_date 唯一键负责。
+     */
     private boolean hasRead(Long userId, String module, Long refId) {
         return readRecordMapper.selectCount(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
@@ -236,16 +240,20 @@ public class HomeController {
 
         List<DemonUser> users = userMapper.selectList(null);
 
-        // 论道榜：统计每人答对题数
+        // 论道榜：v1.1 起按「答对的不同论题数」统计，
+        // 每日可重复作答后不会把榜单刷成「谁点得多」的活跃度榜（上限 = 题库数）。
         java.util.Map<Long, Long> quizRight = new java.util.HashMap<>();
         // 切磋榜：胜场 / 负场
         if ("quiz".equals(dim)) {
+            java.util.Map<Long, java.util.Set<Long>> rightTopics = new java.util.HashMap<>();
             for (com.fenglin.springboottest.entity.QuizRecord r : quizRecordMapper.selectList(
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
                             com.fenglin.springboottest.entity.QuizRecord>()
                             .eq(com.fenglin.springboottest.entity.QuizRecord::getCorrect, 1))) {
-                quizRight.merge(r.getUserId(), 1L, Long::sum);
+                rightTopics.computeIfAbsent(r.getUserId(), k -> new java.util.HashSet<>())
+                        .add(r.getDebateId());
             }
+            rightTopics.forEach((uid, topics) -> quizRight.put(uid, (long) topics.size()));
             users.sort(java.util.Comparator
                     .comparingLong((DemonUser u) -> quizRight.getOrDefault(u.getId(), 0L)).reversed()
                     .thenComparing(DemonUser::getId));
@@ -584,11 +592,14 @@ public class HomeController {
 
     /**
      * 论道作答 POST /api/home/quiz/answer {id, choice} → 判定正误并结算煞气（需魔卒境）
-     * 答对：+10 煞气；答错：心魔反噬 -5（不低于 0）
+     * 答对得煞气与魔晶；答错心魔反噬失煞（均不低于 0）。
      *
-     * 防刷规则（两道闸）：
-     *   1) 同一修者对同一论题只能作答一次（demon_quiz_record 唯一键 user_id + debate_id）
-     *   2) 每日答题上限 Realm.DAILY_QUIZ_LIMIT 题，跨日清零
+     * v1.1「每日可重复 + 收益递减」：
+     *   1) 同一论题每日一次（唯一键 user_id + debate_id + quiz_date），跨日可再辩；
+     *   2) 当日第 1 ~ DAILY_QUIZ_LIMIT 次全额，其后按 50% → 25% → 0% 递减（DailyDecay）；
+     *      满额段与 v1 预算表一致（10 题全对 = 100 煞 / 80 晶），超额只是微量进项，
+     *      不再是硬拒绝，故「每日打满」成为长期稳态而非两天就枯竭的一次性内容。
+     *   3) 论道榜改按「答对的不同论题数」统计，避免每日重复作答刷成活跃度榜。
      */
     @org.springframework.web.bind.annotation.PostMapping("/quiz/answer")
     public Result<?> quizAnswer(
@@ -609,49 +620,54 @@ public class HomeController {
             return Result.error(401, "未持魔契，请先入魔道。");
         }
 
-        // 闸二：每日答题上限（跨日清零）
+        // 当日第几次论道（跨子夜自动归零），决定本轮收益档位
         java.time.LocalDate today = java.time.LocalDate.now();
         int quizCount = user.getQuizCountToday() == null ? 0 : user.getQuizCountToday();
         if (user.getQuizDate() == null || !today.equals(user.getQuizDate())) {
             quizCount = 0;
         }
-        if (quizCount >= Realm.DAILY_QUIZ_LIMIT) {
-            return Result.error(400, String.format(
-                    "今日论道已满 %d 题，道心需静，明日再来。", Realm.DAILY_QUIZ_LIMIT));
-        }
+        int nth = quizCount + 1;
+        int percent = com.fenglin.springboottest.common.DailyDecay
+                .percent(nth, Realm.DAILY_QUIZ_LIMIT);
 
         com.fenglin.springboottest.entity.Debate d = debateMapper.selectById(dto.getId());
         if (d == null || d.getAnswer() == null) {
             return Result.error(404, "魔渊之中并无此论题。");
         }
 
-        // 闸一：本论题是否已作答（先查，把绝大多数重复请求挡在写库之前）
+        // 今日是否已辩过此题（跨日可再辩；先查，把绝大多数重复请求挡在写库之前）
         Long answered = quizRecordMapper.selectCount(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.fenglin.springboottest.entity.QuizRecord>()
                         .eq(com.fenglin.springboottest.entity.QuizRecord::getUserId, user.getId())
-                        .eq(com.fenglin.springboottest.entity.QuizRecord::getDebateId, d.getId()));
+                        .eq(com.fenglin.springboottest.entity.QuizRecord::getDebateId, d.getId())
+                        .eq(com.fenglin.springboottest.entity.QuizRecord::getQuizDate, today));
         if (answered != null && answered > 0) {
-            return Result.error(400, "此论题你已作答，论道不可反复叩问同一问，另择他题罢。");
+            return Result.error(400, "此论题今日已辩过，明日可再叩问；另择他题罢。");
         }
 
         String choice = dto.getChoice().trim().toUpperCase();
         boolean correct = choice.equals(d.getAnswer());
-        int delta = correct ? Realm.QUIZ_GAIN : -Realm.QUIZ_LOSS;
+        int gain = com.fenglin.springboottest.common.DailyDecay
+                .apply(Realm.QUIZ_GAIN, nth, Realm.DAILY_QUIZ_LIMIT);
+        int loss = com.fenglin.springboottest.common.DailyDecay
+                .apply(Realm.QUIZ_LOSS, nth, Realm.DAILY_QUIZ_LIMIT);
+        int delta = correct ? gain : -loss;
         int oldExp = user.getExp() == null ? 0 : user.getExp();
         int exp = Math.max(0, oldExp + delta);
         int actualDelta = exp - oldExp;
 
-        // 先落答题记录：唯一键在此拦住并发重复提交，插入成功才结算煞气
+        // 先落答题记录：按日唯一键在此拦住并发重复提交，插入成功才结算煞气
         com.fenglin.springboottest.entity.QuizRecord rec =
                 new com.fenglin.springboottest.entity.QuizRecord();
         rec.setUserId(user.getId());
         rec.setDebateId(d.getId());
+        rec.setQuizDate(today);
         rec.setCorrect(correct ? 1 : 0);
         rec.setAwarded(actualDelta);
         try {
             quizRecordMapper.insert(rec);
         } catch (org.springframework.dao.DuplicateKeyException e) {
-            return Result.error(400, "此论题你已作答，论道不可反复叩问同一问，另择他题罢。");
+            return Result.error(400, "此论题今日已辩过，明日可再叩问；另择他题罢。");
         }
 
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
@@ -659,11 +675,15 @@ public class HomeController {
         uw.eq("id", user.getId())
                 .set("exp", exp)
                 .set("quiz_date", today)
-                .set("quiz_count_today", quizCount + 1);
+                .set("quiz_count_today", nth);
         userMapper.update(null, uw);
 
-        // 论道答对产出魔晶，答错不给
-        int coinGain = correct ? com.fenglin.springboottest.common.Coin.QUIZ_COIN : 0;
+        // 论道答对产出魔晶（同样按当次档位递减），答错不给
+        int coinGain = correct
+                ? com.fenglin.springboottest.common.DailyDecay
+                        .apply(com.fenglin.springboottest.common.Coin.QUIZ_COIN,
+                                nth, Realm.DAILY_QUIZ_LIMIT)
+                : 0;
         com.fenglin.springboottest.entity.Wallet wallet = coinGain > 0
                 ? coinService.earn(user.getId(), com.fenglin.springboottest.common.Coin.COIN,
                         coinGain, "quiz", "debate", d.getId())
@@ -676,13 +696,24 @@ public class HomeController {
         data.put("coin", wallet == null ? 0 : wallet.getCoin());
         data.put("delta", actualDelta);
         data.put("exp", exp);
-        data.put("quizCount", quizCount + 1);
+        data.put("quizCount", nth);
         data.put("quizLimit", Realm.DAILY_QUIZ_LIMIT);
-        data.put("quizRemain", Realm.DAILY_QUIZ_LIMIT - quizCount - 1);
+        data.put("quizRemain", Math.max(0, Realm.DAILY_QUIZ_LIMIT - nth));
+        data.put("decayPercent", percent);
+        data.put("decayLabel", com.fenglin.springboottest.common.DailyDecay
+                .label(nth, Realm.DAILY_QUIZ_LIMIT));
+        data.put("quizFull", com.fenglin.springboottest.common.DailyDecay
+                .isFull(nth, Realm.DAILY_QUIZ_LIMIT));
         data.put("analysis", d.getAnalysis());
-        data.put("msg", correct
-                ? "论道得胜，道心愈明！煞气 +" + actualDelta + "。"
-                : "心魔反噬，所答有偏。煞气 -" + Math.abs(actualDelta) + "，且听论者解析。");
+        String note = percent == 100 ? ""
+                : String.format("（今日第 %d 论，赏按%s计）", nth,
+                        com.fenglin.springboottest.common.DailyDecay
+                                .label(nth, Realm.DAILY_QUIZ_LIMIT));
+        data.put("msg", percent == 0
+                ? "今日论道之赏已尽，再辩亦无所得，明日再来。"
+                : (correct
+                    ? "论道得胜，道心愈明！煞气 +" + actualDelta + "。" + note
+                    : "心魔反噬，所答有偏。煞气 -" + Math.abs(actualDelta) + "，且听论者解析。" + note));
         return Result.success(data);
     }
 
@@ -1063,8 +1094,14 @@ public class HomeController {
     }
 
     /**
-     * 研读典籍 POST /api/home/read {module,id} → 首次研读该篇得煞气，并计入图鉴收集度
-     * 每日上限 5 篇（需持魔契）
+     * 研读典籍 POST /api/home/read {module,id} → 研读该篇得煞气，并计入图鉴收集度（需持魔契）
+     *
+     * v1.1「每日可重复 + 收益递减」：
+     *   1) 同一篇每日一次（唯一键 user_id + module + ref_id + read_date），跨日可再读；
+     *   2) 当日第 1 ~ DAILY_READ_LIMIT 篇全额，其后按 50% → 25% → 0% 递减（DailyDecay）；
+     *      满额段与 v1 预算表一致（5 篇 = 40 煞），超额只给微量且不再硬拒绝，
+     *      典册「读一遍是悟，读十遍是执」自此真正落到代码上。
+     *   3) 图鉴按 DISTINCT(module, ref_id) 统计，重复温故不会灌水收集度。
      */
     @org.springframework.web.bind.annotation.PostMapping("/read")
     public Result<?> read(
@@ -1080,44 +1117,62 @@ public class HomeController {
             return Result.error(400, "未指明所读何典。");
         }
         long refId = Long.parseLong(String.valueOf(idObj));
-        if (hasRead(user.getId(), module, refId)) {
-            return Result.error(400, "此篇昔日已曾研读，温故虽好，却无煞气可积。");
-        }
 
         java.time.LocalDate today = java.time.LocalDate.now();
         int readCount = user.getReadCountToday() == null ? 0 : user.getReadCountToday();
         if (user.getReadDate() == null || !today.equals(user.getReadDate())) {
             readCount = 0;
         }
-        boolean rewarded = readCount < Realm.DAILY_READ_LIMIT;
-        int gain = rewarded ? Realm.READ_GAIN : 0;
-        int exp = (user.getExp() == null ? 0 : user.getExp()) + gain;
+        int nth = readCount + 1;
+        int percent = com.fenglin.springboottest.common.DailyDecay
+                .percent(nth, Realm.DAILY_READ_LIMIT);
+        int gain = com.fenglin.springboottest.common.DailyDecay
+                .apply(Realm.READ_GAIN, nth, Realm.DAILY_READ_LIMIT);
+
+        // 是否首次收录图鉴（须在写入今日记录之前判断）
+        boolean newToCollection = !hasRead(user.getId(), module, refId);
 
         com.fenglin.springboottest.entity.ReadRecord rec =
                 new com.fenglin.springboottest.entity.ReadRecord();
         rec.setUserId(user.getId());
         rec.setModule(module);
         rec.setRefId(refId);
-        readRecordMapper.insert(rec);
+        rec.setReadDate(today);
+        try {
+            readRecordMapper.insert(rec);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            return Result.error(400, "此篇今日已曾研读，明日可再温故；另择他篇罢。");
+        }
 
+        int exp = (user.getExp() == null ? 0 : user.getExp()) + gain;
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
                 new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
         uw.eq("id", user.getId())
                 .set("exp", exp)
                 .set("read_date", today)
-                .set("read_count_today", readCount + 1);
+                .set("read_count_today", nth);
         userMapper.update(null, uw);
 
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("gain", gain);
         data.put("exp", exp);
-        data.put("rewarded", rewarded);
-        data.put("readCount", readCount + 1);
+        data.put("rewarded", gain > 0);
+        data.put("readCount", nth);
         data.put("readLimit", Realm.DAILY_READ_LIMIT);
+        data.put("decayPercent", percent);
+        data.put("decayLabel", com.fenglin.springboottest.common.DailyDecay
+                .label(nth, Realm.DAILY_READ_LIMIT));
+        data.put("readFull", com.fenglin.springboottest.common.DailyDecay
+                .isFull(nth, Realm.DAILY_READ_LIMIT));
+        data.put("newToCollection", newToCollection);
         data.put("collection", collectionOf(user.getId()));
-        data.put("msg", rewarded
-                ? String.format("掩卷沉思，心有所得——煞气 +%d。", gain)
-                : "今日所读已足五篇，道心需自沉淀，明日再览。");
+        String note = percent == 100 ? ""
+                : String.format("（今日第 %d 篇，赏按%s计）", nth,
+                        com.fenglin.springboottest.common.DailyDecay
+                                .label(nth, Realm.DAILY_READ_LIMIT));
+        data.put("msg", gain > 0
+                ? String.format("掩卷沉思，心有所得——煞气 +%d%s。", gain, note)
+                : "今日所读已逾十一篇，再读亦无所获，道心需自沉淀，明日再览。");
         return Result.success(data);
     }
 
@@ -1134,12 +1189,20 @@ public class HomeController {
         return Result.success(collectionOf(user.getId()));
     }
 
-    /** 统计某修者的图鉴收集度 */
+    /** 统计某修者的图鉴收集度（v1.1：研读每日可重复，按不同篇目去重） */
     private java.util.Map<String, Object> collectionOf(Long userId) {
-        long read = readRecordMapper.selectCount(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
-                        com.fenglin.springboottest.entity.ReadRecord>()
-                        .eq(com.fenglin.springboottest.entity.ReadRecord::getUserId, userId));
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<
+                com.fenglin.springboottest.entity.ReadRecord> qw =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        qw.select("COUNT(DISTINCT module, ref_id) AS c").eq("user_id", userId);
+        java.util.List<java.util.Map<String, Object>> rows = readRecordMapper.selectMaps(qw);
+        long read = 0;
+        if (rows != null && !rows.isEmpty()) {
+            Object c = rows.get(0).get("c");
+            if (c instanceof Number) {
+                read = ((Number) c).longValue();
+            }
+        }
         long total = artMapper.selectCount(null)
                 + trialMapper.selectCount(null)
                 + debateMapper.selectCount(null)

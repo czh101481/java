@@ -86,7 +86,7 @@ public class ContentService {
                             .or().like(Art::getGrade, like)
                             .or().like(Art::getRealmReq, like)
                             .or().like(Art::getSummary, like))
-                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), layer ASC, id ASC"));
+                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), id ASC"));
             addGroup(groups, ART, ART_NAME, toItems(arts, ART, ART_NAME));
 
             List<Trial> trials = trialMapper.selectList(new LambdaQueryWrapper<Trial>()
@@ -140,14 +140,12 @@ public class ContentService {
             item.setTitle(a.getName());
             item.setSummary(a.getSummary());
             item.setGrade(a.getGrade());
-            int layer = a.getLayer() == null ? 1 : a.getLayer();
-            item.setLayer(layer);
-            item.setLayerName(com.fenglin.springboottest.common.ArtRank.layerName(layer));
-            item.setExtra(String.format("%s阶·%s · 完整 %d %s · 残片 %d",
-                    a.getGrade(), com.fenglin.springboottest.common.ArtRank.layerName(layer),
+            item.setExtra(String.format("%s阶 · 完整 %d %s · 残片 %d %s",
+                    a.getGrade(),
                     com.fenglin.springboottest.common.ArtRank.fullPrice(a.getGrade()),
                     com.fenglin.springboottest.common.ArtRank.currencyName(a.getGrade()),
-                    com.fenglin.springboottest.common.ArtRank.fragPrice(a.getGrade())));
+                    com.fenglin.springboottest.common.ArtRank.fragPrice(a.getGrade()),
+                    com.fenglin.springboottest.common.ArtRank.currencyName(a.getGrade())));
             item.setImg(a.getImage());
         } else if (o instanceof Trial t) {
             item.setId(t.getId());
@@ -216,10 +214,10 @@ public class ContentService {
         String like = StringUtils.hasText(kw) ? "%" + kw.trim() + "%" : null;
 
         if (ART.equals(t)) {
-            // 功法阁：仅上架功法，按阶位（黄→仙）→ 重数 → id 排序
+            // 功法阁：仅上架功法，按阶位（黄→仙）→ id 排序
             LambdaQueryWrapper<Art> w = new LambdaQueryWrapper<Art>()
                     .ne(Art::getStatus, 0)
-                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), layer ASC, id ASC");
+                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), id ASC");
             if (like != null) {
                 w.and(x -> x.like(Art::getName, like).or().like(Art::getCategory, like)
                         .or().like(Art::getGrade, like).or().like(Art::getSummary, like)
@@ -274,10 +272,6 @@ public class ContentService {
             vo.getMeta().add(new DetailVO.Meta("阶 位", grade + "阶 · "
                     + com.fenglin.springboottest.common.ArtRank.GRADE_DESC.getOrDefault(grade, "")));
             vo.getMeta().add(new DetailVO.Meta("门 类", nvl(a.getCategory())));
-            int layer = a.getLayer() == null ? 1 : a.getLayer();
-            vo.getMeta().add(new DetailVO.Meta("功 法 重 数", String.format("第%s（%s阶共 %d 重）",
-                    com.fenglin.springboottest.common.ArtRank.layerName(layer), grade,
-                    com.fenglin.springboottest.common.ArtRank.maxLayerOf(grade))));
             vo.getMeta().add(new DetailVO.Meta("所需境界", nvl(a.getRealmReq())));
             vo.getMeta().add(new DetailVO.Meta("完整售价", String.format("%d %s（可修至无上）",
                     com.fenglin.springboottest.common.ArtRank.fullPrice(grade),
@@ -286,7 +280,7 @@ public class ContentService {
                     com.fenglin.springboottest.common.ArtRank.fragPrice(grade),
                     com.fenglin.springboottest.common.ArtRank.currencyName(grade))));
             vo.getMeta().add(new DetailVO.Meta("功 法 数 值", String.format(
-                    "（完整卷基准，按重数折算）攻伐 +%d · 护体 +%d · 气血 +%d · 悟性 +%d · 身法 +%d",
+                    "（完整卷基准）攻伐 +%d · 护体 +%d · 气血 +%d · 悟性 +%d · 身法 +%d",
                     nz(a.getBonusAtk()), nz(a.getBonusDef()), nz(a.getBonusHp()),
                     nz(a.getBonusInsight()), nz(a.getBonusAgility()))));
             vo.getMeta().add(new DetailVO.Meta("修 炼 进 度",

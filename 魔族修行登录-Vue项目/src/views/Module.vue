@@ -68,7 +68,7 @@
           <span class="grade-seal">{{ r.grade }}</span>
           <div class="grade-text">
             <span class="grade-name">{{ r.grade }}阶</span>
-            <span class="grade-desc">{{ gradeInfo[r.grade].desc }} · 共 {{ gradeInfo[r.grade].max }} 重</span>
+            <span class="grade-desc">{{ gradeInfo[r.grade].desc }}</span>
           </div>
           <span class="grade-count">{{ r.count }} 部</span>
         </div>
@@ -77,10 +77,7 @@
           <img v-if="r.it.img" class="row-thumb" :src="imgUrl(r.it.img)" alt="" loading="lazy" />
           <span class="row-id">{{ r.it.id }}</span>
           <div class="row-main">
-            <div class="row-title">
-              {{ r.it.title }}
-              <span v-if="r.it.layerName" class="row-layer">{{ r.it.layerName }}</span>
-            </div>
+            <div class="row-title">{{ r.it.title }}</div>
             <div class="row-summary">{{ r.it.summary }}</div>
           </div>
           <span class="row-extra">{{ rowExtra(r.it) }}</span>
@@ -144,17 +141,17 @@ const kw = ref('')
 const deny = ref('')
 
 // ==================== 功法阁：阶位分组 ====================
-// 阶位由低至高，重数上限与后端 ArtRank.MAX_LAYER 一致
+// 阶位由低至高
 const GRADE_ORDER = ['黄', '玄', '地', '天', '仙']
 const gradeInfo = {
-  黄: { desc: '凡尘俗法 · 底层通用', max: 4 },
-  玄: { desc: '宗门常备 · 中坚功法', max: 6 },
-  地: { desc: '镇族镇宗 · 核心功法', max: 7 },
-  天: { desc: '绝世秘传 · 大宗顶级', max: 10 },
-  仙: { desc: '仙道本源 · 天地至宝', max: 10 }
+  黄: { desc: '凡尘俗法 · 底层通用' },
+  玄: { desc: '宗门常备 · 中坚功法' },
+  地: { desc: '镇族镇宗 · 核心功法' },
+  天: { desc: '绝世秘传 · 大宗顶级' },
+  仙: { desc: '仙道本源 · 天地至宝' }
 }
 
-// 功法阁按「阶位 → 重数 → id」分组渲染（后端已排序，此处兜底再排一次）
+// 功法阁按「阶位 → id」分组渲染（后端已排序，此处兜底再排一次）
 const rows = computed(() => {
   const list = items.value
   if (type.value !== 'art') {
@@ -165,9 +162,7 @@ const rows = computed(() => {
     return i < 0 ? GRADE_ORDER.length : i
   }
   const sorted = [...list].sort((a, b) =>
-    gradeRank(a.grade) - gradeRank(b.grade) ||
-    (a.layer || 1) - (b.layer || 1) ||
-    a.id - b.id
+    gradeRank(a.grade) - gradeRank(b.grade) || a.id - b.id
   )
   const out = []
   let cur = null
@@ -457,14 +452,6 @@ watch(type, () => {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .grade-count { flex: 0 0 auto; font-size: 12px; letter-spacing: 1px; color: #d9b066; }
-
-/* 行内重数徽章 */
-.row-layer {
-  margin-left: 10px; padding: 1px 8px; border-radius: 10px;
-  font-size: 11px; letter-spacing: 1px; color: #d9b066;
-  border: 1px solid rgba(217, 176, 102, 0.45);
-  vertical-align: 2px;
-}
 
 .row {
   display: flex; align-items: center; gap: 16px;

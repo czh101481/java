@@ -2,11 +2,13 @@ package com.fenglin.springboottest.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fenglin.springboottest.entity.Announcement;
+import com.fenglin.springboottest.entity.Archive;
 import com.fenglin.springboottest.entity.Art;
 import com.fenglin.springboottest.entity.Codex;
 import com.fenglin.springboottest.entity.Debate;
 import com.fenglin.springboottest.entity.Trial;
 import com.fenglin.springboottest.mapper.AnnouncementMapper;
+import com.fenglin.springboottest.mapper.ArchiveMapper;
 import com.fenglin.springboottest.mapper.ArtMapper;
 import com.fenglin.springboottest.mapper.CodexMapper;
 import com.fenglin.springboottest.mapper.DebateMapper;
@@ -42,14 +44,19 @@ public class ContentService {
     @Autowired
     private AnnouncementMapper announcementMapper;
 
+    @Autowired
+    private ArchiveMapper archiveMapper;
+
     private static final String ART = "art";
     private static final String TRIAL = "trial";
     private static final String DEBATE = "debate";
     private static final String CODEX = "codex";
+    private static final String ARCHIVE = "archive";
     private static final String ART_NAME = "功法阁";
     private static final String TRIAL_NAME = "域外秘境";
     private static final String DEBATE_NAME = "宗门论道";
     private static final String CODEX_NAME = "魔典秘录";
+    private static final String ARCHIVE_NAME = "魔枢典册";
 
     /** 首页概览：各模块数量 + 精选（取最新 3 条） */
     public OverviewVO overview() {
@@ -347,7 +354,29 @@ public class ContentService {
             vo.getMeta().add(new DetailVO.Meta("卷 册", nvl(c.getVolume())));
             return vo;
         }
+        if (ARCHIVE.equals(t)) {
+            Archive a = archiveMapper.selectById(id);
+            if (a == null) return null;
+            vo.setType(ARCHIVE);
+            vo.setTypeName(ARCHIVE_NAME);
+            vo.setId(a.getId());
+            vo.setTitle(a.getTitle());
+            vo.setSummary(a.getSummary());
+            vo.setContent(a.getContent());
+            vo.setImg(archiveCover(a.getCategory()));
+            vo.getMeta().add(new DetailVO.Meta("分 类",
+                    ArchiveService.categoryName(a.getCategory())));
+            if (StringUtils.hasText(a.getSubtitle())) {
+                vo.getMeta().add(new DetailVO.Meta("副 题", a.getSubtitle()));
+            }
+            return vo;
+        }
         return null;
+    }
+
+    /** 典册分类 → 封面（复用 ArchiveService 的分类封面表） */
+    private String archiveCover(String category) {
+        return ArchiveService.coverOf(category);
     }
 
     private String nvl(String s) {

@@ -11,7 +11,7 @@
  Target Server Version : 80408 (8.4.8)
  File Encoding         : 65001
 
- Date: 04/11/2026 01:54:21
+ Date: 04/11/2026 16:47:01
 */
 
 SET NAMES utf8mb4;
@@ -212,7 +212,7 @@ CREATE TABLE `demon_explore_log`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_user_day`(`user_id` ASC, `created_at` ASC) USING BTREE,
   INDEX `idx_user_content`(`user_id` ASC, `content_type` ASC, `content_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 31 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '参悟日志' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 51 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '参悟日志' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of demon_explore_log
@@ -237,6 +237,26 @@ INSERT INTO `demon_explore_log` VALUES (27, 25, 'art', 10, '玄阴养魂诀', 5,
 INSERT INTO `demon_explore_log` VALUES (28, 25, 'archive', 14, '血契之律', 5, '2026-11-04 00:57:35');
 INSERT INTO `demon_explore_log` VALUES (29, 25, 'art', 12, '傀儡替死术', 5, '2026-11-04 00:57:35');
 INSERT INTO `demon_explore_log` VALUES (30, 25, 'archive', 21, '魔种之分', 5, '2026-11-04 00:57:35');
+INSERT INTO `demon_explore_log` VALUES (31, 22, 'codex', 9, '星陨录', 5, '2026-11-04 15:41:38');
+INSERT INTO `demon_explore_log` VALUES (32, 13, 'art', 11, '血河大阵', 7, '2026-11-04 15:48:55');
+INSERT INTO `demon_explore_log` VALUES (33, 13, 'archive', 3, '噬魂一族', 7, '2026-11-04 15:49:06');
+INSERT INTO `demon_explore_log` VALUES (34, 13, 'codex', 4, '幽冥往生录', 7, '2026-11-04 15:49:06');
+INSERT INTO `demon_explore_log` VALUES (35, 13, 'archive', 4, '幻月一族', 7, '2026-11-04 15:49:06');
+INSERT INTO `demon_explore_log` VALUES (36, 13, 'archive', 30, '转世重修', 7, '2026-11-04 15:49:06');
+INSERT INTO `demon_explore_log` VALUES (37, 13, 'archive', 22, '血煞种 · 战意滔天', 7, '2026-11-04 15:49:07');
+INSERT INTO `demon_explore_log` VALUES (38, 13, 'archive', 2, '幽冥一族', 7, '2026-11-04 15:49:07');
+INSERT INTO `demon_explore_log` VALUES (39, 13, 'archive', 26, '参悟与机缘', 7, '2026-11-04 15:49:07');
+INSERT INTO `demon_explore_log` VALUES (40, 13, 'art', 2, '幽冥护魂咒', 7, '2026-11-04 15:49:07');
+INSERT INTO `demon_explore_log` VALUES (41, 13, 'art', 3, '噬魂幻月', 7, '2026-11-04 15:49:08');
+INSERT INTO `demon_explore_log` VALUES (42, 22, 'art', 5, '焚天业火', 5, '2026-11-04 15:55:43');
+INSERT INTO `demon_explore_log` VALUES (43, 22, 'codex', 6, '万兽图录', 5, '2026-11-04 15:55:54');
+INSERT INTO `demon_explore_log` VALUES (44, 22, 'archive', 12, '三禁忌', 5, '2026-11-04 15:55:55');
+INSERT INTO `demon_explore_log` VALUES (45, 22, 'art', 1, '血煞戮天诀', 5, '2026-11-04 15:55:55');
+INSERT INTO `demon_explore_log` VALUES (46, 22, 'art', 11, '血河大阵', 5, '2026-11-04 15:55:55');
+INSERT INTO `demon_explore_log` VALUES (47, 22, 'codex', 7, '寒煞秘要', 5, '2026-11-04 15:55:55');
+INSERT INTO `demon_explore_log` VALUES (48, 22, 'archive', 3, '噬魂一族', 5, '2026-11-04 15:55:55');
+INSERT INTO `demon_explore_log` VALUES (49, 22, 'art', 12, '傀儡替死术', 5, '2026-11-04 15:55:56');
+INSERT INTO `demon_explore_log` VALUES (50, 22, 'art', 6, '御兽血契', 5, '2026-11-04 15:55:56');
 
 -- ----------------------------
 -- Table structure for demon_friend
@@ -255,13 +275,15 @@ CREATE TABLE `demon_friend`  (
   UNIQUE INDEX `uk_pair`(`user_id` ASC, `friend_id` ASC) USING BTREE,
   INDEX `idx_friend_id`(`friend_id` ASC) USING BTREE,
   INDEX `idx_status`(`status` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '榄斿弸鍏崇郴锛堝惈鐢宠?涓庡ソ鍙嬶紝鍙屽悜瀵圭О瀛樺偍锛' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '榄斿弸鍏崇郴锛堝惈鐢宠?涓庡ソ鍙嬶紝鍙屽悜瀵圭О瀛樺偍锛' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of demon_friend
 -- ----------------------------
 INSERT INTO `demon_friend` VALUES (7, 2, 25, 1, '愿结同道之好，共参魔道。', '2026-11-04 01:37:41', '2026-11-04 01:37:57', '2026-11-04 01:37:57');
 INSERT INTO `demon_friend` VALUES (8, 25, 2, 1, NULL, '2026-11-04 01:37:57', '2026-11-04 01:37:57', NULL);
+INSERT INTO `demon_friend` VALUES (9, 22, 2, 1, '愿结同道之好，共参魔道。', '2026-11-04 15:42:21', '2026-11-04 15:42:43', '2026-11-04 15:42:43');
+INSERT INTO `demon_friend` VALUES (10, 2, 22, 1, NULL, '2026-11-04 15:42:43', '2026-11-04 15:42:43', NULL);
 
 -- ----------------------------
 -- Table structure for demon_message
@@ -282,7 +304,7 @@ CREATE TABLE `demon_message`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_conv`(`from_id` ASC, `to_id` ASC) USING BTREE,
   INDEX `idx_to_unread`(`to_id` ASC, `read` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 23 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '浼犻煶绉佷俊' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 24 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '浼犻煶绉佷俊' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of demon_message
@@ -290,6 +312,7 @@ CREATE TABLE `demon_message`  (
 INSERT INTO `demon_message` VALUES (20, 2, 25, '血煞戮天诀', 1, 'art', 1, '血煞戮天诀', '以血煞之气凝刃，一念可斩千军。', 1, '2026-11-04 01:39:39');
 INSERT INTO `demon_message` VALUES (21, 25, 2, '谢谢魔祖', 0, NULL, NULL, NULL, NULL, 1, '2026-11-04 01:40:54');
 INSERT INTO `demon_message` VALUES (22, 2, 25, '血煞图谱', 1, 'codex', 3, '血煞图谱', '血煞一脉功法源流与图谱，脉络清晰。', 0, '2026-11-04 01:42:07');
+INSERT INTO `demon_message` VALUES (23, 2, 22, '焚天业火', 1, 'art', 5, '焚天业火', '引业火焚身，敌我皆烬。', 1, '2026-11-04 15:42:56');
 
 -- ----------------------------
 -- Table structure for demon_origin
@@ -333,13 +356,14 @@ CREATE TABLE `demon_quiz_record`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_user_debate`(`user_id` ASC, `debate_id` ASC) USING BTREE COMMENT '同一人同一题仅一次，防重复刷分',
   INDEX `idx_user`(`user_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 12 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '论道答题记录（防重复刷分）' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '论道答题记录（防重复刷分）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of demon_quiz_record
 -- ----------------------------
 INSERT INTO `demon_quiz_record` VALUES (10, 2, 13, 0, -5, '2026-11-03 02:31:09');
 INSERT INTO `demon_quiz_record` VALUES (11, 2, 18, 1, 10, '2026-11-03 02:32:12');
+INSERT INTO `demon_quiz_record` VALUES (12, 2, 11, 1, 10, '2026-11-04 15:37:47');
 
 -- ----------------------------
 -- Table structure for demon_read_record
@@ -353,7 +377,7 @@ CREATE TABLE `demon_read_record`  (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_user_ref`(`user_id` ASC, `module` ASC, `ref_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '修者研读记录（图鉴收集度）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 15 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '修者研读记录（图鉴收集度）' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of demon_read_record
@@ -367,6 +391,10 @@ INSERT INTO `demon_read_record` VALUES (7, 2, 'trial', 9, '2026-11-03 02:39:07')
 INSERT INTO `demon_read_record` VALUES (8, 2, 'art', 9, '2026-11-04 00:32:48');
 INSERT INTO `demon_read_record` VALUES (9, 25, 'art', 1, '2026-11-04 01:40:05');
 INSERT INTO `demon_read_record` VALUES (10, 2, 'codex', 3, '2026-11-04 01:42:13');
+INSERT INTO `demon_read_record` VALUES (11, 22, 'codex', 9, '2026-11-04 15:41:39');
+INSERT INTO `demon_read_record` VALUES (12, 2, 'art', 5, '2026-11-04 15:42:59');
+INSERT INTO `demon_read_record` VALUES (13, 13, 'art', 11, '2026-11-04 15:48:55');
+INSERT INTO `demon_read_record` VALUES (14, 22, 'art', 5, '2026-11-04 15:55:42');
 
 -- ----------------------------
 -- Table structure for demon_realm
@@ -419,7 +447,7 @@ CREATE TABLE `demon_realm_log`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_realm_log_user`(`user_id` ASC) USING BTREE,
   INDEX `idx_realm_log_trial_time`(`trial_id` ASC, `created_at` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 27 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '秘境探索日志' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 31 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '秘境探索日志' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of demon_realm_log
@@ -450,6 +478,10 @@ INSERT INTO `demon_realm_log` VALUES (23, 25, 5, '群魔论战', 'success', '闯
 INSERT INTO `demon_realm_log` VALUES (24, 25, 6, '煞风峡谷', 'injured', '遇煞风鹰隼阻道，血溅三丈——负伤遁出，所得折损 57 点。', 57, 20, 57, '幽冥护魂咒', '2026-11-04 00:57:56');
 INSERT INTO `demon_realm_log` VALUES (25, 25, 4, '魔渊深处', 'injured', '遇渊底古魔阻道，血溅三丈——负伤遁出，所得折损 102 点。', 102, 150, 102, '', '2026-11-04 00:57:57');
 INSERT INTO `demon_realm_log` VALUES (26, 25, 1, '万骨荒原试炼', 'injured', '遇白骨魔将阻道，血溅三丈——负伤遁出，所得折损 59 点。', 58, 60, 59, '', '2026-11-04 00:57:58');
+INSERT INTO `demon_realm_log` VALUES (27, 2, 3, '幻月迷宫', 'success', '闯幻月迷宫而还，斩妖伏魔，煞气尽入己身。', 66, 20, 0, '', '2026-11-04 15:36:29');
+INSERT INTO `demon_realm_log` VALUES (28, 22, 2, '血海浮屠', 'injured', '遇血海浮屠兽阻道，血溅三丈——负伤遁出，所得折损 102 点。', 102, 150, 102, '', '2026-11-04 15:40:04');
+INSERT INTO `demon_realm_log` VALUES (29, 22, 1, '万骨荒原试炼', 'success', '闯万骨荒原试炼而还，斩妖伏魔，煞气尽入己身。', 117, 60, 0, '', '2026-11-04 15:40:45');
+INSERT INTO `demon_realm_log` VALUES (30, 22, 1, '万骨荒原试炼', 'success', '闯万骨荒原试炼而还，斩妖伏魔，煞气尽入己身。', 117, 60, 0, '', '2026-11-04 15:40:47');
 
 -- ----------------------------
 -- Table structure for demon_trial
@@ -506,6 +538,7 @@ CREATE TABLE `demon_user`  (
   `quiz_count_today` int NULL DEFAULT 0 COMMENT '当日已答论题数',
   `password` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '护法密令（演示为明文，生产请加密）',
   `permission` tinyint NULL DEFAULT 1 COMMENT '权限：1 默认权限 / 0 管理员权限',
+  `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '澶村儚锛氶?璁?key 鎴?/uploads/ 璺?緞',
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '入籍时间',
   `updated_at` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `sign_date` date NULL DEFAULT NULL COMMENT '最后签到日期',
@@ -525,26 +558,26 @@ CREATE TABLE `demon_user`  (
 -- ----------------------------
 -- Records of demon_user
 -- ----------------------------
-INSERT INTO `demon_user` VALUES (2, '魔祖', 'demo@demon.com', '血煞', '魔圣', 47726, '2026-11-04', 10, '2026-11-03', 1, '2026-11-03', 2, '123456', 0, '2026-10-26 09:02:43', '2026-11-04 01:42:13', '2026-11-04', 2, 2, 1, 0, 0, 1, '2026-11-04', 2);
-INSERT INTO `demon_user` VALUES (3, '血河老祖', 'xuehe@demon.com', '血煞', '魔圣', 34990, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-03 02:30:30', NULL, 0, 0, 0, 1, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (4, '幽冥夫人', 'youming@demon.com', '幽冥', '魔圣', 35000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-03 02:17:03', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (5, '噬魂大王', 'shihun@demon.com', '噬魂', '魔祖', 24000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (6, '寂灭尊者', 'jimie@demon.com', '虚妄', '魔祖', 24000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (7, '虚妄上人', 'xuwang@demon.com', '虚妄', '魔祖', 24000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-10-26 09:13:11', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (8, 'gay', 'gay@qq.com', '噬魂', '魔卒', 1200, '2026-10-29', 1, NULL, 0, NULL, 0, 'gaygay', 1, '2026-10-29 14:45:03', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (13, '苏九幽', 'sujiuyou@demon.com', '幽冥', '引煞', 100, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (14, '沈无咎', 'shenwujiu@demon.com', '虚妄', '引煞', 100, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (15, '陆青罗', 'luqingluo@demon.com', '噬魂', '凝煞', 400, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (16, '白无相', 'baiwuxiang@demon.com', '血煞', '凝煞', 400, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (17, '韩断刃', 'handuanren@demon.com', '血煞', '魔卒', 1200, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (18, '楚红绡', 'chuhongxiao@demon.com', '幽冥', '魔尉', 3000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (19, '燕孤鸿', 'yanguhong@demon.com', '虚妄', '魔尉', 3000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (20, '萧寒山', 'xiaohanshan@demon.com', '血煞', '魔将', 6000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (21, '姜夜叉', 'jiangyecha@demon.com', '噬魂', '魔将', 6000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (22, '柳三变', 'liusanbian@demon.com', '噬魂', '血煞', 10000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (23, '殷离火', 'yinlihuo@demon.com', '幽冥', '血煞', 10000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (24, '封夜白', 'fengyebai@demon.com', '虚妄', '魔尊', 16000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
-INSERT INTO `demon_user` VALUES (25, '顾长生', 'guchangsheng@demon.com', '血煞', '魔尊', 16240, NULL, 0, '2026-11-02', 1, NULL, 0, '123456', 1, '2026-11-02 09:30:35', '2026-11-04 01:40:05', '2026-11-04', 1, 1, 0, 0, 0, 0, '2026-11-04', 1);
+INSERT INTO `demon_user` VALUES (2, '魔祖', 'demo@demon.com', '血煞', '魔圣', 47790, '2026-11-04', 10, '2026-11-03', 1, '2026-11-04', 1, '123456', 0, '/uploads/avatars/2_1793779685246.jpg', '2026-10-26 09:02:43', '2026-11-04 16:08:05', '2026-11-04', 2, 2, 1, 0, 0, 1, '2026-11-04', 3);
+INSERT INTO `demon_user` VALUES (3, '血河老祖', 'xuehe@demon.com', '血煞', '魔圣', 34950, NULL, 0, NULL, 0, NULL, 0, '123456', 1, 'abyss', '2026-10-26 09:13:11', '2026-11-04 16:23:42', NULL, 0, 0, 0, 5, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (4, '幽冥夫人', 'youming@demon.com', '幽冥', '魔圣', 35060, NULL, 0, '2026-11-04', 4, NULL, 0, '123456', 1, '/uploads/avatars/4_1793781452105.jpg', '2026-10-26 09:13:11', '2026-11-04 16:37:32', NULL, 0, 0, 4, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (5, '噬魂大王', 'shihun@demon.com', '噬魂', '魔祖', 24000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '/uploads/avatars/5_1793780644234.png', '2026-10-26 09:13:11', '2026-11-04 16:24:04', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (6, '寂灭尊者', 'jimie@demon.com', '虚妄', '魔祖', 24000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '/uploads/avatars/6_1793781172468.png', '2026-10-26 09:13:11', '2026-11-04 16:32:52', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (7, '虚妄上人', 'xuwang@demon.com', '虚妄', '魔祖', 24000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '/uploads/avatars/7_1793781198236.png', '2026-10-26 09:13:11', '2026-11-04 16:33:18', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (8, 'gay', 'gay@qq.com', '噬魂', '魔卒', 1200, '2026-10-29', 1, NULL, 0, NULL, 0, 'gaygay', 1, NULL, '2026-10-29 14:45:03', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (13, '苏九幽', 'sujiuyou@demon.com', '幽冥', '引煞', 203, NULL, 0, '2026-11-04', 1, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-04 15:49:21', '2026-11-04', 1, 1, 1, 0, 0, 0, '2026-11-04', 1);
+INSERT INTO `demon_user` VALUES (14, '沈无咎', 'shenwujiu@demon.com', '虚妄', '引煞', 90, NULL, 0, NULL, 0, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-04 15:49:21', NULL, 0, 0, 0, 1, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (15, '陆青罗', 'luqingluo@demon.com', '噬魂', '凝煞', 400, NULL, 0, NULL, 0, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (16, '白无相', 'baiwuxiang@demon.com', '血煞', '凝煞', 400, NULL, 0, NULL, 0, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (17, '韩断刃', 'handuanren@demon.com', '血煞', '魔卒', 1200, NULL, 0, NULL, 0, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (18, '楚红绡', 'chuhongxiao@demon.com', '幽冥', '魔尉', 3000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (19, '燕孤鸿', 'yanguhong@demon.com', '虚妄', '魔尉', 3000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (20, '萧寒山', 'xiaohanshan@demon.com', '血煞', '魔将', 6000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (21, '姜夜叉', 'jiangyecha@demon.com', '噬魂', '魔将', 6000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, NULL, '2026-11-02 09:30:35', '2026-11-03 02:08:25', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (22, '苏魅', 'liusanbian@demon.com', '噬魂', '血煞', 10192, NULL, 0, '2026-11-04', 3, NULL, 0, '123456', 1, '/uploads/avatars/22_1793781469971.jpg', '2026-11-02 09:30:35', '2026-11-04 16:40:35', '2026-11-04', 1, 1, 2, 1, 0, 0, '2026-11-04', 2);
+INSERT INTO `demon_user` VALUES (23, '殷离火', 'yinlihuo@demon.com', '幽冥', '血煞', 9995, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '/uploads/avatars/23_1793781423640.jpg', '2026-11-02 09:30:35', '2026-11-04 16:37:03', NULL, 0, 0, 1, 2, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (24, '封夜白', 'fengyebai@demon.com', '虚妄', '魔尊', 16000, NULL, 0, NULL, 0, NULL, 0, '123456', 1, '/uploads/avatars/24_1793780699969.png', '2026-11-02 09:30:35', '2026-11-04 16:24:59', NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+INSERT INTO `demon_user` VALUES (25, '顾长生', 'guchangsheng@demon.com', '血煞', '魔尊', 16240, NULL, 0, '2026-11-02', 1, NULL, 0, '123456', 1, '/uploads/avatars/25_1793780512058.png', '2026-11-02 09:30:35', '2026-11-04 16:21:52', '2026-11-04', 1, 1, 0, 0, 0, 0, '2026-11-04', 1);
 
 -- ----------------------------
 -- Table structure for demon_user_art
@@ -557,12 +590,15 @@ CREATE TABLE `demon_user_art`  (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_user_art`(`user_id` ASC, `art_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '修者已习得功法' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '修者已习得功法' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of demon_user_art
 -- ----------------------------
 INSERT INTO `demon_user_art` VALUES (2, 2, 1, '2026-11-03 02:31:40');
 INSERT INTO `demon_user_art` VALUES (3, 25, 1, '2026-11-04 01:40:05');
+INSERT INTO `demon_user_art` VALUES (4, 2, 5, '2026-11-04 15:42:59');
+INSERT INTO `demon_user_art` VALUES (5, 13, 11, '2026-11-04 15:48:55');
+INSERT INTO `demon_user_art` VALUES (6, 22, 5, '2026-11-04 15:55:43');
 
 SET FOREIGN_KEY_CHECKS = 1;

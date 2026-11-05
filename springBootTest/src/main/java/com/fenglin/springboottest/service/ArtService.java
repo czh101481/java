@@ -487,6 +487,11 @@ public class ArtService {
         m.put("category", a.getCategory());
         m.put("grade", a.getGrade());
         m.put("gradeText", gradeText(a));
+        int layer = a.getLayer() == null ? 1 : a.getLayer();
+        m.put("layer", layer);
+        m.put("layerName", ArtRank.layerName(layer));
+        m.put("maxLayer", ArtRank.maxLayerOf(a.getGrade()));
+        m.put("series", a.getSeries());
         m.put("realmReq", a.getRealmReq());
         m.put("summary", a.getSummary());
         m.put("bonusAtk", nz(a.getBonusAtk()));

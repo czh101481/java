@@ -27,4 +27,13 @@ public class SearchItemVO {
 
     /** 配图相对路径（无图为 null，前端需判空兜底） */
     private String img;
+
+    /** 功法阶位（黄/玄/地/天/仙；仅 type=art 时有值）——用于列表分组 */
+    private String grade;
+
+    /** 功法重数（仅 type=art 时有值） */
+    private Integer layer;
+
+    /** 功法重数文案，如「三重」 */
+    private String layerName;
 }

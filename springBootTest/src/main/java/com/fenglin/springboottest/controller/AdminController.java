@@ -137,7 +137,7 @@ public class AdminController {
         return Result.success(data);
     }
 
-    /** 功法阁列表 GET /api/admin/art/list?kw= → 全量（id 倒序，kw 过滤功法名/简介） */
+    /** 功法阁列表 GET /api/admin/art/list?kw= → 全量（阶位→重数→id，kw 过滤功法名/简介） */
     @GetMapping("/art/list")
     public Result<List<Art>> artList(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -150,7 +150,7 @@ public class AdminController {
         if (StringUtils.hasText(kw)) {
             qw.like(Art::getName, kw.trim()).or().like(Art::getSummary, kw.trim());
         }
-        qw.orderByDesc(Art::getId);
+        qw.last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), layer ASC, id ASC");
         return Result.success(artMapper.selectList(qw));
     }
 
@@ -178,8 +178,13 @@ public class AdminController {
         if (!com.fenglin.springboottest.common.ArtRank.GRADES.contains(art.getGrade())) {
             return Result.error(400, "阶位只能是 黄 / 玄 / 地 / 天 / 仙。");
         }
-        // 进度改由「完整/残片 + 六重」推进，旧重数字段仅占位
-        art.setLayer(1);
+        // 重数：1 ~ 该阶上限（黄4 玄6 地7 天10 仙10）
+        int layer = art.getLayer() == null ? 1 : art.getLayer();
+        int maxLayer = com.fenglin.springboottest.common.ArtRank.maxLayerOf(art.getGrade());
+        if (layer < 1 || layer > maxLayer) {
+            return Result.error(400, String.format("重数越界：%s阶最多 %d 重。", art.getGrade(), maxLayer));
+        }
+        art.setLayer(layer);
         normalizeArtNumbers(art);
         art.setId(null);
         artMapper.insert(art);
@@ -212,7 +217,14 @@ public class AdminController {
             art.setSeries(StringUtils.hasText(art.getName()) ? art.getName() : old.getName());
         }
         art.setGrade(grade);
-        art.setLayer(1);
+        int maxLayer = com.fenglin.springboottest.common.ArtRank.maxLayerOf(grade);
+        int layer = art.getLayer() == null
+                ? (old.getLayer() == null ? 1 : old.getLayer())
+                : art.getLayer();
+        if (layer < 1 || layer > maxLayer) {
+            return Result.error(400, String.format("重数越界：%s阶最多 %d 重。", grade, maxLayer));
+        }
+        art.setLayer(layer);
         if (art.getStatus() == null) {
             art.setStatus(old.getStatus());
         }

@@ -62,29 +62,38 @@
         此 殿 之 中 尚 无 记 载 。
       </div>
 
-      <div
-        v-else
-        v-for="it in items"
-        :key="it.id"
-        class="row"
-        @click="openDetail(it.id)"
-      >
-        <img v-if="it.img" class="row-thumb" :src="imgUrl(it.img)" alt="" loading="lazy" />
-        <span class="row-id">{{ it.id }}</span>
-        <div class="row-main">
-          <div class="row-title">{{ it.title }}</div>
-          <div class="row-summary">{{ it.summary }}</div>
+      <template v-else v-for="r in rows" :key="r.key">
+        <!-- 功法阁：阶位分组标题 -->
+        <div v-if="r.head" class="grade-head">
+          <span class="grade-seal">{{ r.grade }}</span>
+          <div class="grade-text">
+            <span class="grade-name">{{ r.grade }}阶</span>
+            <span class="grade-desc">{{ gradeInfo[r.grade].desc }} · 共 {{ gradeInfo[r.grade].max }} 重</span>
+          </div>
+          <span class="grade-count">{{ r.count }} 部</span>
         </div>
-        <span class="row-extra">{{ it.extra }}</span>
-        <button
-          v-if="realmState[it.id]"
-          class="row-enter"
-          type="button"
-          :disabled="!realmState[it.id].canEnter || enteringId === it.id"
-          @click.stop="onEnterRealm(it.id)"
-        >{{ enterLabel(realmState[it.id]) }}</button>
-        <span class="row-go">入 内 ⟶</span>
-      </div>
+
+        <div v-else class="row" @click="openDetail(r.it.id)">
+          <img v-if="r.it.img" class="row-thumb" :src="imgUrl(r.it.img)" alt="" loading="lazy" />
+          <span class="row-id">{{ r.it.id }}</span>
+          <div class="row-main">
+            <div class="row-title">
+              {{ r.it.title }}
+              <span v-if="r.it.layerName" class="row-layer">{{ r.it.layerName }}</span>
+            </div>
+            <div class="row-summary">{{ r.it.summary }}</div>
+          </div>
+          <span class="row-extra">{{ rowExtra(r.it) }}</span>
+          <button
+            v-if="realmState[r.it.id]"
+            class="row-enter"
+            type="button"
+            :disabled="!realmState[r.it.id].canEnter || enteringId === r.it.id"
+            @click.stop="onEnterRealm(r.it.id)"
+          >{{ enterLabel(realmState[r.it.id]) }}</button>
+          <span class="row-go">入 内 ⟶</span>
+        </div>
+      </template>
     </section>
 
     <footer class="mod-foot">顺 逆 由 心 · 魔 非 魔 · 道 非 道</footer>
@@ -133,6 +142,58 @@ const loading = ref(false)
 const kw = ref('')
 // 境界封禁提示（后端 403 时回显）
 const deny = ref('')
+
+// ==================== 功法阁：阶位分组 ====================
+// 阶位由低至高，重数上限与后端 ArtRank.MAX_LAYER 一致
+const GRADE_ORDER = ['黄', '玄', '地', '天', '仙']
+const gradeInfo = {
+  黄: { desc: '凡尘俗法 · 底层通用', max: 4 },
+  玄: { desc: '宗门常备 · 中坚功法', max: 6 },
+  地: { desc: '镇族镇宗 · 核心功法', max: 7 },
+  天: { desc: '绝世秘传 · 大宗顶级', max: 10 },
+  仙: { desc: '仙道本源 · 天地至宝', max: 10 }
+}
+
+// 功法阁按「阶位 → 重数 → id」分组渲染（后端已排序，此处兜底再排一次）
+const rows = computed(() => {
+  const list = items.value
+  if (type.value !== 'art') {
+    return list.map(it => ({ head: false, key: 'a-' + it.id, it }))
+  }
+  const gradeRank = g => {
+    const i = GRADE_ORDER.indexOf(g)
+    return i < 0 ? GRADE_ORDER.length : i
+  }
+  const sorted = [...list].sort((a, b) =>
+    gradeRank(a.grade) - gradeRank(b.grade) ||
+    (a.layer || 1) - (b.layer || 1) ||
+    a.id - b.id
+  )
+  const out = []
+  let cur = null
+  for (const it of sorted) {
+    const g = it.grade || '黄'
+    if (g !== cur) {
+      cur = g
+      out.push({
+        head: true,
+        key: 'h-' + g,
+        grade: g,
+        count: sorted.filter(x => (x.grade || '黄') === g).length
+      })
+    }
+    out.push({ head: false, key: 'a-' + it.id, it })
+  }
+  return out
+})
+
+// 功法行已按阶位分组，行尾只留售价，避免与分组标题重复
+function rowExtra(it) {
+  if (type.value !== 'art') return it.extra
+  const s = it.extra || ''
+  const i = s.indexOf(' · ')
+  return i >= 0 ? s.slice(i + 3) : s
+}
 
 async function load() {
   loading.value = true
@@ -370,6 +431,41 @@ watch(type, () => {
   border: 1px solid rgba(255, 59, 107, 0.5);
   box-shadow: 0 0 14px rgba(255, 59, 107, 0.35);
 }
+/* ===== 功法阁 · 阶位分组标题 ===== */
+.grade-head {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 18px; padding: 10px 16px 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(179, 24, 58, 0.28), rgba(20, 4, 12, 0.28) 62%, transparent);
+  border-left: 3px solid rgba(255, 59, 107, 0.75);
+}
+.grade-head:first-child { margin-top: 0; }
+.grade-seal {
+  flex: 0 0 34px; width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; letter-spacing: 0; color: #fff;
+  background: linear-gradient(140deg, #b3183a, #3d0a1d);
+  box-shadow: 0 0 14px rgba(255, 59, 107, 0.45);
+}
+.grade-text { display: flex; align-items: baseline; gap: 12px; flex: 1; min-width: 0; }
+.grade-name {
+  font-size: 15px; letter-spacing: 4px; color: #e8dcc8;
+  text-shadow: 0 0 10px rgba(255, 59, 107, 0.45);
+}
+.grade-desc {
+  font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.5);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grade-count { flex: 0 0 auto; font-size: 12px; letter-spacing: 1px; color: #d9b066; }
+
+/* 行内重数徽章 */
+.row-layer {
+  margin-left: 10px; padding: 1px 8px; border-radius: 10px;
+  font-size: 11px; letter-spacing: 1px; color: #d9b066;
+  border: 1px solid rgba(217, 176, 102, 0.45);
+  vertical-align: 2px;
+}
+
 .row {
   display: flex; align-items: center; gap: 16px;
   padding: 16px 20px; border-radius: 12px; cursor: pointer;

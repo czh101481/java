@@ -31,6 +31,25 @@ public final class ArtRank {
             "天", "绝世秘传·大宗顶级",
             "仙", "仙道本源·天地至宝");
 
+    /** 各阶位重数上限：黄 4 · 玄 6 · 地 7 · 天 10 · 仙 10 */
+    public static final Map<String, Integer> MAX_LAYER = Map.of(
+            "黄", 4, "玄", 6, "地", 7, "天", 10, "仙", 10);
+
+    /** 重数中文：1 → 一 …… 10 → 十 */
+    private static final String[] LAYER_CN = {
+            "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"};
+
+    /** 该阶位的重数上限（未知阶位按黄阶 4 重） */
+    public static int maxLayerOf(String grade) {
+        return MAX_LAYER.getOrDefault(nvl(grade), 4);
+    }
+
+    /** 重数文案：3 → 「三重」 */
+    public static String layerName(int layer) {
+        int i = Math.max(1, Math.min(LAYER_CN.length, layer)) - 1;
+        return LAYER_CN[i] + "重";
+    }
+
     /** 完整功法价（魔晶）：黄、玄以魔晶计价 */
     private static final Map<String, Integer> FULL_COIN = Map.of("黄", 100, "玄", 800);
 

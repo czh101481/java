@@ -34,6 +34,12 @@
       <button type="button" class="va-tab" :class="{ on: tab === 'bag' }" @click="switchBag">
         乾 坤 袋<em v-if="bagTotal">{{ bagTotal }}</em>
       </button>
+      <button type="button" class="va-tab" :class="{ on: tab === 'trade' }" @click="switchTrade">
+        鬼 市<em v-if="trades.length">{{ trades.length }}</em>
+      </button>
+      <button type="button" class="va-tab" :class="{ on: tab === 'rank' }" @click="switchRank(rankType)">
+        富 甲 榜
+      </button>
       <button type="button" class="va-tab" :class="{ on: tab === 'logs' }" @click="switchLogs">
         收 支 簿
       </button>
@@ -67,6 +73,19 @@
 
             <p class="sc-desc">{{ it.desc }}</p>
             <div class="sc-effect">{{ it.effectText }}</div>
+
+            <div class="sc-price">
+              <template v-if="it.discounting">
+                <span class="disc-tag">{{ discText(it.discountPercent) }}</span>
+                <s class="disc-old">{{ it.originalPrice }}</s>
+                <b class="disc-new">{{ it.price }}</b>
+                <span class="disc-cd">{{ countdown(it.discountEnd) }}</span>
+              </template>
+              <template v-else>
+                <b class="disc-new">{{ it.price }}</b>
+                <span class="disc-cur">{{ it.payCurrency === 'jade' ? '血玉' : '魔晶' }} / 件</span>
+              </template>
+            </div>
 
             <div class="sc-limit">
               <template v-if="it.dailyLimit > 0">
@@ -117,12 +136,160 @@
                 <span>{{ qtyOf(it) }}</span>
                 <button type="button" :disabled="qtyOf(it) >= it.qty" @click="stepQty(it, 1)">＋</button>
               </div>
+              <button type="button" class="sell-btn" :disabled="busy" @click="startSell(it)">
+                寄 售
+              </button>
               <button type="button" class="use-btn" :disabled="busy" @click="doUse(it)">
                 取 用 ×{{ qtyOf(it) }}
               </button>
             </div>
           </article>
         </div>
+      </template>
+
+      <!-- ==================== 鬼市（玩家交易） ==================== -->
+      <template v-else-if="tab === 'trade'">
+        <section class="sell-panel">
+          <div class="sp-head">
+            寄 售 手 中 之 物
+            <small>挂出即从乾坤袋预扣；成交后鬼市抽 5% 焚香钱，卖家实得 95%；撤单原物退回</small>
+          </div>
+          <div class="sp-form" v-if="bag.length">
+            <select v-model.number="sell.itemId" class="sp-input">
+              <option :value="0" disabled>选择要寄售的物品</option>
+              <option v-for="b in bag" :key="b.id" :value="b.id">{{ b.name }}（持 {{ b.qty }}）</option>
+            </select>
+            <input
+              v-model.number="sell.qty"
+              class="sp-input num"
+              type="number"
+              min="1"
+              :max="sellMaxQty"
+              title="数量"
+            />
+            <input
+              v-model.number="sell.price"
+              class="sp-input num"
+              type="number"
+              min="1"
+              max="99999"
+              title="单价"
+            />
+            <select v-model="sell.currency" class="sp-input cur">
+              <option value="coin">魔晶</option>
+              <option value="jade">血玉</option>
+            </select>
+            <button
+              class="sp-btn"
+              type="button"
+              :disabled="busy || !sell.itemId"
+              @click="doSell"
+            >挂 出</button>
+          </div>
+          <div class="sp-empty" v-else>乾坤袋中空无一物，先去藏宝阁购宝，再来寄售。</div>
+          <p class="sp-err" v-if="sellErr">{{ sellErr }}</p>
+        </section>
+
+        <section class="trade-sec">
+          <div class="ts-head">鬼 市 在 售 <em>{{ trades.length }}</em></div>
+          <div class="va-empty" v-if="!trades.length">鬼 市 冷 清 ， 尚 无 挂 单 。</div>
+          <div class="trade-grid" v-else>
+            <article v-for="t in trades" :key="t.id" class="trade-card" :class="{ own: t.sellerId === myId }">
+              <div class="tc-top">
+                <div class="sc-face small" :class="catClass(t.itemCategory)">{{ t.itemIcon }}</div>
+                <div class="sc-meta">
+                  <div class="sc-name">{{ t.itemName }}<i class="tc-qty">×{{ t.qty }}</i></div>
+                  <div class="sc-cat">{{ t.itemCategory }} · {{ t.effectText }}</div>
+                </div>
+              </div>
+              <div class="tc-price">
+                <b>{{ t.price }}</b>
+                <span>{{ t.currencyName }} / 件</span>
+                <em>合计 {{ t.total }}</em>
+              </div>
+              <div class="tc-seller">
+                <span class="tc-av" :style="av(t.sellerAvatar, t.sellerName).style">
+                  <img v-if="av(t.sellerAvatar, t.sellerName).img" :src="av(t.sellerAvatar, t.sellerName).img" alt="" />
+                  <template v-else>{{ av(t.sellerAvatar, t.sellerName).char }}</template>
+                </span>
+                <span class="tc-sname">{{ t.sellerName }}</span>
+                <span class="tc-time">{{ fmtTime(t.createdAt) }}</span>
+              </div>
+              <button
+                v-if="t.sellerId === myId"
+                class="tc-btn ghost"
+                type="button"
+                :disabled="busy"
+                @click="doCancel(t)"
+              >撤 回 挂 单</button>
+              <button
+                v-else
+                class="tc-btn buy"
+                type="button"
+                :disabled="busy"
+                @click="doBuyTrade(t)"
+              >买 下 · {{ t.total }} {{ t.currencyName }}</button>
+            </article>
+          </div>
+        </section>
+
+        <section class="trade-sec" v-if="mine.length">
+          <div class="ts-head">我 的 挂 单 <em>{{ mine.length }}</em></div>
+          <div class="mine-list">
+            <div v-for="t in mine" :key="t.id" class="mine-row" :class="'st' + t.status">
+              <span class="mr-name">{{ t.itemName }} ×{{ t.qty }}</span>
+              <span class="mr-price">{{ t.price }} {{ t.currencyName }} / 件 · 合计 {{ t.total }}</span>
+              <span class="mr-st">
+                {{ t.statusText }}<template v-if="t.status === 1 && t.buyerName"> · 买家 {{ t.buyerName }}</template>
+                <template v-if="t.status === 1 && t.sellerNet"> · 实得 {{ t.sellerNet }}</template>
+              </span>
+              <button v-if="t.status === 0" class="mr-btn" type="button" @click="doCancel(t)">撤 单</button>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <!-- ==================== 富甲榜 ==================== -->
+      <template v-else-if="tab === 'rank'">
+        <div class="rank-head">
+          <div class="rank-switch">
+            <button
+              v-for="o in RANK_TYPES"
+              :key="o.v"
+              type="button"
+              class="rk-sw"
+              :class="{ on: rankType === o.v }"
+              @click="switchRank(o.v)"
+            >{{ o.t }}</button>
+          </div>
+          <div class="rank-me" v-if="rankMeta">
+            我的名次 · 第 <b>{{ rankMeta.myRank || '—' }}</b> 位
+            <span>（{{ rankLabel }} {{ rankMeta.myScore }}）</span>
+          </div>
+        </div>
+        <div class="rank-note">总资产 = 魔晶 + 血玉 × {{ jadeRate }}（1 血玉折 {{ jadeRate }} 魔晶）</div>
+        <div class="rank-list" v-if="ranks.length">
+          <div class="rank-row head">
+            <span class="rk-no">位</span>
+            <span class="rk-av"></span>
+            <span class="rk-name">修者</span>
+            <span class="rk-coin">魔晶</span>
+            <span class="rk-jade">血玉</span>
+            <span class="rk-score">总资产</span>
+          </div>
+          <div v-for="r in ranks" :key="r.userId" class="rank-row" :class="{ me: r.me }">
+            <span class="rk-no" :class="'top' + r.rank">{{ r.rank }}</span>
+            <span class="rk-av" :style="av(r.avatar, r.name).style">
+              <img v-if="av(r.avatar, r.name).img" :src="av(r.avatar, r.name).img" alt="" />
+              <template v-else>{{ av(r.avatar, r.name).char }}</template>
+            </span>
+            <span class="rk-name">{{ r.name }}<i>{{ r.cultivation }}</i></span>
+            <span class="rk-coin">{{ r.coin }}</span>
+            <span class="rk-jade">{{ r.jade }}</span>
+            <span class="rk-score">{{ r.score }}</span>
+          </div>
+        </div>
+        <div class="va-empty" v-else>榜 上 尚 无 人 名 。</div>
       </template>
 
       <!-- ==================== 收支簿 ==================== -->
@@ -149,13 +316,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getSession } from '../api/auth'
-import { walletOverview, coinLogs, shopList, buyItem, bagList, useItem } from '../api/coin'
+import { walletOverview, coinLogs, shopList, buyItem, bagList, useItem, coinRank } from '../api/coin'
+import { tradeList, myTrades, sellItem, cancelTrade, buyTrade } from '../api/trade'
+import { renderAvatar } from '../config/avatars'
 
 const router = useRouter()
 const session = getSession()
+// 当前修者 id：用于判定「自己的挂单」并高亮自己的榜位
+const myId = session.user && session.user.id ? session.user.id : null
 
 const tab = ref('shop')
 const loading = ref(true)
@@ -171,6 +342,58 @@ const wallet = ref({
 const shop = ref([])
 const bag = ref([])
 const logs = ref([])
+
+// ==================== 鬼市 ====================
+const trades = ref([])
+const mine = ref([])
+const sellErr = ref('')
+const sell = ref({ itemId: 0, qty: 1, price: 1, currency: 'coin' })
+
+// 所选寄售物的持有上限
+const sellMaxQty = computed(() => {
+  const b = bag.value.find((x) => x.id === sell.value.itemId)
+  return b ? Math.max(1, b.qty) : 1
+})
+
+// ==================== 富甲榜 ====================
+const RANK_TYPES = [
+  { v: 'rich', t: '富 甲' },
+  { v: 'coin', t: '魔 晶' },
+  { v: 'jade', t: '血 玉' }
+]
+const ranks = ref([])
+const rankType = ref('rich')
+const rankMeta = ref(null)
+const jadeRate = ref(100)
+const rankLabel = computed(() => {
+  const o = RANK_TYPES.find((x) => x.v === rankType.value)
+  return o ? o.t.replace(/\s/g, '') : '总资产'
+})
+
+// 折扣倒计时：每秒推进一次
+const nowTs = ref(Date.now())
+let clock = null
+
+const av = (avatar, name) => renderAvatar(avatar, name)
+
+function discText(p) {
+  const n = Number(p) / 10
+  return (Number.isInteger(n) ? n : n.toFixed(1)) + ' 折'
+}
+
+function countdown(end) {
+  if (!end) return '限时折扣'
+  const diff = new Date(String(end).replace(' ', 'T')).getTime() - nowTs.value
+  if (!isFinite(diff) || diff <= 0) return '已结束'
+  const s = Math.floor(diff / 1000)
+  const d = Math.floor(s / 86400)
+  const h = Math.floor((s % 86400) / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  if (d > 0) return `剩 ${d}天${h}时`
+  if (h > 0) return `剩 ${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  return `剩 ${m}:${String(sec).padStart(2, '0')}`
+}
 
 // 每个物品的下单/取用数量
 const qtys = ref({})
@@ -234,6 +457,126 @@ async function switchLogs() {
   await loadLogs()
 }
 
+// ==================== 鬼市 ====================
+async function loadTrades() {
+  try {
+    const res = await tradeList()
+    if (res.data.code === 200) trades.value = res.data.data.list || []
+  } catch (e) { /* 静默 */ }
+}
+
+async function loadMine() {
+  try {
+    const res = await myTrades()
+    if (res.data.code === 200) mine.value = res.data.data.list || []
+  } catch (e) { /* 静默 */ }
+}
+
+async function switchTrade() {
+  tab.value = 'trade'
+  sellErr.value = ''
+  await Promise.all([loadTrades(), loadMine(), loadBag()])
+  if (!sell.value.itemId && bag.value.length) {
+    sell.value.itemId = bag.value[0].id
+  }
+}
+
+// 从乾坤袋跳来寄售：预填物品、数量与建议价
+async function startSell(it) {
+  tab.value = 'trade'
+  sellErr.value = ''
+  sell.value = {
+    itemId: it.id,
+    qty: 1,
+    price: it.priceCoin > 0 ? it.priceCoin : (it.priceJade > 0 ? it.priceJade : 1),
+    currency: it.priceCoin > 0 ? 'coin' : 'jade'
+  }
+  await Promise.all([loadTrades(), loadMine()])
+}
+
+async function doSell() {
+  if (busy.value) return
+  const itemId = Number(sell.value.itemId) || 0
+  if (!itemId) {
+    sellErr.value = '请先选择要寄售的物品。'
+    return
+  }
+  const qty = Math.max(1, Math.min(Number(sell.value.qty) || 1, sellMaxQty.value))
+  const price = Math.max(1, Math.min(Number(sell.value.price) || 1, 99999))
+  busy.value = true
+  sellErr.value = ''
+  try {
+    const res = await sellItem(itemId, qty, price, sell.value.currency)
+    if (res.data.code === 200) {
+      showToast(res.data.data.msg || '已挂入鬼市')
+      await Promise.all([loadWallet(), loadBag(), loadTrades(), loadMine()])
+      sell.value.itemId = 0
+    } else {
+      sellErr.value = res.data.msg || '挂单失败'
+    }
+  } catch (e) {
+    sellErr.value = e.message || '挂单失败'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function doCancel(t) {
+  if (busy.value) return
+  if (!confirm(`撤回「${t.itemName}」×${t.qty} 的挂单？原物将退回乾坤袋。`)) return
+  busy.value = true
+  try {
+    const res = await cancelTrade(t.id)
+    if (res.data.code === 200) {
+      showToast(res.data.data.msg || '已撤回')
+      await Promise.all([loadBag(), loadTrades(), loadMine()])
+    } else {
+      showToast(res.data.msg || '撤回失败', true)
+      await Promise.all([loadTrades(), loadMine()])
+    }
+  } catch (e) {
+    showToast(e.message || '撤回失败', true)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function doBuyTrade(t) {
+  if (busy.value) return
+  if (!confirm(`以 ${t.total} ${t.currencyName} 买下「${t.itemName}」×${t.qty}？`)) return
+  busy.value = true
+  try {
+    const res = await buyTrade(t.id)
+    if (res.data.code === 200) {
+      showToast(res.data.data.msg || '已入乾坤袋')
+      await Promise.all([loadWallet(), loadBag(), loadTrades(), loadMine()])
+    } else {
+      showToast(res.data.msg || '买入失败', true)
+      await Promise.all([loadTrades(), loadMine()])
+    }
+  } catch (e) {
+    showToast(e.message || '买入失败', true)
+  } finally {
+    busy.value = false
+  }
+}
+
+// ==================== 富甲榜 ====================
+async function switchRank(type) {
+  tab.value = 'rank'
+  rankType.value = type || 'rich'
+  try {
+    const res = await coinRank(rankType.value, 20)
+    if (res.data.code === 200) {
+      ranks.value = res.data.data.list || []
+      rankMeta.value = res.data.data
+      jadeRate.value = res.data.data.jadeRate || 100
+    }
+  } catch (e) {
+    showToast(e.message || '榜单读取失败', true)
+  }
+}
+
 async function doBuy(it) {
   if (busy.value || it.soldOut) return
   const q = qtyOf(it)
@@ -289,8 +632,13 @@ onMounted(async () => {
     router.replace('/login')
     return
   }
+  clock = setInterval(() => { nowTs.value = Date.now() }, 1000)
   await Promise.all([loadWallet(), loadShop(), loadBag()])
   loading.value = false
+})
+
+onUnmounted(() => {
+  if (clock) clearInterval(clock)
 })
 </script>
 
@@ -616,6 +964,265 @@ onMounted(async () => {
 .lg-balance { min-width: 70px; text-align: right; font-size: 12px; color: rgba(232, 220, 200, 0.45); }
 .lg-time { margin-left: auto; font-size: 11px; color: rgba(232, 220, 200, 0.3); }
 
+/* ===== 价格 / 限时折扣 ===== */
+.sc-price { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.disc-new { font-size: 16px; color: var(--gold); letter-spacing: 1px; }
+.disc-cur { font-size: 11px; color: rgba(232, 220, 200, 0.45); }
+.disc-old { font-size: 12px; color: rgba(232, 220, 200, 0.35); }
+.disc-tag {
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: linear-gradient(135deg, #ff3b6b, #7a0f24);
+  color: #fff2f5;
+  box-shadow: 0 0 12px rgba(255, 59, 107, 0.45);
+}
+.disc-cd { margin-left: auto; font-size: 11px; color: #ffb3c4; letter-spacing: 1px; }
+
+/* 乾坤袋「寄售」按钮 */
+.sell-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(217, 176, 102, 0.45);
+  background: rgba(217, 176, 102, 0.12);
+  color: #ffe6a3;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.sell-btn:hover:not(:disabled) { background: rgba(217, 176, 102, 0.26); color: #fff6dd; }
+.sell-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ===== 鬼市 ===== */
+.sell-panel {
+  margin-bottom: 22px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(217, 176, 102, 0.28);
+  background: linear-gradient(160deg, rgba(34, 12, 26, 0.9), rgba(12, 4, 10, 0.92));
+}
+.sp-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: var(--gold);
+}
+.sp-head small { font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.42); }
+.sp-form { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.sp-input {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(176, 102, 255, 0.28);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--bone);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.sp-input:focus { border-color: rgba(217, 176, 102, 0.6); }
+.sp-input.num { flex: 0 0 96px; }
+.sp-input.cur { flex: 0 0 100px; cursor: pointer; }
+.sp-input option { background: #160a24; color: #e8dcc8; }
+.sp-btn {
+  flex: 0 0 auto;
+  padding: 9px 26px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #d9b066, #8a6420);
+  color: #1c1203;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 3px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.sp-btn:hover:not(:disabled) { filter: brightness(1.12); }
+.sp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sp-empty { margin-top: 12px; font-size: 12px; color: rgba(232, 220, 200, 0.42); }
+.sp-err { margin: 10px 0 0; font-size: 12px; color: #ff8fa8; }
+
+.trade-sec { margin-bottom: 24px; }
+.ts-head {
+  margin-bottom: 12px;
+  font-size: 14px;
+  letter-spacing: 4px;
+  color: rgba(232, 220, 200, 0.8);
+}
+.ts-head em {
+  margin-left: 8px;
+  padding: 0 7px;
+  border-radius: 9px;
+  background: rgba(255, 59, 107, 0.25);
+  color: #ffd7e0;
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0;
+}
+.trade-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.trade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+  border-radius: 13px;
+  border: 1px solid rgba(176, 102, 255, 0.2);
+  background: linear-gradient(160deg, rgba(28, 10, 22, 0.92), rgba(11, 3, 9, 0.94));
+  transition: 0.22s;
+}
+.trade-card:hover { border-color: rgba(217, 176, 102, 0.42); box-shadow: 0 0 22px rgba(217, 176, 102, 0.14); }
+.trade-card.own { border-style: dashed; border-color: rgba(217, 176, 102, 0.4); }
+.tc-top { display: flex; align-items: center; gap: 10px; }
+.tc-qty { margin-left: 6px; font-style: normal; font-size: 12px; color: var(--gold); }
+.tc-price { display: flex; align-items: baseline; gap: 6px; }
+.tc-price b { font-size: 18px; color: var(--gold); }
+.tc-price span { font-size: 11px; color: rgba(232, 220, 200, 0.45); }
+.tc-price em { margin-left: auto; font-style: normal; font-size: 11px; color: rgba(232, 220, 200, 0.5); }
+.tc-seller { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(232, 220, 200, 0.6); }
+.tc-av {
+  width: 24px; height: 24px;
+  flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(135deg, #b3183a, #3a0a16);
+  font-size: 11px;
+  color: #fff;
+}
+.tc-av img { width: 100%; height: 100%; object-fit: cover; }
+.tc-time { margin-left: auto; font-size: 11px; color: rgba(232, 220, 200, 0.3); }
+.tc-btn {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.tc-btn.buy { background: linear-gradient(135deg, #ff5e85, #8a0f22); color: #fff3f5; }
+.tc-btn.buy:hover:not(:disabled) { filter: brightness(1.15); box-shadow: 0 0 16px rgba(255, 59, 107, 0.4); }
+.tc-btn.ghost { background: transparent; border-color: rgba(217, 176, 102, 0.45); color: #ffe6a3; }
+.tc-btn.ghost:hover:not(:disabled) { background: rgba(217, 176, 102, 0.16); }
+.tc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.mine-list { border: 1px solid rgba(176, 102, 255, 0.16); border-radius: 12px; overflow: hidden; }
+.mine-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(176, 102, 255, 0.08);
+}
+.mine-row:last-child { border-bottom: none; }
+.mine-row:nth-child(odd) { background: rgba(255, 255, 255, 0.015); }
+.mr-name { min-width: 150px; color: var(--bone); letter-spacing: 1px; }
+.mr-price { color: rgba(217, 176, 102, 0.85); }
+.mr-st { margin-left: auto; color: rgba(232, 220, 200, 0.5); }
+.mine-row.st1 .mr-st { color: #7ce6b0; }
+.mine-row.st2 .mr-st { color: rgba(232, 220, 200, 0.35); }
+.mr-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(160, 44, 72, 0.6);
+  background: transparent;
+  color: #ff8fa8;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.mr-btn:hover { background: rgba(160, 44, 72, 0.16); }
+
+/* ===== 富甲榜 ===== */
+.rank-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+.rank-switch { display: flex; gap: 8px; }
+.rk-sw {
+  padding: 7px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(176, 102, 255, 0.28);
+  background: transparent;
+  color: rgba(232, 220, 200, 0.62);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.rk-sw:hover { color: var(--bone); border-color: rgba(217, 176, 102, 0.5); }
+.rk-sw.on {
+  background: linear-gradient(135deg, #7a5c14, #c9a227);
+  border-color: transparent;
+  color: #1a1206;
+  font-weight: 700;
+}
+.rank-me { margin-left: auto; font-size: 12px; color: rgba(232, 220, 200, 0.6); }
+.rank-me b { color: var(--gold); font-size: 15px; }
+.rank-note { margin-bottom: 14px; font-size: 11px; color: rgba(232, 220, 200, 0.35); }
+.rank-list {
+  max-width: 880px;
+  margin: 0 auto;
+  border: 1px solid rgba(176, 102, 255, 0.16);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(176, 102, 255, 0.08);
+}
+.rank-row:last-child { border-bottom: none; }
+.rank-row.head {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: rgba(232, 220, 200, 0.4);
+  background: rgba(255, 255, 255, 0.03);
+}
+.rank-row.me { background: rgba(217, 176, 102, 0.08); box-shadow: inset 2px 0 0 var(--gold); }
+.rk-no { width: 34px; text-align: center; font-size: 12px; color: rgba(232, 220, 200, 0.5); }
+.rk-no.top1 { color: #ffe6a3; font-size: 16px; font-weight: 700; text-shadow: 0 0 10px rgba(217, 176, 102, 0.7); }
+.rk-no.top2 { color: #e3e3ee; font-size: 15px; font-weight: 700; }
+.rk-no.top3 { color: #e8a06a; font-size: 15px; font-weight: 700; }
+.rk-av {
+  width: 30px; height: 30px;
+  flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(135deg, #b3183a, #3a0a16);
+  font-size: 12px;
+  color: #fff;
+}
+.rk-av img { width: 100%; height: 100%; object-fit: cover; }
+.rk-name { flex: 1; min-width: 0; color: var(--bone); letter-spacing: 1px; }
+.rk-name i { margin-left: 8px; font-style: normal; font-size: 11px; color: rgba(232, 220, 200, 0.4); }
+.rk-coin, .rk-jade, .rk-score { width: 88px; text-align: right; font-size: 12px; }
+.rk-coin { color: #ffe6a3; }
+.rk-jade { color: #ff9db8; }
+.rk-score { color: var(--gold); font-size: 13px; font-weight: 600; }
+.rank-row.head .rk-coin,
+.rank-row.head .rk-jade,
+.rank-row.head .rk-score {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(232, 220, 200, 0.4);
+}
+
 /* ===== 提示 ===== */
 .va-toast {
   position: fixed;
@@ -645,5 +1252,14 @@ onMounted(async () => {
   .va-body { padding: 14px 14px 40px; }
   .shop-grid { grid-template-columns: 1fr; }
   .bag-grid { grid-template-columns: 1fr; }
+  .sp-input.num, .sp-input.cur { flex: 1 1 80px; }
+  .trade-grid { grid-template-columns: 1fr; }
+  .rank-head { gap: 10px; }
+  .rank-me { width: 100%; margin-left: 0; }
+  .rank-row { gap: 8px; padding: 8px 10px; }
+  .rk-no { width: 24px; }
+  .rk-coin, .rk-jade, .rk-score { width: 60px; }
+  .mine-row { flex-wrap: wrap; gap: 6px 10px; }
+  .mr-st { margin-left: 0; width: 100%; }
 }
 </style>

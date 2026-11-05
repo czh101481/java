@@ -46,6 +46,15 @@ public class Item {
     /** 每日限购，0=不限 */
     private Integer dailyLimit;
 
+    /** 限时折扣：应付百分比（1-99，如 80 表示八折）；0 表示不打折 */
+    private Integer discountPercent;
+
+    /** 折扣生效起点（null 表示此刻起即生效） */
+    private LocalDateTime discountStart;
+
+    /** 折扣截止（null 表示不设终点） */
+    private LocalDateTime discountEnd;
+
     /** 1=在售 0=下架 */
     private Integer status;
 

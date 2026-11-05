@@ -45,6 +45,32 @@ public final class Coin {
     /** 秘境触发「机缘」额外血玉 */
     public static final int SECRET_JADE_TREASURE = 1;
 
+    // ---------------- 鬼市（玩家间交易） ----------------
+    /** 鬼市抽成百分比：成交额的 5% 由系统回收（焚香钱） */
+    public static final int TRADE_FEE_PERCENT = 5;
+    /** 每人同时挂单上限 */
+    public static final int TRADE_MAX_OPEN = 10;
+    /** 单件挂单价格上限 */
+    public static final int TRADE_MAX_PRICE = 99999;
+    /** 富甲榜折算：1 血玉 = 100 魔晶 */
+    public static final int JADE_TO_COIN = 100;
+
+    /** 折扣价：percent 为应付百分比（如 80 即八折），至少 1 */
+    public static int discountPrice(int base, int percent) {
+        if (base <= 0) {
+            return base;
+        }
+        if (percent <= 0 || percent >= 100) {
+            return base;
+        }
+        return Math.max(1, (int) Math.round(base * percent / 100.0));
+    }
+
+    /** 鬼市抽成金额（向下取整） */
+    public static int tradeFee(int amount) {
+        return Math.max(0, amount) * TRADE_FEE_PERCENT / 100;
+    }
+
     // ---------------- 流水事由文案 ----------------
     public static String reasonText(String reason) {
         if (reason == null) {
@@ -65,6 +91,8 @@ public final class Coin {
                 return "藏宝阁购宝";
             case "item":
                 return "开囊所得";
+            case "trade":
+                return "鬼市易物";
             case "admin":
                 return "魔门赏赐";
             default:

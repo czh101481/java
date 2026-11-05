@@ -18,6 +18,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -70,13 +71,16 @@ public class ShopService {
         Map<Long, Integer> boughtToday = userId == null ? new HashMap<>() : boughtToday(userId);
         Map<Long, Integer> held = userId == null ? new HashMap<>() : heldMap(userId);
 
+        LocalDateTime now = LocalDateTime.now();
         List<Map<String, Object>> list = new ArrayList<>();
         for (Item it : items) {
             Map<String, Object> m = itemMap(it);
             int bought = boughtToday.getOrDefault(it.getId(), 0);
             int limit = it.getDailyLimit() == null ? 0 : it.getDailyLimit();
             boolean useJade = it.getPriceJade() != null && it.getPriceJade() > 0;
-            int price = useJade ? it.getPriceJade() : it.getPriceCoin();
+            int basePrice = nz(useJade ? it.getPriceJade() : it.getPriceCoin());
+            int disc = activeDiscount(it, now);
+            int price = disc > 0 ? Coin.discountPrice(basePrice, disc) : basePrice;
             m.put("boughtToday", bought);
             m.put("dailyLimit", limit);
             m.put("remainToday", limit <= 0 ? -1 : Math.max(0, limit - bought));
@@ -84,11 +88,47 @@ public class ShopService {
             m.put("held", held.getOrDefault(it.getId(), 0));
             m.put("payCurrency", useJade ? Coin.JADE : Coin.COIN);
             m.put("price", price);
+            m.put("originalPrice", basePrice);
+            m.put("discountPercent", disc);
+            m.put("discounting", disc > 0);
+            m.put("discountEnd", it.getDiscountEnd());
             m.put("affordable", price <= (useJade ? jade : coin));
             list.add(m);
         }
         return list;
     }
+
+    // ==================== 限时折扣 ====================
+
+    /** 此刻生效的折扣百分比（1-99）；0 表示未打折 */
+    public static int activeDiscount(Item it, LocalDateTime now) {
+        if (it == null) {
+            return 0;
+        }
+        Integer p = it.getDiscountPercent();
+        if (p == null || p <= 0 || p >= 100) {
+            return 0;
+        }
+        if (it.getDiscountStart() != null && now.isBefore(it.getDiscountStart())) {
+            return 0;
+        }
+        if (it.getDiscountEnd() != null && now.isAfter(it.getDiscountEnd())) {
+            return 0;
+        }
+        return p;
+    }
+
+    /** 实付单价（已含折扣）；jade=true 取血玉价 */
+    public static int payPrice(Item it, boolean jade, LocalDateTime now) {
+        int base = nz(jade ? it.getPriceJade() : it.getPriceCoin());
+        int p = activeDiscount(it, now);
+        return p > 0 ? Coin.discountPrice(base, p) : base;
+    }
+
+    private static int nz(Integer v) {
+        return v == null ? 0 : v;
+    }
+
 
     /** 购买：qty 件，扣币入袋 */
     public Map<String, Object> buy(Long userId, Long itemId, int qty) {
@@ -110,8 +150,9 @@ public class ShopService {
         }
 
         boolean useJade = it.getPriceJade() != null && it.getPriceJade() > 0;
-        int unit = useJade ? it.getPriceJade() : it.getPriceCoin();
+        int unit = payPrice(it, useJade, LocalDateTime.now());
         int total = unit * n;
+        int disc = activeDiscount(it, LocalDateTime.now());
         if (total > 0) {
             Wallet after = coinService.spend(userId,
                     useJade ? Coin.JADE : Coin.COIN, total, "buy", "item", itemId);
@@ -138,9 +179,13 @@ public class ShopService {
         data.put("qty", n);
         data.put("payCurrency", useJade ? Coin.JADE : Coin.COIN);
         data.put("payAmount", total);
+        data.put("discountPercent", disc);
         data.put("wallet", coinService.overview(userId));
         data.put("bagQty", heldOf(userId, itemId));
-        data.put("msg", String.format("购得「%s」×%d，已入乾坤袋。", it.getName(), n));
+        data.put("msg", disc > 0
+                ? String.format("趁折扣购得「%s」×%d，耗 %d %s，已入乾坤袋。",
+                        it.getName(), n, total, useJade ? Coin.JADE_NAME : Coin.COIN_NAME)
+                : String.format("购得「%s」×%d，已入乾坤袋。", it.getName(), n));
         return data;
     }
 
@@ -252,7 +297,7 @@ public class ShopService {
 
     // ==================== 内部工具 ====================
 
-    private void addToBag(Long userId, Long itemId, int n) {
+    public void addToBag(Long userId, Long itemId, int n) {
         UpdateWrapper<BagItem> uw = new UpdateWrapper<>();
         uw.eq("user_id", userId).eq("item_id", itemId).setSql("qty = qty + " + n);
         int rows = bagItemMapper.update(null, uw);
@@ -319,6 +364,9 @@ public class ShopService {
         m.put("desc", it.getDescText());
         m.put("priceCoin", it.getPriceCoin());
         m.put("priceJade", it.getPriceJade());
+        m.put("dailyLimit", it.getDailyLimit());
+        m.put("discountPercent", activeDiscount(it, LocalDateTime.now()));
+        m.put("discountEnd", it.getDiscountEnd());
         m.put("effectType", it.getEffectType());
         m.put("effectValue", it.getEffectValue());
         m.put("effectText", effectText(it, 1));

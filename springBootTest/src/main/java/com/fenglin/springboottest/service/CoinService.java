@@ -176,9 +176,75 @@ public class CoinService {
         return data;
     }
 
+    // ==================== 富甲榜 ====================
+
+    /**
+     * 货币排行。
+     * type：rich=总资产（魔晶 + 血玉×100）/ coin=魔晶 / jade=血玉
+     * 返回前 limit 名、我的名次与我的数值。
+     */
+    public Map<String, Object> rank(String type, int limit, Long meId) {
+        String t = type == null ? "" : type.trim();
+        String orderBy;
+        String col;
+        if (Coin.JADE.equals(t)) {
+            orderBy = "w.jade";
+            col = "jade";
+        } else if (Coin.COIN.equals(t)) {
+            orderBy = "w.coin";
+            col = "coin";
+        } else {
+            t = "rich";
+            orderBy = "score";
+            col = "coin + jade * " + Coin.JADE_TO_COIN;
+        }
+        int size = Math.max(1, Math.min(limit, 50));
+
+        List<Map<String, Object>> list = new ArrayList<>();
+        int rankNo = 1;
+        for (Map<String, Object> r : walletMapper.rankList(orderBy, size)) {
+            int coin = num(r.get("coin"));
+            int jade = num(r.get("jade"));
+            Object uid = r.get("userId");
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("rank", rankNo++);
+            m.put("userId", uid);
+            m.put("name", r.get("name"));
+            m.put("avatar", r.get("avatar"));
+            m.put("cultivation", r.get("cultivation"));
+            m.put("coin", coin);
+            m.put("jade", jade);
+            m.put("score", coin + jade * Coin.JADE_TO_COIN);
+            m.put("me", meId != null && uid instanceof Number
+                    && meId.longValue() == ((Number) uid).longValue());
+            list.add(m);
+        }
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("type", t);
+        data.put("list", list);
+        data.put("jadeRate", Coin.JADE_TO_COIN);
+
+        int myScore = 0;
+        int myRank = 0;
+        if (meId != null) {
+            Wallet w = walletOf(meId);
+            int coin = w.getCoin() == null ? 0 : w.getCoin();
+            int jade = w.getJade() == null ? 0 : w.getJade();
+            myScore = "jade".equals(t) ? jade : ("coin".equals(t) ? coin : coin + jade * Coin.JADE_TO_COIN);
+            myRank = myScore <= 0 ? 0 : (int) walletMapper.countGreater(col, myScore) + 1;
+        }
+        data.put("myScore", myScore);
+        data.put("myRank", myRank);
+        return data;
+    }
+
+    private static int num(Object v) {
+        return v instanceof Number ? ((Number) v).intValue() : 0;
+    }
+
     /** 今日收支统计 */
-    public Map<String, Integer> todayFlow(Long userId) {
-        List<CoinLog> rows = coinLogMapper.selectList(new LambdaQueryWrapper<CoinLog>()
+    public Map<String, Integer> todayFlow(Long userId) {        List<CoinLog> rows = coinLogMapper.selectList(new LambdaQueryWrapper<CoinLog>()
                 .eq(CoinLog::getUserId, userId)
                 .ge(CoinLog::getCreatedAt, LocalDate.now().atStartOfDay()));
         int coinIn = 0, coinOut = 0, jadeIn = 0, jadeOut = 0;

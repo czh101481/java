@@ -181,6 +181,23 @@ export function announcementDelete(id) {
   return adminHttp.delete(`/api/admin/announcement/${id}`)
 }
 
+// ==================== 藏宝阁物品（demon_item）· 上下架 / 改价 / 折扣 ====================
+export function itemList(kw) {
+  return adminHttp.get('/api/admin/item/list', { params: { kw: kw || '' } })
+}
+
+export function itemAdd(payload) {
+  return adminHttp.post('/api/admin/item', payload)
+}
+
+export function itemUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/item/${id}`, payload)
+}
+
+export function itemDelete(id) {
+  return adminHttp.delete(`/api/admin/item/${id}`)
+}
+
 // ==================== 图片同步 ====================
 // 扫描后端 static/images/{dir} 实际存在的图片，返回相对路径清单
 export function imageList(dir) {

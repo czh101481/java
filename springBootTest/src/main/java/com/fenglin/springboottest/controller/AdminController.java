@@ -1,6 +1,7 @@
 package com.fenglin.springboottest.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.fenglin.springboottest.common.Realm;
 import com.fenglin.springboottest.common.Result;
 import com.fenglin.springboottest.config.RealmConfigLoader;
@@ -10,19 +11,27 @@ import com.fenglin.springboottest.config.OriginConfigLoader;
 import com.fenglin.springboottest.entity.Announcement;
 import com.fenglin.springboottest.entity.Archive;
 import com.fenglin.springboottest.entity.Art;
+import com.fenglin.springboottest.entity.BagItem;
 import com.fenglin.springboottest.entity.Codex;
 import com.fenglin.springboottest.entity.Debate;
 import com.fenglin.springboottest.entity.DemonUser;
+import com.fenglin.springboottest.entity.Item;
 import com.fenglin.springboottest.entity.OriginConfig;
+import com.fenglin.springboottest.entity.Purchase;
+import com.fenglin.springboottest.entity.Trade;
 import com.fenglin.springboottest.entity.Trial;
 import com.fenglin.springboottest.mapper.AnnouncementMapper;
 import com.fenglin.springboottest.mapper.ArchiveMapper;
 import com.fenglin.springboottest.mapper.ArtMapper;
+import com.fenglin.springboottest.mapper.BagItemMapper;
 import com.fenglin.springboottest.mapper.CodexMapper;
 import com.fenglin.springboottest.mapper.DebateMapper;
 import com.fenglin.springboottest.mapper.DemonUserMapper;
+import com.fenglin.springboottest.mapper.ItemMapper;
 import com.fenglin.springboottest.mapper.OriginConfigMapper;
+import com.fenglin.springboottest.mapper.PurchaseMapper;
 import com.fenglin.springboottest.mapper.RealmLogMapper;
+import com.fenglin.springboottest.mapper.TradeMapper;
 import com.fenglin.springboottest.mapper.TrialMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
@@ -39,6 +48,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.File;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -84,6 +94,14 @@ public class AdminController {
     private RealmConfigLoader realmConfigLoader;
     @Autowired
     private OriginConfigLoader originConfigLoader;
+    @Autowired
+    private ItemMapper itemMapper;
+    @Autowired
+    private BagItemMapper bagItemMapper;
+    @Autowired
+    private PurchaseMapper purchaseMapper;
+    @Autowired
+    private TradeMapper tradeMapper;
 
     /** 允许扫描的配图目录（白名单） */
     private static final Set<String> IMAGE_DIRS = Set.of("art", "trial", "codex");
@@ -896,6 +914,242 @@ public class AdminController {
         }
         announcementMapper.deleteById(id);
         return Result.success("已将该公告自魔门撤下。");
+    }
+
+    // ==================== 藏宝阁物品（demon_item）· 上下架 / 改价 / 限时折扣 ====================
+
+    /** 物品列表 GET /api/admin/item/list?kw= → sort 升序，kw 过滤物品名 / 代号 */
+    @GetMapping("/item/list")
+    public Result<List<Item>> itemList(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "kw", required = false, defaultValue = "") String kw) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        LambdaQueryWrapper<Item> qw = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(kw)) {
+            String k = kw.trim();
+            qw.like(Item::getName, k).or().like(Item::getCode, k);
+        }
+        qw.orderByAsc(Item::getSort).orderByAsc(Item::getId);
+        return Result.success(itemMapper.selectList(qw));
+    }
+
+    /**
+     * 新增物品 POST /api/admin/item
+     * 校验：代号唯一、名称非空、价格非负、效果类型白名单、折扣 0-99
+     */
+    @PostMapping("/item")
+    public Result<?> itemAdd(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody Map<String, Object> body) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        if (body == null) {
+            return Result.error(400, "无可录之物。");
+        }
+        String code = text(body.get("code"));
+        String name = text(body.get("name"));
+        if (code.isEmpty() || name.isEmpty()) {
+            return Result.error(400, "物品代号与物品名皆不可为空。");
+        }
+        long dup = itemMapper.selectCount(new LambdaQueryWrapper<Item>().eq(Item::getCode, code));
+        if (dup > 0) {
+            return Result.error(400, "此物品代号已被占用，请另起一名。");
+        }
+        String bad = validateItemBody(body);
+        if (bad != null) {
+            return Result.error(400, bad);
+        }
+
+        Item it = new Item();
+        it.setCode(code);
+        it.setName(name);
+        it.setIcon(textOr(body.get("icon"), "丹"));
+        it.setCategory(textOr(body.get("category"), "丹药"));
+        it.setDescText(text(body.get("descText")));
+        it.setPriceCoin(intOf(body.get("priceCoin"), 0));
+        it.setPriceJade(intOf(body.get("priceJade"), 0));
+        it.setEffectType(textOr(body.get("effectType"), "exp"));
+        it.setEffectValue(intOf(body.get("effectValue"), 0));
+        it.setDailyLimit(intOf(body.get("dailyLimit"), 0));
+        it.setDiscountPercent(intOf(body.get("discountPercent"), 0));
+        it.setDiscountStart(parseTime(body.get("discountStart")));
+        it.setDiscountEnd(parseTime(body.get("discountEnd")));
+        it.setStatus(intOf(body.get("status"), 1));
+        it.setSort(intOf(body.get("sort"), 0));
+        itemMapper.insert(it);
+        return Result.success(itemMapper.selectById(it.getId()));
+    }
+
+    /**
+     * 修改物品 PUT /api/admin/item/{id}
+     * 仅改请求体里出现的字段（未出现的保持原样）；
+     * 折扣时段传空串即清空 —— 故此处用 UpdateWrapper 显式 set，避开 updateById 跳过 null 的坑。
+     */
+    @PutMapping("/item/{id}")
+    public Result<?> itemUpdate(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        Item old = itemMapper.selectById(id);
+        if (old == null) {
+            return Result.error(404, "藏宝阁中并无此物。");
+        }
+        if (body == null) {
+            return Result.error(400, "无可改之数。");
+        }
+        String bad = validateItemBody(body);
+        if (bad != null) {
+            return Result.error(400, bad);
+        }
+        if (body.containsKey("code")) {
+            String code = text(body.get("code"));
+            if (code.isEmpty()) {
+                return Result.error(400, "物品代号不可为空。");
+            }
+            long dup = itemMapper.selectCount(new LambdaQueryWrapper<Item>()
+                    .eq(Item::getCode, code).ne(Item::getId, id));
+            if (dup > 0) {
+                return Result.error(400, "此物品代号已被别的物品占用。");
+            }
+        }
+
+        UpdateWrapper<Item> uw = new UpdateWrapper<>();
+        uw.eq("id", id);
+        if (body.containsKey("code"))           uw.set("code", text(body.get("code")));
+        if (body.containsKey("name"))           uw.set("name", text(body.get("name")));
+        if (body.containsKey("icon"))           uw.set("icon", textOr(body.get("icon"), "丹"));
+        if (body.containsKey("category"))       uw.set("category", textOr(body.get("category"), "丹药"));
+        if (body.containsKey("descText"))       uw.set("desc_text", text(body.get("descText")));
+        if (body.containsKey("priceCoin"))      uw.set("price_coin", intOf(body.get("priceCoin"), 0));
+        if (body.containsKey("priceJade"))      uw.set("price_jade", intOf(body.get("priceJade"), 0));
+        if (body.containsKey("effectType"))     uw.set("effect_type", textOr(body.get("effectType"), "exp"));
+        if (body.containsKey("effectValue"))    uw.set("effect_value", intOf(body.get("effectValue"), 0));
+        if (body.containsKey("dailyLimit"))     uw.set("daily_limit", intOf(body.get("dailyLimit"), 0));
+        if (body.containsKey("discountPercent")) uw.set("discount_percent", intOf(body.get("discountPercent"), 0));
+        if (body.containsKey("discountStart"))  uw.set("discount_start", parseTime(body.get("discountStart")));
+        if (body.containsKey("discountEnd"))    uw.set("discount_end", parseTime(body.get("discountEnd")));
+        if (body.containsKey("status"))         uw.set("status", intOf(body.get("status"), 1));
+        if (body.containsKey("sort"))          uw.set("sort", intOf(body.get("sort"), 0));
+        itemMapper.update(null, uw);
+        return Result.success(itemMapper.selectById(id));
+    }
+
+    /**
+     * 删除物品 DELETE /api/admin/item/{id}
+     * 保护：已有人持有 / 有购买记录 / 有在售挂单时不可删，避免脏数据；请改为下架。
+     */
+    @DeleteMapping("/item/{id}")
+    public Result<?> itemDelete(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        Item old = itemMapper.selectById(id);
+        if (old == null) {
+            return Result.error(404, "藏宝阁中并无此物。");
+        }
+        long held = bagItemMapper.selectCount(new LambdaQueryWrapper<BagItem>()
+                .eq(BagItem::getItemId, id).gt(BagItem::getQty, 0));
+        long bought = purchaseMapper.selectCount(new LambdaQueryWrapper<Purchase>()
+                .eq(Purchase::getItemId, id));
+        long onSale = tradeMapper.selectCount(new LambdaQueryWrapper<Trade>()
+                .eq(Trade::getItemId, id).eq(Trade::getStatus, 0));
+        if (held > 0 || bought > 0 || onSale > 0) {
+            return Result.error(400, String.format(
+                    "「%s」尚有 %d 位修者持有、%d 笔购买记录、%d 单在售，不可删除；请改为下架。",
+                    old.getName(), held, bought, onSale));
+        }
+        itemMapper.deleteById(id);
+        return Result.success("已将此物自藏宝阁抹去。");
+    }
+
+    /** 物品字段校验（只校验请求体里出现的字段） */
+    private String validateItemBody(Map<String, Object> b) {
+        if (b.containsKey("name") && text(b.get("name")).isEmpty()) {
+            return "物品名不可为空。";
+        }
+        int coin = intOf(b.get("priceCoin"), 0);
+        int jade = intOf(b.get("priceJade"), 0);
+        if (coin < 0 || jade < 0) {
+            return "价格不可为负。";
+        }
+        if (coin == 0 && jade == 0 && (b.containsKey("priceCoin") || b.containsKey("priceJade"))) {
+            return "魔晶价与血玉价不可同时为 0（白送之物不必上架）。";
+        }
+        if (b.containsKey("effectType")) {
+            String et = text(b.get("effectType"));
+            if (!"exp".equals(et) && !"explore".equals(et) && !"coin".equals(et)) {
+                return "效果类型只可为 exp（煞气）/ explore（参悟上限）/ coin（魔晶）。";
+            }
+        }
+        int d = intOf(b.get("discountPercent"), 0);
+        if (d < 0 || d > 99) {
+            return "折扣只可填 1-99（如 80 表示八折），0 为不打折。";
+        }
+        int limit = intOf(b.get("dailyLimit"), 0);
+        if (limit < 0) {
+            return "每日限购不可为负。";
+        }
+        int st = intOf(b.get("status"), 1);
+        if (st != 0 && st != 1) {
+            return "上架状态只可为 1（在售）或 0（下架）。";
+        }
+        return null;
+    }
+
+    private String text(Object v) {
+        return v == null ? "" : String.valueOf(v).trim();
+    }
+
+    private String textOr(Object v, String def) {
+        String s = text(v);
+        return s.isEmpty() ? def : s;
+    }
+
+    private int intOf(Object v, int def) {
+        if (v == null) {
+            return def;
+        }
+        if (v instanceof Number) {
+            return ((Number) v).intValue();
+        }
+        String s = String.valueOf(v).trim();
+        if (s.isEmpty()) {
+            return def;
+        }
+        try {
+            return (int) Math.round(Double.parseDouble(s));
+        } catch (NumberFormatException e) {
+            return def;
+        }
+    }
+
+    /** 解析前端 datetime-local 的 "2026-11-05T18:30"；空串或非法返回 null（表示不限） */
+    private LocalDateTime parseTime(Object v) {
+        String s = text(v);
+        if (s.isEmpty()) {
+            return null;
+        }
+        s = s.replace(' ', 'T');
+        if (s.length() == 16) {
+            s = s + ":00";
+        }
+        try {
+            return LocalDateTime.parse(s);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** 管理员鉴权：有效返回 null，无效返回提示 */

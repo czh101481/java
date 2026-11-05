@@ -59,7 +59,7 @@
             <th v-if="cur.imgDir" style="width: 64px">配图</th>
             <th style="width: 64px">ID</th>
             <th v-for="c in cur.columns" :key="c.key" :style="c.w ? { width: c.w } : null">{{ c.label }}</th>
-            <th style="width: 150px">操作</th>
+            <th :style="{ width: cur.quickStatus ? '212px' : '150px' }">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -79,6 +79,13 @@
               :class="{ strong: c.key === cur.titleKey, dim: c.dim }"
             >{{ render(row, c) }}</td>
             <td>
+              <button
+                v-if="cur.quickStatus"
+                type="button"
+                class="row-btn"
+                :class="{ off: row.status === 0 }"
+                @click="toggleStatus(row)"
+              >{{ row.status === 1 ? '下 架' : '上 架' }}</button>
               <button type="button" class="row-btn" @click="openForm(row)">修 改</button>
               <button
                 v-if="!cur.noDelete"
@@ -125,6 +132,13 @@
               ></textarea>
 
               <input
+                v-else-if="f.type === 'datetime'"
+                :value="dtLocal(form[f.key])"
+                type="datetime-local"
+                @input="form[f.key] = $event.target.value"
+              />
+
+              <input
                 v-else
                 v-model.trim="form[f.key]"
                 :type="f.type || 'text'"
@@ -159,7 +173,8 @@ import {
   codexAdd, codexDelete, codexList, codexUpdate,
   debateAdd, debateDelete, debateList, debateUpdate,
   clearAdminSession, getAdminSession,
-  imageList, originAdd, originDelete, originList, originUpdate,
+  imageList, itemAdd, itemDelete, itemList, itemUpdate,
+  originAdd, originDelete, originList, originUpdate,
   trialAdd, trialDelete, trialList, trialUpdate,
   userList, userUpdate
 } from '../api/admin'
@@ -185,6 +200,19 @@ const PERMS = [
 const PERM_MAP = Object.fromEntries(PERMS.map(o => [o.v, o.t]))
 // 公告类别
 const LEVELS = ['通告', '警示', '喜讯', '秘辛'].map(v => ({ v, t: v }))
+
+// 物品效果类型：与后端 Coin/ShopService 的 effectType 白名单一致
+const EFFECTS = [
+  { v: 'exp', t: '加煞气' },
+  { v: 'explore', t: '参悟上限' },
+  { v: 'coin', t: '得魔晶' }
+]
+
+// 折扣展示：80 → 8 折，85 → 8.5 折
+function discLabel(p) {
+  const n = Number(p) / 10
+  return (Number.isInteger(n) ? n : n.toFixed(1)) + ' 折'
+}
 
 // ==================== 模块配置（配置驱动：列表列 + 表单字段） ====================
 const MODULES = {
@@ -294,6 +322,41 @@ const MODULES = {
       { key: 'sortOrder', label: '分类内排序', type: 'number', ph: '0' },
       { key: 'summary', label: '一句话提要', wide: true, ph: '一句概括此条目…' },
       { key: 'content', label: '正文', type: 'textarea', wide: true, ph: '典册正文（换行保留）…' }
+    ]
+  },
+  // 藏宝阁物品：上下架 / 改价 / 限时折扣（quickStatus 开启表格内一键上架下架）
+  item: {
+    label: '藏 宝 阁', short: '物品',
+    api: { list: itemList, add: itemAdd, update: itemUpdate, del: itemDelete },
+    imgDir: '', titleKey: 'name', addLabel: '录 入 新 物 品', quickStatus: true,
+    kwPlaceholder: '按物品名 / 代号检索…',
+    columns: [
+      { key: 'icon', label: '图', w: '44px' },
+      { key: 'name', label: '物品名' },
+      { key: 'category', label: '类别', w: '72px' },
+      { key: 'priceCoin', label: '魔晶', w: '72px', fmt: (v) => (v > 0 ? v : '—') },
+      { key: 'priceJade', label: '血玉', w: '72px', fmt: (v) => (v > 0 ? v : '—') },
+      { key: 'discountPercent', label: '折扣', w: '86px', fmt: (v) => (v > 0 ? discLabel(v) : '无') },
+      { key: 'dailyLimit', label: '限购', w: '70px', fmt: (v) => (v > 0 ? v : '不限') },
+      { key: 'status', label: '状态', w: '74px', map: { 1: '在售', 0: '下架' } },
+      { key: 'sort', label: '排序', w: '60px' }
+    ],
+    fields: [
+      { key: 'code', label: '物品代号', required: true, ph: '英文唯一，如 gather_pill' },
+      { key: 'name', label: '物品名', required: true, ph: '如：聚煞丹' },
+      { key: 'icon', label: '图标字', ph: '单字，如 丹' },
+      { key: 'category', label: '类别', type: 'select', options: ['丹药', '符箓', '奇物', '珍品'].map(v => ({ v, t: v })) },
+      { key: 'priceCoin', label: '魔晶价', type: 'number', ph: '0 表示不以魔晶出售' },
+      { key: 'priceJade', label: '血玉价', type: 'number', ph: '0 表示不以血玉出售' },
+      { key: 'effectType', label: '效果类型', type: 'select', options: EFFECTS },
+      { key: 'effectValue', label: '效果数值', type: 'number', ph: '如 60 表示煞气 +60' },
+      { key: 'dailyLimit', label: '每日限购', type: 'number', ph: '0 = 不限' },
+      { key: 'status', label: '上架状态', type: 'select', options: [{ v: 1, t: '在售' }, { v: 0, t: '下架' }] },
+      { key: 'sort', label: '展示顺序', type: 'number', ph: '小在前' },
+      { key: 'discountPercent', label: '限时折扣', type: 'number', ph: '80 = 八折；0 = 不打折' },
+      { key: 'discountStart', label: '折扣开始', type: 'datetime', ph: '留空表示立即生效' },
+      { key: 'discountEnd', label: '折扣结束', type: 'datetime', ph: '留空表示不限时长' },
+      { key: 'descText', label: '物品说明', type: 'textarea', wide: true, ph: '一句话点明此物之用…' }
     ]
   },
   // 修者名录：仅可修改权限（授予 / 收回管理员），不提供新增与删除
@@ -455,9 +518,10 @@ async function loadList() {
   }
 }
 
-// 表格单元格渲染：分类映射 / 空值占位
+// 表格单元格渲染：自定义格式 / 分类映射 / 空值占位
 function render(row, c) {
   const v = row[c.key]
+  if (c.fmt) return c.fmt(v, row)
   if (c.map) return c.map[v] || v || '-'
   return v === null || v === undefined || v === '' ? '-' : v
 }
@@ -471,6 +535,27 @@ function openForm(row) {
 
 function closeForm() {
   showForm.value = false
+}
+
+// datetime-local 输入框只认 "YYYY-MM-DDTHH:mm"，后端回传的 ISO 串可能带秒
+function dtLocal(v) {
+  if (!v) return ''
+  return String(v).replace(' ', 'T').slice(0, 16)
+}
+
+// 一键上下架：复用修改接口，只提交 status
+async function toggleStatus(row) {
+  const next = row.status === 1 ? 0 : 1
+  try {
+    const res = await cur.value.api.update(row.id, { status: next })
+    if (res.data.code === 200) {
+      await loadList()
+    } else {
+      alert(res.data.msg || '上下架失败')
+    }
+  } catch (e) {
+    alert(e.message)
+  }
 }
 
 async function onSave() {
@@ -721,11 +806,15 @@ function onLogout() {
   padding: 4px 10px;
   font-size: 12px;
   margin-right: 6px;
+  white-space: nowrap;
   transition: 0.2s;
 }
+.art-table td:last-child { white-space: nowrap; }
 .row-btn:hover { background: rgba(201, 162, 39, 0.15); }
 .row-btn.danger { border-color: rgba(160, 44, 72, 0.6); color: #ff6b8a; }
 .row-btn.danger:hover { background: rgba(160, 44, 72, 0.15); }
+.row-btn.off { border-color: rgba(90, 200, 140, 0.55); color: #7ce6b0; }
+.row-btn.off:hover { background: rgba(90, 200, 140, 0.15); }
 .empty {
   text-align: center;
   padding: 60px 0;

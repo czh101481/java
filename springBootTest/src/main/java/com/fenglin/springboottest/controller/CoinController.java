@@ -121,6 +121,15 @@ public class CoinController {
         }
     }
 
+    /** 富甲榜（匿名可看，登录后附带我的名次） */
+    @GetMapping("/rank")
+    public Result<?> rank(@RequestHeader(value = "Authorization", required = false) String authorization,
+                          @RequestParam(value = "type", defaultValue = "rich") String type,
+                          @RequestParam(value = "limit", defaultValue = "20") int limit) {
+        Long uid = uid(authorization);
+        return Result.success(coinService.rank(type, limit, uid));
+    }
+
     // ==================== 工具 ====================
 
     private Long uid(String authorization) {

@@ -29,3 +29,8 @@ export function bagList() {
 export function useItem(itemId, qty = 1) {
   return http.post('/api/coin/use', { itemId, qty })
 }
+
+// 富甲榜：type = rich（总资产）/ coin（魔晶）/ jade（血玉）
+export function coinRank(type = 'rich', limit = 20) {
+  return http.get('/api/coin/rank', { params: { type, limit } })
+}

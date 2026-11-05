@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS demon_user (
   exp         INT          DEFAULT 0                         COMMENT '煞气修为',
   exp_date    DATE         DEFAULT NULL                      COMMENT '最后参悟日期（跨日清零）',
   exp_count_today INT      DEFAULT 0                         COMMENT '当日已参悟次数',
+  explore_bonus_today INT  NOT NULL DEFAULT 0                COMMENT '当日额外参悟次数（道具加成）',
+  explore_bonus_date  DATE DEFAULT NULL                      COMMENT '额外参悟次数所属日期（跨日清零）',
   password    VARCHAR(100) NOT NULL                          COMMENT '护法密令（演示为明文，生产请加密）',
   permission  TINYINT      DEFAULT 1                         COMMENT '权限：1 默认权限 / 0 管理员权限',
   avatar      VARCHAR(255) DEFAULT NULL                      COMMENT '头像：预设 key 或 /uploads/ 路径',

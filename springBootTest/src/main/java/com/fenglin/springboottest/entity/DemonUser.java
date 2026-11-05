@@ -38,6 +38,12 @@ public class DemonUser {
     /** 当日已参悟次数 */
     private Integer expCountToday;
 
+    /** 当日额外参悟次数（凝神符等道具加成） */
+    private Integer exploreBonusToday;
+
+    /** 额外参悟次数所属日期（跨日清零） */
+    private java.time.LocalDate exploreBonusDate;
+
     /** 最后切磋日期（每日切磋上限跨日清零用） */
     private java.time.LocalDate sparDate;
 

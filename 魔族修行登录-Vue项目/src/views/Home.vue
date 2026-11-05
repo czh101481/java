@@ -19,9 +19,15 @@
         <a class="nav-item" @click="goModule('codex')">魔 典 秘 录</a>
         <a class="nav-item" @click="goArchive()">魔 枢 典 册</a>
         <a class="nav-item" @click="goSocial()">传 音<span v-if="socialUnread" class="nav-badge">{{ socialUnread }}</span></a>
+        <a class="nav-item" @click="goVault()">藏 宝 阁</a>
       </nav>
 
       <div class="nav-user">
+        <!-- 钱囊：魔晶 / 血玉，点击进藏宝阁 -->
+        <button class="purse" type="button" title="钱囊 · 前往藏宝阁" @click="goVault()">
+          <span class="p-item p-coin"><i>晶</i>{{ fmtNum(wallet.coin) }}</span>
+          <span class="p-item p-jade"><i>玉</i>{{ fmtNum(wallet.jade) }}</span>
+        </button>
         <div class="user-meta">
           <span class="user-name">{{ user?.name || '无名修者' }}</span>
           <span class="user-realm-badge" v-if="user?.cultivation" :style="badgeStyle">
@@ -704,6 +710,7 @@ import { getSession, clearSession, saveSession, me, updateAvatar, uploadAvatar }
 import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms, homeRealmStatus, explore, exploreRandom, breakthrough, homeRank, homeBadges, sparring, imgUrl, myOrigin, doSign, reincarnate, quizRandom, debateAnswer, secretRealms, enterRealm } from '../api/home'
 import { archiveCategories } from '../api/archive'
 import { messageUnread } from '../api/social'
+import { walletOverview } from '../api/coin'
 import { AVATARS, renderAvatar, isImageAvatar } from '../config/avatars'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
@@ -964,6 +971,7 @@ async function onSign() {
     if (res.data.code === 200) {
       alert(res.data.data.msg)
       await refreshStatus()
+      await loadWallet()
     } else {
       alert(res.data.msg || '签到无应。')
     }
@@ -988,6 +996,7 @@ async function onExplore() {
         chanceTimer = setTimeout(() => { chanceEvent.value = null }, 7000)
       }
       await refreshStatus()
+      await loadWallet()
     } else {
       alert(res.data.msg || '参悟无应。')
     }
@@ -1020,6 +1029,7 @@ async function submitQuiz() {
     if (res.data.code === 200) {
       quizResult.value = res.data.data
       await refreshStatus()
+      await loadWallet()
     } else {
       alert(res.data.msg || '论道无应。')
     }
@@ -1086,6 +1096,7 @@ async function onEnterRealm(r) {
       await refreshStatus()
       await loadRealms()
       await loadRank()
+      await loadWallet()
     } else {
       alert(res.data.msg || '秘境之门未启。')
       await loadRealms()
@@ -1275,6 +1286,7 @@ async function doSpar(targetName) {
       sparTarget.value = null
       // 战斗改变双方煞气与排名，刷新榜单、自身状态与勋章墙
       await loadRank()
+      await loadWallet()
       try {
         const stRes = await homeRealmStatus()
         if (stRes.data.code === 200) realmStatus.value = stRes.data.data
@@ -1461,6 +1473,9 @@ onMounted(async () => {
   // 传音未读红点（首页轮询刷新）
   await loadSocialUnread()
   socialTimer = setInterval(loadSocialUnread, 8000)
+
+  // 钱囊余额（导航展示）
+  await loadWallet()
 })
 
 onBeforeUnmount(() => {
@@ -1506,6 +1521,30 @@ function goAdmin() {
 // 进入传音 · 魔友
 function goSocial() {
   router.push('/social')
+}
+
+// ==================== 钱囊（魔晶 / 血玉） ====================
+const wallet = ref({ coin: 0, jade: 0 })
+
+// 大数字缩写：12345 → 1.2万
+function fmtNum(n) {
+  const v = Number(n || 0)
+  if (v >= 100000) return (v / 10000).toFixed(0) + '万'
+  if (v >= 10000) return (v / 10000).toFixed(1) + '万'
+  return String(v)
+}
+
+function goVault() {
+  router.push('/vault')
+}
+
+async function loadWallet() {
+  try {
+    const res = await walletOverview()
+    if (res.data.code === 200) {
+      wallet.value = { coin: res.data.data.coin ?? 0, jade: res.data.data.jade ?? 0 }
+    }
+  } catch (e) { /* 静默 */ }
 }
 
 // 拉取传音未读数（导航红点），失败静默
@@ -1704,6 +1743,42 @@ async function loadSocialUnread() {
 }
 
 .nav-user { display: flex; align-items: center; gap: 12px; }
+/* 钱囊：魔晶 / 血玉 */
+.purse {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(217, 176, 102, 0.28);
+  background: rgba(10, 4, 16, 0.55);
+  font-family: inherit;
+  cursor: pointer;
+  transition: 0.22s;
+}
+.purse:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 16px rgba(217, 176, 102, 0.3);
+}
+.p-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--bone);
+}
+.p-item i {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  font-size: 10px;
+  font-style: normal;
+  color: #1a030a;
+}
+.p-coin i { background: linear-gradient(135deg, #ffe6a3, #d9b066); box-shadow: 0 0 8px rgba(217, 176, 102, 0.55); }
+.p-jade { color: #ffc9d6; }
+.p-jade i { background: linear-gradient(135deg, #ff9db8, #b3183a); color: #fff1f4; box-shadow: 0 0 8px rgba(255, 59, 107, 0.55); }
 .user-meta { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
 .user-name { font-size: 14px; color: var(--gold); letter-spacing: 2px; }
 .user-realm-badge {

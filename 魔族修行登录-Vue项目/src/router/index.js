@@ -8,6 +8,7 @@ import Archive from '../views/Archive.vue'
 import AdminLogin from '../views/AdminLogin.vue'
 import AdminPanel from '../views/AdminPanel.vue'
 import Social from '../views/Social.vue'
+import Vault from '../views/Vault.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -22,7 +23,9 @@ const routes = [
   { path: '/admin/login', name: 'adminLogin', component: AdminLogin },
   { path: '/admin/:module?', name: 'admin', component: AdminPanel },
   // 传音 · 魔友（好友 + 私信 + 分享修炼心得）
-  { path: '/social', name: 'social', component: Social }
+  { path: '/social', name: 'social', component: Social },
+  // 藏宝阁（魔晶 / 血玉 · 商店 · 乾坤袋 · 收支簿）
+  { path: '/vault', name: 'vault', component: Vault }
 ]
 
 export default createRouter({

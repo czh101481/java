@@ -1,11 +1,13 @@
 package com.fenglin.springboottest.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fenglin.springboottest.common.Coin;
 import com.fenglin.springboottest.common.Realm;
 import com.fenglin.springboottest.entity.Art;
 import com.fenglin.springboottest.entity.DemonUser;
 import com.fenglin.springboottest.entity.RealmLog;
 import com.fenglin.springboottest.entity.Trial;
+import com.fenglin.springboottest.entity.Wallet;
 import com.fenglin.springboottest.mapper.ArtMapper;
 import com.fenglin.springboottest.mapper.DemonUserMapper;
 import com.fenglin.springboottest.mapper.RealmLogMapper;
@@ -41,6 +43,9 @@ public class SecretRealmService {
     private ArtMapper artMapper;
     @Autowired
     private GameService gameService;
+
+    @Autowired
+    private CoinService coinService;
 
     /** 业务拒绝：由 Controller 捕获后转为 Result.error(400, msg) */
     public static class Deny extends RuntimeException {
@@ -203,6 +208,14 @@ public class SecretRealmService {
         log.setTreasure(treasureName);
         realmLogMapper.insert(log);
 
+        // ---- 货币产出：按所得煞气折算魔晶；触发机缘另得血玉 ----
+        int coinGain = Coin.secretCoin(gain);
+        Wallet wallet = coinService.earn(user.getId(), Coin.COIN, coinGain, "secret", "trial", t.getId());
+        int jadeGain = treasure ? Coin.SECRET_JADE_TREASURE : 0;
+        if (jadeGain > 0) {
+            wallet = coinService.earn(user.getId(), Coin.JADE, jadeGain, "secret", "trial", t.getId());
+        }
+
         Map<String, Object> data = new HashMap<>(base(t));
         data.put("result", result);
         data.put("detail", detail);
@@ -214,6 +227,10 @@ public class SecretRealmService {
         data.put("treasure", treasureName);
         data.put("used", used + 1);
         data.put("left", Math.max(0, limit - used - 1));
+        data.put("coinGain", coinGain);
+        data.put("jadeGain", jadeGain);
+        data.put("coin", wallet == null ? 0 : wallet.getCoin());
+        data.put("jade", wallet == null ? 0 : wallet.getJade());
         data.put("msg", detail);
         return data;
     }

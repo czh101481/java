@@ -96,7 +96,20 @@ public class HomeController {
     @Autowired
     private com.fenglin.springboottest.service.GameService gameService;
 
+    @Autowired
+    private com.fenglin.springboottest.service.CoinService coinService;
+
     // ==================== v2 加成计算 ====================
+
+    /** 今日参悟上限：基础上限 + 道具加成（凝神符等，跨日失效） */
+    private int exploreLimitToday(DemonUser user) {
+        if (user == null || user.getExploreBonusDate() == null
+                || !java.time.LocalDate.now().equals(user.getExploreBonusDate())) {
+            return Realm.DAILY_EXPLORE_LIMIT;
+        }
+        int bonus = user.getExploreBonusToday() == null ? 0 : user.getExploreBonusToday();
+        return Realm.DAILY_EXPLORE_LIMIT + Math.max(0, bonus);
+    }
 
     /** 修者参悟综合倍率：魔种天赋 × 转生加成 × 习得功法加成（与秘境产出共用同一套数值） */
     private double exploreMultiplier(DemonUser user) {
@@ -311,10 +324,11 @@ public class HomeController {
         if (user == null) {
             return Result.error(401, "未持魔契，请先入魔道。");
         }
-        if (exploreCountToday(user.getId()) >= Realm.DAILY_EXPLORE_LIMIT) {
+        if (exploreCountToday(user.getId()) >= exploreLimitToday(user)) {
+            int limit = exploreLimitToday(user);
             return Result.error(400, String.format(
                     "今日煞气已吸满（参悟 %d/%d 篇），魔渊亦需休憩，明日再修。",
-                    Realm.DAILY_EXPLORE_LIMIT, Realm.DAILY_EXPLORE_LIMIT));
+                    limit, limit));
         }
         // 收集今日已参悟的 (type,id)，用于排除
         java.util.Set<String> done = new java.util.HashSet<>();
@@ -354,10 +368,11 @@ public class HomeController {
         if (title == null) {
             return Result.error(404, "魔渊之中并无此篇。");
         }
-        if (exploreCountToday(user.getId()) >= Realm.DAILY_EXPLORE_LIMIT) {
+        int exploreLimit = exploreLimitToday(user);
+        if (exploreCountToday(user.getId()) >= exploreLimit) {
             return Result.error(400, String.format(
                     "今日煞气已吸满（参悟 %d/%d 篇），魔渊亦需休憩，明日再修。",
-                    Realm.DAILY_EXPLORE_LIMIT, Realm.DAILY_EXPLORE_LIMIT));
+                    exploreLimit, exploreLimit));
         }
         if (exploredToday(user.getId(), type, id)) {
             return Result.error(400, String.format("今日已参悟此篇《%s》，不可重复参悟。", title));
@@ -401,6 +416,13 @@ public class HomeController {
         log.setGain(gain);
         exploreLogMapper.insert(log);
 
+        // 参悟产出魔晶（每篇固定，写流水）
+        com.fenglin.springboottest.entity.Wallet wallet = coinService.earn(
+                user.getId(),
+                com.fenglin.springboottest.common.Coin.COIN,
+                com.fenglin.springboottest.common.Coin.EXPLORE_COIN,
+                "explore", type, id);
+
         int newCount = (int) exploreCountToday(user.getId());
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("exp", newExp);
@@ -408,7 +430,10 @@ public class HomeController {
         data.put("insight", insight);
         data.put("originTitle", origin.getTitle());
         data.put("exploreCount", newCount);
-        data.put("exploreLimit", Realm.DAILY_EXPLORE_LIMIT);
+        data.put("exploreLimit", exploreLimit);
+        data.put("coinGain", com.fenglin.springboottest.common.Coin.EXPLORE_COIN);
+        data.put("coin", wallet == null ? 0 : wallet.getCoin());
+        data.put("jade", wallet == null ? 0 : wallet.getJade());
         data.put("chance", chance);
         data.put("title", title);
         data.put("exploredToday", true);
@@ -606,9 +631,18 @@ public class HomeController {
                 .set("quiz_count_today", quizCount + 1);
         userMapper.update(null, uw);
 
+        // 论道答对产出魔晶，答错不给
+        int coinGain = correct ? com.fenglin.springboottest.common.Coin.QUIZ_COIN : 0;
+        com.fenglin.springboottest.entity.Wallet wallet = coinGain > 0
+                ? coinService.earn(user.getId(), com.fenglin.springboottest.common.Coin.COIN,
+                        coinGain, "quiz", "debate", d.getId())
+                : coinService.walletOf(user.getId());
+
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("correct", correct);
         data.put("answer", d.getAnswer());
+        data.put("coinGain", coinGain);
+        data.put("coin", wallet == null ? 0 : wallet.getCoin());
         data.put("delta", actualDelta);
         data.put("exp", exp);
         data.put("quizCount", quizCount + 1);
@@ -790,6 +824,13 @@ public class HomeController {
                 .set("spar_lose", myLose0 + (win ? 0 : 1));
         userMapper.update(null, myUw);
 
+        // 切磋获胜产出魔晶，败北不给
+        int coinGain = win ? com.fenglin.springboottest.common.Coin.SPAR_COIN : 0;
+        com.fenglin.springboottest.entity.Wallet wallet = coinGain > 0
+                ? coinService.earn(me.getId(), com.fenglin.springboottest.common.Coin.COIN,
+                        coinGain, "spar", "user", target.getId())
+                : coinService.walletOf(me.getId());
+
         // 对手同样落库（被动应战也计入战绩）
         int tWin0 = target.getSparWin() == null ? 0 : target.getSparWin();
         int tLose0 = target.getSparLose() == null ? 0 : target.getSparLose();
@@ -846,6 +887,8 @@ public class HomeController {
         data.put("sparLeft", Realm.DAILY_SPAR_LIMIT - sparCount - 1);
         data.put("sparWin", myWin0 + (win ? 1 : 0));
         data.put("sparLose", myLose0 + (win ? 0 : 1));
+        data.put("coinGain", coinGain);
+        data.put("coin", wallet == null ? 0 : wallet.getCoin());
         return Result.success(data);
     }
 
@@ -872,6 +915,9 @@ public class HomeController {
         data.put("total", user.getSignTotal() == null ? 0 : user.getSignTotal());
         data.put("nextStreak", nextStreak);
         data.put("reward", signed ? 0 : signReward(nextStreak));
+        data.put("coinReward", signed ? 0 : com.fenglin.springboottest.common.Coin.signCoin(nextStreak));
+        data.put("jadeReward", !signed && nextStreak % Realm.SIGN_STREAK_CAP == 0
+                ? com.fenglin.springboottest.common.Coin.SIGN_JADE_BONUS : 0);
         return Result.success(data);
     }
 
@@ -904,13 +950,30 @@ public class HomeController {
                 .set("sign_total", (user.getSignTotal() == null ? 0 : user.getSignTotal()) + 1);
         userMapper.update(null, uw);
 
+        // 签到产出：魔晶随连签递增；每连满七日另得血玉
+        int coinGain = com.fenglin.springboottest.common.Coin.signCoin(streak);
+        com.fenglin.springboottest.entity.Wallet wallet = coinService.earn(
+                user.getId(), com.fenglin.springboottest.common.Coin.COIN,
+                coinGain, "sign", "sign", null);
+        int jadeGain = streak % Realm.SIGN_STREAK_CAP == 0
+                ? com.fenglin.springboottest.common.Coin.SIGN_JADE_BONUS : 0;
+        if (jadeGain > 0) {
+            wallet = coinService.earn(user.getId(), com.fenglin.springboottest.common.Coin.JADE,
+                    jadeGain, "sign", "sign", null);
+        }
+
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("gain", gain);
         data.put("exp", exp);
         data.put("streak", streak);
         data.put("bonus7", streak % Realm.SIGN_STREAK_CAP == 0);
-        data.put("msg", String.format("魔前焚香，第 %d 日不间断——煞气 +%d。%s",
-                streak, gain, streak % Realm.SIGN_STREAK_CAP == 0 ? "连满七日，另得大赏！" : ""));
+        data.put("coinGain", coinGain);
+        data.put("jadeGain", jadeGain);
+        data.put("coin", wallet == null ? 0 : wallet.getCoin());
+        data.put("jade", wallet == null ? 0 : wallet.getJade());
+        data.put("msg", String.format("魔前焚香，第 %d 日不间断——煞气 +%d、魔晶 +%d。%s",
+                streak, gain, coinGain,
+                streak % Realm.SIGN_STREAK_CAP == 0 ? "连满七日，另得血玉一枚！" : ""));
         return Result.success(data);
     }
 
@@ -1202,7 +1265,7 @@ public class HomeController {
         vo.setNextExp(need);
         vo.setCanBreakthrough(!maxed && exp >= need);
         vo.setExploreCount(countToday);
-        vo.setExploreLimit(Realm.DAILY_EXPLORE_LIMIT);
+        vo.setExploreLimit(exploreLimitToday(user));
         vo.setSparCount(sparCount);
         vo.setSparLimit(Realm.DAILY_SPAR_LIMIT);
 

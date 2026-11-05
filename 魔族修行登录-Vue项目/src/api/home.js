@@ -148,3 +148,41 @@ export function enterRealm(id) {
 export function myRealmLog(limit) {
   return http.get('/api/home/secret/log', { params: { limit: limit || 20 } })
 }
+
+// ==================== 内容互动（点赞 / 收藏） ====================
+
+// 点赞（切换式）：再次调用即取消，返回 { liked, likeCount }
+export function likeContent(type, id) {
+  return http.post('/api/home/like', { type, id })
+}
+
+// 收藏（切换式）：再次调用即取消，返回 { favorited, favoriteCount }
+export function favoriteContent(type, id) {
+  return http.post('/api/home/favorite', { type, id })
+}
+
+// 我的收藏：按收藏时间倒序，返回 { total, list }
+export function myFavorites() {
+  return http.get('/api/home/favorites')
+}
+
+// ==================== 内容评论 ====================
+
+// 评论列表：倒序分页，返回 { total, limit, offset, list }
+export function commentList(type, id, limit, offset) {
+  return http.get('/api/home/comments', {
+    params: { type, id, limit: limit || 20, offset: offset || 0 }
+  })
+}
+
+// 发表评论：至多 300 字，同一修者 10 秒内仅一条
+export function addComment(type, id, content) {
+  return http.post('/api/home/comment', { type, id, content })
+}
+
+// 删除自己的评论（管理员可删任意）
+export function deleteComment(commentId) {
+  return http.delete(`/api/home/comment/${commentId}`)
+}
+
+

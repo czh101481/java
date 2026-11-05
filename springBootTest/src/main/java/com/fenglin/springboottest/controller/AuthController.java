@@ -42,6 +42,28 @@ public class AuthController {
         return authService.me(token);
     }
 
+    /** 断魔契（登出） POST /api/auth/logout   header: Authorization: Bearer <token> */
+    @PostMapping("/logout")
+    public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return authService.logout(bearer(authorization));
+    }
+
+    /** 改密令 POST /api/auth/password  body: { oldPassword, newPassword }  header: Authorization: Bearer <token> */
+    @PostMapping("/password")
+    public Result<java.util.Map<String, Object>> changePassword(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody com.fenglin.springboottest.dto.ChangePasswordDTO dto) {
+        return authService.changePassword(bearer(authorization), dto);
+    }
+
+    /** 从 Authorization 头里取出 Bearer 之后的令牌串，无则返回 null */
+    private String bearer(String authorization) {
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            return authorization.substring(7).trim();
+        }
+        return null;
+    }
+
     /** 更换头像 POST /api/auth/avatar  body: { avatar }  header: Authorization: Bearer <token> */
     @PostMapping("/avatar")
     public Result<DemonUser> updateAvatar(

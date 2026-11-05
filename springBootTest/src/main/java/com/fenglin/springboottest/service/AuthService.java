@@ -2,8 +2,10 @@ package com.fenglin.springboottest.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.fenglin.springboottest.common.PasswordEncoder;
 import com.fenglin.springboottest.common.Result;
 import com.fenglin.springboottest.common.TokenManager;
+import com.fenglin.springboottest.dto.ChangePasswordDTO;
 import com.fenglin.springboottest.dto.LoginDTO;
 import com.fenglin.springboottest.dto.RegisterDTO;
 import com.fenglin.springboottest.entity.DemonUser;
@@ -46,12 +48,30 @@ public class AuthService {
         }
         DemonUser user = userMapper.selectOne(
                 new LambdaQueryWrapper<DemonUser>().eq(DemonUser::getName, dto.getName()));
-        if (user == null || !dto.getPassword().equals(user.getPassword())) {
+        if (!verifyPassword(user, dto.getPassword())) {
             return Result.error(401, "道号或密令有误，魔门不纳。");
         }
         String token = tokenManager.createToken(user.getId());
         user.setPassword(null); // 密令不外泄
         return Result.success(new LoginVO(token, user));
+    }
+
+    /**
+     * 校验密令：命中即返回 true。
+     * 若该账号仍是历史明文存储，登录成功后顺手升级为 PBKDF2 哈希——
+     * 存量用户无感，新写入的一律是哈希。
+     */
+    public boolean verifyPassword(DemonUser user, String raw) {
+        if (user == null || !PasswordEncoder.matches(raw, user.getPassword())) {
+            return false;
+        }
+        if (!PasswordEncoder.isEncoded(user.getPassword())) {
+            DemonUser patch = new DemonUser();
+            patch.setId(user.getId());
+            patch.setPassword(PasswordEncoder.encode(raw));
+            userMapper.updateById(patch);
+        }
+        return true;
     }
 
     /** 开辟魔渊：注册新修者，含道号 / 邮箱唯一性校验 */
@@ -81,7 +101,7 @@ public class AuthService {
         user.setEmail(dto.getEmail());
         user.setRealm(dto.getRealm());
         user.setCultivation(com.fenglin.springboottest.common.Realm.NAMES.get(0)); // 新修者皆从引煞起步
-        user.setPassword(dto.getPassword());
+        user.setPassword(PasswordEncoder.encode(dto.getPassword()));
         user.setPermission(1); // 注册修者皆为默认权限，管理员需另行提权
         userMapper.insert(user);
         return Result.success();
@@ -104,8 +124,64 @@ public class AuthService {
         return Result.success(user);
     }
 
-    /** 更换头像：校验令牌 + 代号白名单，成功后返回最新修者信息 */
-    public Result<DemonUser> updateAvatar(String token, String avatar) {
+    /**
+     * 断魔契：销毁当前令牌。
+     * 令牌无效也返回成功——登出本就应该「无论如何都退出」，不给出可枚举的失败信号。
+     */
+    public Result<Void> logout(String token) {
+        if (StringUtils.hasText(token)) {
+            tokenManager.remove(token.trim());
+        }
+        return Result.success();
+    }
+
+    /**
+     * 改密令：旧密令校验 → 新密令强度校验 → 落库 → 使该修者其余令牌失效。
+     * 当前会话保留，避免改完密码立刻被踢下线。
+     */
+    public Result<java.util.Map<String, Object>> changePassword(String token, ChangePasswordDTO dto) {
+        if (!StringUtils.hasText(token)) {
+            return Result.error(401, "未持魔契，请先入魔道。");
+        }
+        Long userId = tokenManager.getUserId(token);
+        if (userId == null) {
+            return Result.error(401, "魔契已逝，请重入魔道。");
+        }
+        DemonUser user = userMapper.selectById(userId);
+        if (user == null) {
+            return Result.error(404, "修者不复存在。");
+        }
+        if (dto == null || !StringUtils.hasText(dto.getOldPassword())
+                || !StringUtils.hasText(dto.getNewPassword())) {
+            return Result.error(400, "旧密令与新密令皆需填写。");
+        }
+        if (!PasswordEncoder.matches(dto.getOldPassword(), user.getPassword())) {
+            return Result.error(400, "旧密令有误，心魔未认。");
+        }
+        if (dto.getNewPassword().length() < 6) {
+            return Result.error(400, "新密令需六字以上，方足以封印心魔。");
+        }
+        if (PasswordEncoder.matches(dto.getNewPassword(), user.getPassword())) {
+            return Result.error(400, "新密令与旧密令相同，无需更改。");
+        }
+
+        DemonUser patch = new DemonUser();
+        patch.setId(userId);
+        patch.setPassword(PasswordEncoder.encode(dto.getNewPassword()));
+        userMapper.updateById(patch);
+
+        // 其他设备上的魔契一并作废，仅留当前这条
+        int revoked = tokenManager.removeOthersOfUser(userId, token);
+
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("revoked", revoked);
+        data.put("msg", revoked > 0
+                ? "密令已换，其余 " + revoked + " 处魔契已断。"
+                : "密令已换，此契仍续。");
+        return Result.success(data);
+    }
+
+    /** 更换头像：校验令牌 + 代号白名单，成功后返回最新修者信息 */    public Result<DemonUser> updateAvatar(String token, String avatar) {
         if (!StringUtils.hasText(token)) {
             return Result.error(401, "未持魔契，请先入魔道。");
         }

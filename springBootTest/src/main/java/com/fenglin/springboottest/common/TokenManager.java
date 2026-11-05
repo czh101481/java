@@ -34,4 +34,29 @@ public class TokenManager {
             tokenUserMap.remove(token);
         }
     }
+
+    /**
+     * 销毁某修者的其余令牌，保留当前这一条（改密令后让其他设备/浏览器掉线）。
+     *
+     * @return 实际销毁的令牌数量
+     */
+    public int removeOthersOfUser(Long userId, String keepToken) {
+        if (userId == null) {
+            return 0;
+        }
+        int removed = 0;
+        for (Map.Entry<String, Long> e : tokenUserMap.entrySet()) {
+            if (userId.equals(e.getValue()) && !e.getKey().equals(keepToken)) {
+                if (tokenUserMap.remove(e.getKey()) != null) {
+                    removed++;
+                }
+            }
+        }
+        return removed;
+    }
+
+    /** 当前有效令牌数（在线量观测用） */
+    public int onlineCount() {
+        return tokenUserMap.size();
+    }
 }

@@ -429,5 +429,5 @@ ON DUPLICATE KEY UPDATE
 -- ---------------------------------------------------------------------
 SELECT grade AS 阶位, COUNT(*) AS 部数, MIN(layer) AS 最低重, MAX(layer) AS 最高重
   FROM demon_art WHERE status = 1 GROUP BY grade
- ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙');
+ ORDER BY FIELD(grade, '仙', '天', '地', '玄', '黄');
 SELECT COUNT(*) AS 功法总数 FROM demon_art;

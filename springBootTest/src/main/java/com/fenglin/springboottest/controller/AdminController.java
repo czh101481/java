@@ -137,7 +137,7 @@ public class AdminController {
         return Result.success(data);
     }
 
-    /** 功法阁列表 GET /api/admin/art/list?kw= → 全量（阶位→id，kw 过滤功法名/简介） */
+    /** 功法阁列表 GET /api/admin/art/list?kw= → 全量（阶位仙→黄→id，kw 过滤功法名/简介） */
     @GetMapping("/art/list")
     public Result<List<Art>> artList(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -150,7 +150,7 @@ public class AdminController {
         if (StringUtils.hasText(kw)) {
             qw.like(Art::getName, kw.trim()).or().like(Art::getSummary, kw.trim());
         }
-        qw.last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), id ASC");
+        qw.last("ORDER BY FIELD(grade, '仙', '天', '地', '玄', '黄'), id ASC");
         return Result.success(artMapper.selectList(qw));
     }
 

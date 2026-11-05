@@ -86,7 +86,7 @@ public class ContentService {
                             .or().like(Art::getGrade, like)
                             .or().like(Art::getRealmReq, like)
                             .or().like(Art::getSummary, like))
-                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), id ASC"));
+                    .last("ORDER BY FIELD(grade, '仙', '天', '地', '玄', '黄'), id ASC"));
             addGroup(groups, ART, ART_NAME, toItems(arts, ART, ART_NAME));
 
             List<Trial> trials = trialMapper.selectList(new LambdaQueryWrapper<Trial>()
@@ -214,10 +214,10 @@ public class ContentService {
         String like = StringUtils.hasText(kw) ? "%" + kw.trim() + "%" : null;
 
         if (ART.equals(t)) {
-            // 功法阁：仅上架功法，按阶位（黄→仙）→ id 排序
+            // 功法阁：仅上架功法，按阶位（仙→黄，高阶在前）→ id 排序
             LambdaQueryWrapper<Art> w = new LambdaQueryWrapper<Art>()
                     .ne(Art::getStatus, 0)
-                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), id ASC");
+                    .last("ORDER BY FIELD(grade, '仙', '天', '地', '玄', '黄'), id ASC");
             if (like != null) {
                 w.and(x -> x.like(Art::getName, like).or().like(Art::getCategory, like)
                         .or().like(Art::getGrade, like).or().like(Art::getSummary, like)

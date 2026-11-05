@@ -184,4 +184,4 @@ WHERE bonus_atk = 0 AND bonus_def = 0 AND bonus_hp = 0;
 SELECT grade, COUNT(*) AS cnt, MIN(layer) AS min_layer, MAX(layer) AS max_layer,
        MIN(price_coin) AS min_coin, MAX(price_coin) AS max_coin,
        MIN(price_jade) AS min_jade, MAX(price_jade) AS max_jade
-FROM demon_art GROUP BY grade ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙');
+FROM demon_art GROUP BY grade ORDER BY FIELD(grade, '仙', '天', '地', '玄', '黄');

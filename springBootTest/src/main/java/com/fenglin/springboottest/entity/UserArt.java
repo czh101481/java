@@ -24,5 +24,20 @@ public class UserArt {
     /** 功法 id（demon_art.id） */
     private Long artId;
 
+    /** 形态：0=完整功法 1=残片 */
+    private Integer form;
+
+    /** 修炼进度：1 入门 / 2 小成 / 3 大成 / 4 圆满 / 5 入道 / 6 无上 */
+    private Integer stage;
+
+    /** 本重熟练度（满则进境） */
+    private Integer prof;
+
+    /** 最后修炼日期（每日课数跨日清零） */
+    private java.time.LocalDate trainDate;
+
+    /** 当日已修炼课数 */
+    private Integer trainCount;
+
     private LocalDateTime createdAt;
 }

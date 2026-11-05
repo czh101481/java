@@ -175,14 +175,11 @@ public class AdminController {
         if (!StringUtils.hasText(art.getRealmReq())) {
             art.setRealmReq("引煞");
         }
-        if (art.getLayer() == null || art.getLayer() < 1) {
-            art.setLayer(1);
+        if (!com.fenglin.springboottest.common.ArtRank.GRADES.contains(art.getGrade())) {
+            return Result.error(400, "阶位只能是 黄 / 玄 / 地 / 天 / 仙。");
         }
-        int maxLayer = com.fenglin.springboottest.service.ArtService.maxLayerOf(art.getGrade());
-        if (art.getLayer() > maxLayer) {
-            return Result.error(400, String.format("「%s」品阶功法至多 %d 重，当前填了第 %d 重。",
-                    art.getGrade(), maxLayer, art.getLayer()));
-        }
+        // 进度改由「完整/残片 + 六重」推进，旧重数字段仅占位
+        art.setLayer(1);
         normalizeArtNumbers(art);
         art.setId(null);
         artMapper.insert(art);
@@ -206,18 +203,23 @@ public class AdminController {
         if (art == null || !StringUtils.hasText(art.getName())) {
             return Result.error(400, "功法名不可为空。");
         }
-        // 分重上限校验：以提交值优先，缺省沿用旧值
+        // 阶位合法性 + 价格按阶位恒定（后台不可改价）
         String grade = StringUtils.hasText(art.getGrade()) ? art.getGrade() : old.getGrade();
-        int layer = art.getLayer() == null
-                ? (old.getLayer() == null ? 1 : old.getLayer()) : art.getLayer();
-        int maxLayer = com.fenglin.springboottest.service.ArtService.maxLayerOf(grade);
-        if (layer < 1 || layer > maxLayer) {
-            return Result.error(400, String.format("「%s」品阶功法至多 %d 重，当前填了第 %d 重。",
-                    grade, maxLayer, layer));
+        if (!com.fenglin.springboottest.common.ArtRank.GRADES.contains(grade)) {
+            return Result.error(400, "阶位只能是 黄 / 玄 / 地 / 天 / 仙。");
         }
-        if (art.getLayer() == null) {
-            art.setLayer(layer);
+        if (!StringUtils.hasText(art.getSeries())) {
+            art.setSeries(StringUtils.hasText(art.getName()) ? art.getName() : old.getName());
         }
+        art.setGrade(grade);
+        art.setLayer(1);
+        if (art.getStatus() == null) {
+            art.setStatus(old.getStatus());
+        }
+        art.setPriceCoin(com.fenglin.springboottest.common.ArtRank.isJade(grade)
+                ? 0 : com.fenglin.springboottest.common.ArtRank.fullPrice(grade));
+        art.setPriceJade(com.fenglin.springboottest.common.ArtRank.isJade(grade)
+                ? com.fenglin.springboottest.common.ArtRank.fullPrice(grade) : 0);
         art.setId(id);
         artMapper.updateById(art);
         return Result.success(artMapper.selectById(id));
@@ -250,12 +252,12 @@ public class AdminController {
         if (art.getStatus() == null) {
             art.setStatus(1);
         }
-        if (art.getPriceCoin() == null) {
-            art.setPriceCoin(0);
-        }
-        if (art.getPriceJade() == null) {
-            art.setPriceJade(0);
-        }
+        // 价格恒定规则：由阶位决定，忽略后台传值
+        String grade = art.getGrade() == null ? "黄" : art.getGrade();
+        boolean jade = com.fenglin.springboottest.common.ArtRank.isJade(grade);
+        int full = com.fenglin.springboottest.common.ArtRank.fullPrice(grade);
+        art.setPriceCoin(jade ? 0 : full);
+        art.setPriceJade(jade ? full : 0);
         if (art.getBonusAtk() == null) {
             art.setBonusAtk(0);
         }

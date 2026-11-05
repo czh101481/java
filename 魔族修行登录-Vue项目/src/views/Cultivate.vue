@@ -67,6 +67,24 @@
           </div>
         </section>
 
+        <!-- ==================== 心魔 ==================== -->
+        <section class="heart-card" :class="{ alarm: panel.heartDemon >= panel.heartGate }">
+          <div class="hc-head">
+            <span>心 魔</span>
+            <em>{{ panel.heartState }}</em>
+            <b v-if="panel.heartDemon >= panel.heartGate">心魔劫 · 不可冲境</b>
+            <b v-else-if="panel.heartPenalty < 1">战力 ×{{ panel.heartPenalty.toFixed(2) }}</b>
+          </div>
+          <div class="hc-bar">
+            <i :style="{ width: panel.heartDemon + '%' }"></i>
+            <span>{{ panel.heartDemon }} / {{ panel.heartMax }}（危险线 {{ panel.heartGate }}）</span>
+          </div>
+          <p class="hc-desc">
+            残篇魔功每修炼一课心魔 +2；心魔 ≥ {{ panel.heartGate }} 不可冲境、战力折损。
+            完整功法入道后「以煞养心」，每课心魔 -1。
+          </p>
+        </section>
+
         <!-- ==================== 五维 ==================== -->
         <section class="attr-wrap">
           <div class="attr-title"><span>五 维 数 值</span><em>境界成长 + 功法加成</em></div>
@@ -133,8 +151,21 @@
               <div class="ar-main">
                 <div class="ar-name">
                   {{ a.name }}
-                  <span class="ar-layer">{{ a.layer }} 重</span>
+                  <span class="ar-form" :class="{ frag: a.form === 1 }">{{ a.formName }}</span>
+                  <span class="ar-layer">{{ a.stageName }}</span>
                   <span class="ar-cat">{{ a.category }}</span>
+                </div>
+                <div class="ar-flow">
+                  <span
+                    v-for="(st, i) in STAGES"
+                    :key="st"
+                    class="af-dot"
+                    :class="{ on: i + 1 <= a.stage, cur: i + 1 === a.stage }"
+                  >{{ st }}</span>
+                </div>
+                <div v-if="a.stage < 4" class="ar-bar">
+                  <i :style="{ width: a.profPercent + '%' }"></i>
+                  <span>{{ a.prof }} / {{ a.profNeed }}</span>
                 </div>
                 <div class="ar-bonus">
                   <span>攻伐 +{{ a.atk }}</span>
@@ -144,9 +175,39 @@
                   <span>身法 +{{ a.agility }}</span>
                 </div>
               </div>
-              <div class="ar-power">
-                <small>战力</small>
-                <b>+{{ fmt(a.power) }}</b>
+              <div class="ar-right">
+                <div class="ar-power">
+                  <small>战力</small>
+                  <b>+{{ fmt(a.power) }}</b>
+                </div>
+                <button
+                  v-if="a.canTrain"
+                  class="ar-btn"
+                  type="button"
+                  :disabled="busyId === a.id"
+                  @click="onTrain(a)"
+                >修 炼 <em>余 {{ a.trainLeft }}</em></button>
+                <button
+                  v-if="a.canInsight"
+                  class="ar-btn gold"
+                  type="button"
+                  :disabled="busyId === a.id"
+                  @click="onInsight(a)"
+                >顿 悟</button>
+                <button
+                  v-if="a.canTranscend"
+                  class="ar-btn gold"
+                  type="button"
+                  :disabled="busyId === a.id"
+                  @click="onTranscend(a)"
+                >破 境</button>
+                <button
+                  v-if="a.canComplete"
+                  class="ar-btn frag"
+                  type="button"
+                  :disabled="busyId === a.id"
+                  @click="onComplete(a)"
+                >补 全</button>
               </div>
             </article>
           </div>
@@ -154,8 +215,11 @@
 
         <p class="cu-foot">
           境界每境九重，重数随煞气增长自动推进，只升不降；九重圆满方可冲境。
-          功法分重：黄 1-4 · 玄 1-6 · 地 1-7 · 天 1-10 · 仙 1-10，同系列须按重递进。
+          功法分五阶（黄＜玄＜地＜天＜仙）与两形（完整 / 残片）：残片价 = 完整 × 0.35，最高止步大成；
+          进度六重：入门 → 小成 → 大成 → 圆满 → 入道 → 无上。
         </p>
+
+        <div v-if="msg" class="cu-toast">{{ msg }}</div>
       </template>
     </main>
   </div>
@@ -166,6 +230,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getSession } from '../api/auth'
 import { cultivatePanel } from '../api/cultivate'
+import { cultivateArt, insightArt, transcendArt, completeArt } from '../api/art'
 
 const router = useRouter()
 const session = getSession()
@@ -173,6 +238,28 @@ const session = getSession()
 const loading = ref(true)
 const deny = ref('')
 const panel = ref(null)
+const msg = ref('')
+const busyId = ref(0)
+const STAGES = ['入门', '小成', '大成', '圆满', '入道', '无上']
+
+async function doArt(fn, a) {
+  if (busyId.value) return
+  busyId.value = a.id
+  try {
+    const res = await fn(a.id)
+    msg.value = res.data.code === 200 ? (res.data.data.msg || '功候有进。') : (res.data.msg || '功法无应。')
+    await load()
+  } catch (e) {
+    msg.value = e.message || '功法无应。'
+  } finally {
+    busyId.value = 0
+  }
+}
+
+const onTrain = (a) => doArt(cultivateArt, a)
+const onInsight = (a) => doArt(insightArt, a)
+const onTranscend = (a) => doArt(transcendArt, a)
+const onComplete = (a) => doArt(completeArt, a)
 
 function fmt(n) {
   const v = Number(n) || 0
@@ -335,6 +422,35 @@ onMounted(() => {
 .rc-item b { font-weight: normal; font-size: 15px; color: #ffd9a0; }
 .rc-item b.sm { font-size: 12px; }
 
+/* ===== 心魔 ===== */
+.heart-card {
+  margin-top: 16px;
+  padding: 16px 22px;
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(30, 8, 22, 0.72), rgba(8, 2, 10, 0.85));
+  border: 1px solid rgba(167, 139, 250, 0.28);
+}
+.heart-card.alarm { border-color: rgba(255, 59, 107, 0.55); box-shadow: 0 0 26px rgba(179, 24, 58, 0.22); }
+.hc-head { display: flex; align-items: baseline; gap: 12px; }
+.hc-head span { font-size: 14px; letter-spacing: 4px; color: #e8dcc8; }
+.hc-head em { font-style: normal; font-size: 12px; letter-spacing: 2px; color: rgba(196, 181, 253, 0.9); }
+.hc-head b { font-weight: normal; font-size: 11px; letter-spacing: 1px; color: #ff8aa6; }
+.hc-bar {
+  position: relative; height: 18px; margin-top: 10px;
+  border-radius: 9px; overflow: hidden;
+  background: rgba(10, 2, 8, 0.8); border: 1px solid rgba(167, 139, 250, 0.22);
+}
+.hc-bar i {
+  position: absolute; inset: 0 auto 0 0;
+  background: linear-gradient(90deg, rgba(90, 60, 160, 0.85), rgba(255, 59, 107, 0.85));
+  transition: width 0.5s ease;
+}
+.hc-bar span {
+  position: relative; z-index: 1; display: block; text-align: center; line-height: 18px;
+  font-size: 10px; letter-spacing: 1px; color: #ffe6ec; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+.hc-desc { margin-top: 8px; font-size: 11px; line-height: 1.8; letter-spacing: 1px; color: rgba(232, 220, 200, 0.4); }
+
 /* ===== 五维 ===== */
 .attr-wrap, .power-card, .art-wrap { margin-top: 22px; }
 .attr-title, .art-title, .pc-head {
@@ -433,6 +549,61 @@ onMounted(() => {
 .ar-power { flex: 0 0 auto; text-align: right; }
 .ar-power small { display: block; font-size: 10px; letter-spacing: 2px; color: rgba(217, 176, 102, 0.7); }
 .ar-power b { font-weight: normal; font-size: 15px; color: #ffd9a0; }
+
+.ar-form {
+  margin-left: 8px; padding: 1px 8px; border-radius: 10px;
+  font-size: 10px; letter-spacing: 1px;
+  color: #ffe3a8; border: 1px solid rgba(217, 176, 102, 0.5);
+}
+.ar-form.frag { color: #d6c8ff; border-color: rgba(167, 139, 250, 0.55); }
+.ar-flow { display: flex; gap: 6px; margin-top: 7px; }
+.af-dot {
+  flex: 1; max-width: 76px; text-align: center;
+  padding: 2px 0; font-size: 10px; letter-spacing: 1px;
+  color: rgba(232, 220, 200, 0.28);
+  border: 1px solid rgba(255, 59, 107, 0.16); border-radius: 5px;
+  background: rgba(10, 2, 8, 0.5);
+}
+.af-dot.on { color: #ffd9e2; border-color: rgba(255, 59, 107, 0.45); background: rgba(120, 12, 40, 0.4); }
+.af-dot.cur { color: #fff; border-color: #ff8aa6; }
+.ar-bar {
+  position: relative; height: 16px; margin-top: 7px; max-width: 320px;
+  border-radius: 8px; overflow: hidden;
+  background: rgba(10, 2, 8, 0.7); border: 1px solid rgba(255, 59, 107, 0.18);
+}
+.ar-bar i {
+  position: absolute; inset: 0 auto 0 0;
+  background: linear-gradient(90deg, rgba(179, 24, 58, 0.85), rgba(255, 120, 150, 0.85));
+}
+.ar-bar span {
+  position: relative; z-index: 1; display: block; text-align: center; line-height: 16px;
+  font-size: 9px; letter-spacing: 1px; color: #ffe6ec;
+}
+.ar-right { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ar-btn {
+  cursor: pointer; font-family: inherit;
+  padding: 4px 12px; border-radius: 7px;
+  font-size: 11px; letter-spacing: 1px;
+  color: #ffd9a0; border: 1px solid rgba(217, 176, 102, 0.5);
+  background: rgba(120, 85, 10, 0.16);
+  transition: 0.2s;
+}
+.ar-btn em { font-style: normal; font-size: 9px; color: rgba(232, 220, 200, 0.5); }
+.ar-btn:hover:not(:disabled) { background: rgba(217, 176, 102, 0.28); color: #fff2cf; }
+.ar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ar-btn.gold { color: #ffe3a8; border-color: rgba(255, 179, 71, 0.6); }
+.ar-btn.frag { color: #d6c8ff; border-color: rgba(167, 139, 250, 0.55); background: rgba(70, 40, 130, 0.2); }
+
+.cu-toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+  z-index: 8; max-width: 76vw;
+  padding: 10px 20px; border-radius: 10px;
+  font-size: 12px; letter-spacing: 1px; line-height: 1.7;
+  color: #ffe6ec;
+  background: rgba(20, 4, 14, 0.94);
+  border: 1px solid rgba(255, 59, 107, 0.45);
+  box-shadow: 0 0 24px rgba(179, 24, 58, 0.3);
+}
 
 .cu-foot {
   margin-top: 26px; text-align: center;

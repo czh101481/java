@@ -32,6 +32,9 @@ public class DemonUser {
     /** 境界内重数（1~9，每境九重；由累计煞气自动推进，只升不降） */
     private Integer layer;
 
+    /** 心魔值（0-100）：修残篇魔功滋生；≥60 不可冲境、战力折损 */
+    private Integer heartDemon;
+
     /** 煞气修为：浏览魔域内容积累，攒足可冲击下一境 */
     private Integer exp;
 

@@ -138,7 +138,10 @@ public class ContentService {
             item.setId(a.getId());
             item.setTitle(a.getName());
             item.setSummary(a.getSummary());
-            item.setExtra(ArtService.gradeText(a) + " · " + ArtService.priceText(a));
+            item.setExtra(String.format("%s阶 · 完整 %d %s · 残片 %d",
+                    a.getGrade(), com.fenglin.springboottest.common.ArtRank.fullPrice(a.getGrade()),
+                    com.fenglin.springboottest.common.ArtRank.currencyName(a.getGrade()),
+                    com.fenglin.springboottest.common.ArtRank.fragPrice(a.getGrade())));
             item.setImg(a.getImage());
         } else if (o instanceof Trial t) {
             item.setId(t.getId());
@@ -207,10 +210,10 @@ public class ContentService {
         String like = StringUtils.hasText(kw) ? "%" + kw.trim() + "%" : null;
 
         if (ART.equals(t)) {
-            // 功法阁：仅上架功法，按品阶（黄→仙）再按重数排序，便于逐重修炼
+            // 功法阁：仅上架功法，按阶位（黄→仙）排序
             LambdaQueryWrapper<Art> w = new LambdaQueryWrapper<Art>()
                     .ne(Art::getStatus, 0)
-                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), layer ASC, id ASC");
+                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), id ASC");
             if (like != null) {
                 w.and(x -> x.like(Art::getName, like).or().like(Art::getCategory, like)
                         .or().like(Art::getGrade, like).or().like(Art::getSummary, like)
@@ -261,20 +264,25 @@ public class ContentService {
             vo.setSummary(a.getSummary());
             vo.setContent(a.getContent());
             vo.setImg(a.getImage());
+            String grade = a.getGrade() == null ? "黄" : a.getGrade();
+            vo.getMeta().add(new DetailVO.Meta("阶 位", grade + "阶 · "
+                    + com.fenglin.springboottest.common.ArtRank.GRADE_DESC.getOrDefault(grade, "")));
             vo.getMeta().add(new DetailVO.Meta("门 类", nvl(a.getCategory())));
-            vo.getMeta().add(new DetailVO.Meta("品 阶", ArtService.gradeText(a)));
             vo.getMeta().add(new DetailVO.Meta("所需境界", nvl(a.getRealmReq())));
-            if (StringUtils.hasText(a.getSeries())) {
-                vo.getMeta().add(new DetailVO.Meta("功 法 系", a.getSeries()));
-            }
-            vo.getMeta().add(new DetailVO.Meta("售 价", ArtService.priceText(a)));
-            vo.getMeta().add(new DetailVO.Meta("数 值", String.format(
-                    "攻伐 +%d · 护体 +%d · 气血 +%d · 悟性 +%d · 身法 +%d",
+            vo.getMeta().add(new DetailVO.Meta("完整售价", String.format("%d %s（可修至无上）",
+                    com.fenglin.springboottest.common.ArtRank.fullPrice(grade),
+                    com.fenglin.springboottest.common.ArtRank.currencyName(grade))));
+            vo.getMeta().add(new DetailVO.Meta("残片售价", String.format("%d %s（最高止步大成）",
+                    com.fenglin.springboottest.common.ArtRank.fragPrice(grade),
+                    com.fenglin.springboottest.common.ArtRank.currencyName(grade))));
+            vo.getMeta().add(new DetailVO.Meta("功 法 数 值", String.format(
+                    "（完整·大成满值）攻伐 +%d · 护体 +%d · 气血 +%d · 悟性 +%d · 身法 +%d",
                     nz(a.getBonusAtk()), nz(a.getBonusDef()), nz(a.getBonusHp()),
                     nz(a.getBonusInsight()), nz(a.getBonusAgility()))));
-            vo.getMeta().add(new DetailVO.Meta("战 力", "+" + ArtService.powerOf(a)));
-            vo.setGradeText(ArtService.gradeText(a));
-            vo.setPriceText(ArtService.priceText(a));
+            vo.getMeta().add(new DetailVO.Meta("修 炼 进 度",
+                    "入门 → 小成 → 大成 → 圆满 → 入道 → 无上"));
+            vo.setGradeText(grade + "阶");
+            vo.setPriceText(com.fenglin.springboottest.common.ArtRank.priceText(grade, 0));
             vo.setPriceCoin(a.getPriceCoin());
             vo.setPriceJade(a.getPriceJade());
             vo.setPower(ArtService.powerOf(a));

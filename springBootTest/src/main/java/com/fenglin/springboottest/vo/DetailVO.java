@@ -2,6 +2,7 @@ package com.fenglin.springboottest.vo;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 魔族修行 · 内容详情（功法阁 / 域外秘境 / 宗门论道 / 魔典秘录 通用）
@@ -42,6 +43,17 @@ public class DetailVO {
 
     /** 功法战力 */
     private Integer power;
+
+    /** 功法详情（阶位/双形态价格/我的持有形态/六重进度），非功法为 null */
+    private Map<String, Object> art;
+
+    public Map<String, Object> getArt() {
+        return art;
+    }
+
+    public void setArt(Map<String, Object> art) {
+        this.art = art;
+    }
 
     public String getImg() {
         return img;

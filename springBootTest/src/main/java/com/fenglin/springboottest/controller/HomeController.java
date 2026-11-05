@@ -184,10 +184,12 @@ public class HomeController {
         if (vo == null) {
             return Result.error(404, "魔渊之中并无此记载");
         }
-        // 功法详情附「是否已习得」，前端据此决定按钮为「购得」还是「已习此功」
+        // 功法详情附「我的持有形态/六重进度/双形态价格」，前端据此决定按钮
         if ("art".equals(type)) {
             Long uid = currentUserId(authorization);
-            vo.setOwned(artService.owned(uid, id));
+            Map<String, Object> artView = artService.artView(uid, id);
+            vo.setArt(artView);
+            vo.setOwned(Boolean.TRUE.equals(artView.get("owned")));
         }
         return Result.success(vo);
     }
@@ -517,6 +519,13 @@ public class HomeController {
                     "煞气不足，冲击「%s」境失败。当前煞气 %d / 需 %d，还差 %d 点。",
                     Realm.name(index + 1), exp, need, need - exp));
         }
+        // 心魔闸：残篇魔功反噬积心魔，心魔太盛者冲境必遭心魔劫
+        int heart = user.getHeartDemon() == null ? 0 : user.getHeartDemon();
+        if (heart >= com.fenglin.springboottest.common.ArtRank.HEART_GATE) {
+            return Result.error(400, String.format(
+                    "心魔缠身（心魔 %d / 危险线 %d），此刻冲境必遭心魔劫——先去参悟、或以完整功法入道「以煞养心」。",
+                    heart, com.fenglin.springboottest.common.ArtRank.HEART_GATE));
+        }
 
         // 渡劫：煞气达标只是入场券，仍有可能被心魔阻道；连败达上限则本番必成（保底）
         int failStreak = user.getBreakFail() == null ? 0 : user.getBreakFail();
@@ -540,7 +549,9 @@ public class HomeController {
         String next = Realm.name(index + 1);
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
                 new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
-        uw.eq("id", user.getId()).set("cultivation", next).set("layer", 1).set("break_fail", 0);
+        int heartAfter = Math.max(0, heart - com.fenglin.springboottest.common.ArtRank.HEART_AFTER_BREAK);
+        uw.eq("id", user.getId()).set("cultivation", next).set("layer", 1).set("break_fail", 0)
+                .set("heart_demon", heartAfter);
         userMapper.update(null, uw);
         return Result.success(String.format(
                 "轰——魔气灌体，渡劫功成！已晋升「%s」境·一重。%s",
@@ -816,10 +827,10 @@ public class HomeController {
                 cultivateService.stats(me);
         com.fenglin.springboottest.service.CultivateService.Stats targetStats =
                 cultivateService.stats(target);
-        int myBase = (int) Math.round(Realm.realmLevel(myIndex, myStats.layer) * Realm.POWER_PER_REALM)
-                + myExpBase + myStats.powerArt;
-        int targetBase = (int) Math.round(Realm.realmLevel(targetIndex, targetStats.layer)
-                * Realm.POWER_PER_REALM) + targetExpBase + targetStats.powerArt;
+        int myBase = (int) Math.round((Realm.realmLevel(myIndex, myStats.layer) * Realm.POWER_PER_REALM
+                + myExpBase + myStats.powerArt) * myStats.heartPenalty);
+        int targetBase = (int) Math.round((Realm.realmLevel(targetIndex, targetStats.layer)
+                * Realm.POWER_PER_REALM + targetExpBase + targetStats.powerArt) * targetStats.heartPenalty);
         java.util.random.RandomGenerator rng = java.util.random.RandomGenerator.getDefault();
         int myPower = (int) Math.round((myBase * powerMod + rng.nextInt(Realm.SPAR_RANDOM)) * myMod);
         int targetPower = (int) Math.round((targetBase + rng.nextInt(Realm.SPAR_RANDOM)) * targetMod);
@@ -1166,12 +1177,6 @@ public class HomeController {
                     art.getName(), com.fenglin.springboottest.service.ArtService.gradeText(art),
                     com.fenglin.springboottest.service.ArtService.priceText(art)));
         }
-        com.fenglin.springboottest.entity.Art prev = artService.previousLayer(art);
-        if (prev != null && !artService.owned(user.getId(), prev.getId())) {
-            return Result.error(400, String.format(
-                    "《%s》须先习得《%s》——同系列功法须按重递进。",
-                    art.getName(), prev.getName()));
-        }
         long learned = userArtMapper.selectCount(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
                         com.fenglin.springboottest.entity.UserArt>()
@@ -1193,6 +1198,10 @@ public class HomeController {
                 new com.fenglin.springboottest.entity.UserArt();
         ua.setUserId(user.getId());
         ua.setArtId(artId);
+        ua.setForm(0);
+        ua.setStage(1);
+        ua.setProf(0);
+        ua.setTrainCount(0);
         userArtMapper.insert(ua);
 
         int effective = (int) Math.min(learned + 1, Realm.ART_BONUS_CAP);

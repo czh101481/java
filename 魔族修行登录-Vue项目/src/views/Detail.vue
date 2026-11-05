@@ -82,15 +82,88 @@
             :disabled="readDone || reading"
             @click="onRead"
           >{{ readDone ? readDoneLabel : reading ? (type === 'trial' ? '勘 察 中 ……' : '研 读 中 ……') : readLabel }}</button>
-          <button
-            v-if="type === 'art'"
-            class="act-btn art"
-            type="button"
-            :disabled="learnDone || learning"
-            @click="onLearn"
-          >{{ learnDone ? '已 习 此 功' : learning ? '购 得 中 ……' : `购 得 此 功 · ${info.priceText || '免费'}` }}</button>
+          <template v-if="type === 'art' && !artInfo?.owned">
+            <button class="act-btn art" type="button" :disabled="buying" @click="onBuy(0)">
+              购 完 整 · {{ artInfo ? artInfo.priceFull + ' ' + artInfo.currencyName : '—' }}<i>可修至无上</i>
+            </button>
+            <button class="act-btn art frag" type="button" :disabled="buying" @click="onBuy(1)">
+              购 残 片 · {{ artInfo ? artInfo.priceFrag + ' ' + artInfo.currencyName : '—' }}<i>三成五价 · 止步大成</i>
+            </button>
+          </template>
           <span v-if="actMsg" class="act-msg">{{ actMsg }}</span>
         </div>
+
+        <!-- 功法：六重进度（入门→无上）+ 修炼 / 顿悟 / 破境 / 补全 -->
+        <template v-if="type === 'art' && artInfo?.owned">
+          <div class="divider"><span>{{ artInfo.formName === '残片' ? '残 篇 · 功 候' : '功 候 · 六 重' }}</span></div>
+          <div class="art-prog">
+            <div class="ap-head">
+              <span class="ap-form" :class="{ frag: artInfo.form === 1 }">{{ artInfo.formName }}</span>
+              <span class="ap-stage">{{ artInfo.stageName }}</span>
+              <em>{{ artInfo.form === 1
+                ? `残篇威能折损约四成五，最高止步${artInfo.fragMaxStageName}`
+                : '完整卷 · 可修至无上' }}</em>
+            </div>
+
+            <div class="ap-dots">
+              <span
+                v-for="(s, i) in artInfo.stageNames"
+                :key="s"
+                class="ap-dot"
+                :class="{ on: i + 1 <= artInfo.stage, cur: i + 1 === artInfo.stage }"
+              >{{ s }}</span>
+            </div>
+
+            <div v-if="artInfo.stage < 4" class="ap-bar">
+              <i :style="{ width: artInfo.profPercent + '%' }"></i>
+              <span>熟练 {{ artInfo.prof }} / {{ artInfo.profNeed }}（{{ artInfo.profPercent }}%）</span>
+            </div>
+            <div class="ap-hint">
+              {{ artInfo.nextHint }}
+              <b v-if="artInfo.stage < 4">· 今日尚可修炼 {{ artInfo.trainLeft }} 课（每课耗 10 煞气）</b>
+            </div>
+
+            <div class="ap-acts">
+              <button
+                v-if="artInfo.canTrain"
+                class="act-btn art"
+                type="button"
+                :disabled="artBusy"
+                @click="onCultivate"
+              >{{ artBusy ? '运 功 中 ……' : (artInfo.stage >= 5 ? '以 煞 养 心' : '修 炼 一 课') }}</button>
+              <button
+                v-if="artInfo.canInsight"
+                class="act-btn art"
+                type="button"
+                :disabled="artBusy"
+                @click="onInsight"
+              >顿 悟 入 道</button>
+              <button
+                v-if="artInfo.canTranscend"
+                class="act-btn art"
+                type="button"
+                :disabled="artBusy"
+                @click="onTranscend"
+              >死 战 破 境</button>
+              <button
+                v-if="artInfo.canComplete"
+                class="act-btn art frag"
+                type="button"
+                :disabled="artBusy"
+                @click="onComplete"
+              >补 全 残 篇</button>
+            </div>
+
+            <div class="ap-stats">
+              <span>攻伐 +{{ artInfo.atk }}</span>
+              <span>护体 +{{ artInfo.def }}</span>
+              <span>气血 +{{ artInfo.hp }}</span>
+              <span>悟性 +{{ artInfo.insight }}</span>
+              <span>身法 +{{ artInfo.agility }}</span>
+              <span class="pw">战力 +{{ artInfo.power }}<i v-if="artInfo.factor < 1">（满值 +{{ artInfo.basePower }}）</i></span>
+            </div>
+          </div>
+        </template>
 
         <!-- 域外秘境：此间非典籍，是可踏入的秘境——进入即结算 -->
         <template v-if="type === 'trial'">
@@ -174,12 +247,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
 import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, secretRealms, enterRealm, myRealmLog } from '../api/home'
-import { buyArt } from '../api/art'
+import { buyArt, completeArt, cultivateArt, insightArt, transcendArt } from '../api/art'
 // 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
 import { REALM_NAMES } from '../config/realm'
 
@@ -206,6 +279,7 @@ const navModules = [
 
 const info = ref(null)
 const loading = ref(false)
+const artInfo = computed(() => info.value?.art || null)
 
 async function load() {
   loading.value = true
@@ -306,24 +380,83 @@ async function onRead() {
   }
 }
 
-// 购得功法：按重数分价，扣魔晶或血玉；免费功法直接入库
-async function onLearn() {
-  if (learning.value || learnDone.value) return
-  learning.value = true
+// ==================== 功法：完整 / 残片 购得 + 六重修炼 ====================
+const buying = ref(false)
+const artBusy = ref(false)
+
+async function afterArt(res, okText) {
+  if (res.data.code === 200) {
+    actMsg.value = okText || res.data.data.msg
+    await load()
+    return true
+  }
+  actMsg.value = res.data.msg || '功法无应。'
+  return false
+}
+
+// 购得：form 0 完整 / 1 残片
+async function onBuy(form) {
+  if (buying.value) return
+  buying.value = true
   try {
-    const res = await buyArt(id.value)
-    if (res.data.code === 200) {
-      learnDone.value = true
-      actMsg.value = res.data.data.msg
-      await load()
-    } else {
-      actMsg.value = res.data.msg || '购得无应。'
-      if ((res.data.msg || '').includes('早已')) learnDone.value = true
-    }
+    const res = await buyArt(id.value, form)
+    await afterArt(res)
   } catch (e) {
     actMsg.value = e.message || '购得无应。'
   } finally {
-    learning.value = false
+    buying.value = false
+  }
+}
+
+// 修炼一课
+async function onCultivate() {
+  if (artBusy.value) return
+  artBusy.value = true
+  try {
+    await afterArt(await cultivateArt(id.value))
+  } catch (e) {
+    actMsg.value = e.message || '运功无应。'
+  } finally {
+    artBusy.value = false
+  }
+}
+
+// 圆满 → 入道（耗「悟道机缘」）
+async function onInsight() {
+  if (artBusy.value) return
+  artBusy.value = true
+  try {
+    await afterArt(await insightArt(id.value))
+  } catch (e) {
+    actMsg.value = e.message || '顿悟无应。'
+  } finally {
+    artBusy.value = false
+  }
+}
+
+// 入道 → 无上（耗「死战悟道」）
+async function onTranscend() {
+  if (artBusy.value) return
+  artBusy.value = true
+  try {
+    await afterArt(await transcendArt(id.value))
+  } catch (e) {
+    actMsg.value = e.message || '破境无应。'
+  } finally {
+    artBusy.value = false
+  }
+}
+
+// 残片补全为完整功法
+async function onComplete() {
+  if (artBusy.value) return
+  artBusy.value = true
+  try {
+    await afterArt(await completeArt(id.value))
+  } catch (e) {
+    actMsg.value = e.message || '补全无应。'
+  } finally {
+    artBusy.value = false
   }
 }
 
@@ -385,6 +518,19 @@ onMounted(() => {
     router.replace('/login')
     return
   }
+  load()
+})
+
+// 同一路由组件内切换详情（如从一部功法跳另一部）：重置页内状态后重载
+watch([() => route.params.type, () => route.params.id], () => {
+  if (!session.token) return
+  readDone.value = false
+  exploredToday.value = false
+  actMsg.value = ''
+  quiz.value = null
+  pick.value = ''
+  answered.value = false
+  quizResult.value = null
   load()
 })
 </script>
@@ -656,6 +802,63 @@ onMounted(() => {
 .act-btn:hover:not(:disabled) { background: rgba(255, 59, 107, 0.25); }
 .act-btn.art { border-color: rgba(217, 176, 102, 0.5); background: rgba(217, 176, 102, 0.1); color: var(--gold); }
 .act-btn.art:hover:not(:disabled) { background: rgba(217, 176, 102, 0.22); }
+.act-btn.art i {
+  display: block; font-style: normal; font-size: 10px; letter-spacing: 1px;
+  color: rgba(232, 220, 200, 0.45); margin-top: 3px;
+}
+.act-btn.art.frag { border-color: rgba(167, 139, 250, 0.5); background: rgba(90, 60, 160, 0.12); color: #d6c8ff; }
+.act-btn.art.frag:hover:not(:disabled) { background: rgba(110, 75, 190, 0.24); }
+
+/* ===== 功法 · 六重进度 ===== */
+.art-prog {
+  padding: 18px 22px;
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(34, 6, 20, 0.7), rgba(8, 2, 10, 0.85));
+  border: 1px solid rgba(217, 176, 102, 0.26);
+}
+.ap-head { display: flex; align-items: center; gap: 12px; }
+.ap-form {
+  padding: 2px 10px; border-radius: 10px; font-size: 11px; letter-spacing: 2px;
+  color: #ffe3a8; border: 1px solid rgba(217, 176, 102, 0.5); background: rgba(120, 85, 10, 0.22);
+}
+.ap-form.frag { color: #d6c8ff; border-color: rgba(167, 139, 250, 0.5); background: rgba(70, 40, 130, 0.26); }
+.ap-stage { font-size: 16px; letter-spacing: 4px; color: #ffd9a0; }
+.ap-head em { font-style: normal; font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.4); }
+
+.ap-dots { display: flex; gap: 8px; margin-top: 14px; }
+.ap-dot {
+  flex: 1; text-align: center; padding: 6px 0;
+  font-size: 11px; letter-spacing: 1px;
+  color: rgba(232, 220, 200, 0.3);
+  border: 1px solid rgba(255, 59, 107, 0.18);
+  border-radius: 6px; background: rgba(10, 2, 8, 0.55);
+}
+.ap-dot.on { color: #ffd9e2; border-color: rgba(255, 59, 107, 0.5); background: rgba(120, 12, 40, 0.45); }
+.ap-dot.cur { color: #fff; border-color: #ff8aa6; box-shadow: 0 0 12px rgba(255, 59, 107, 0.45); }
+
+.ap-bar {
+  position: relative; height: 22px; margin-top: 12px;
+  border-radius: 11px; overflow: hidden;
+  background: rgba(10, 2, 8, 0.75); border: 1px solid rgba(255, 59, 107, 0.2);
+}
+.ap-bar i {
+  position: absolute; inset: 0 auto 0 0;
+  background: linear-gradient(90deg, rgba(179, 24, 58, 0.85), rgba(255, 120, 150, 0.9));
+  transition: width 0.5s ease;
+}
+.ap-bar span {
+  position: relative; z-index: 1; display: block; text-align: center; line-height: 22px;
+  font-size: 11px; color: #ffe6ec; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+.ap-hint { margin-top: 10px; font-size: 12px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.62); }
+.ap-hint b { font-weight: normal; color: rgba(255, 159, 180, 0.9); }
+.ap-acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.ap-stats {
+  display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px;
+  font-size: 11px; letter-spacing: 1px; color: rgba(196, 181, 253, 0.85);
+}
+.ap-stats .pw { color: #ffd9a0; }
+.ap-stats .pw i { font-style: normal; font-size: 10px; color: rgba(232, 220, 200, 0.4); }
 .act-btn.explore { border-color: rgba(167, 139, 250, 0.55); background: rgba(167, 139, 250, 0.12); color: #c4b5fd; }
 .act-btn.explore:hover:not(:disabled) { background: rgba(167, 139, 250, 0.26); }
 .act-btn:disabled { opacity: 0.45; cursor: not-allowed; }

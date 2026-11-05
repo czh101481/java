@@ -5,11 +5,13 @@ import com.fenglin.springboottest.common.Coin;
 import com.fenglin.springboottest.common.Realm;
 import com.fenglin.springboottest.entity.Art;
 import com.fenglin.springboottest.entity.DemonUser;
+import com.fenglin.springboottest.entity.Item;
 import com.fenglin.springboottest.entity.RealmLog;
 import com.fenglin.springboottest.entity.Trial;
 import com.fenglin.springboottest.entity.Wallet;
 import com.fenglin.springboottest.mapper.ArtMapper;
 import com.fenglin.springboottest.mapper.DemonUserMapper;
+import com.fenglin.springboottest.mapper.ItemMapper;
 import com.fenglin.springboottest.mapper.RealmLogMapper;
 import com.fenglin.springboottest.mapper.TrialMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +48,12 @@ public class SecretRealmService {
 
     @Autowired
     private CoinService coinService;
+
+    @Autowired
+    private ItemMapper itemMapper;
+
+    @Autowired
+    private ShopService shopService;
 
     /** 业务拒绝：由 Controller 捕获后转为 Result.error(400, msg) */
     public static class Deny extends RuntimeException {
@@ -163,9 +171,14 @@ public class SecretRealmService {
 
         boolean treasure = rnd.nextInt(100) < nvl(t.getTreasureRate());
         String treasureName = "";
+        boolean insightDrop = false;
         if (treasure) {
             gain = (int) Math.round(gain * Realm.REALM_TREASURE_MULTI);
             treasureName = randomArtName(rnd);
+            // 秘境机缘：有概率顺带「悟道机缘」，供圆满功法顿悟入道
+            if (rnd.nextInt(100) < com.fenglin.springboottest.common.ArtRank.INSIGHT_DROP_RATE) {
+                insightDrop = dropInsightItem(user.getId());
+            }
         }
 
         boolean risk = rnd.nextInt(100) < nvl(t.getRiskRate());
@@ -180,8 +193,9 @@ public class SecretRealmService {
                     bossText(t), injury);
         } else if (treasure) {
             result = R_TREASURE;
-            detail = String.format("深入%s，机缘天降，得《%s》残卷，煞气暴涨。",
-                    t.getTitle(), treasureName);
+            detail = String.format("深入%s，机缘天降，得《%s》残卷，煞气暴涨。%s",
+                    t.getTitle(), treasureName,
+                    insightDrop ? "临去时石壁崩裂，拾得「悟道机缘」一枚。" : "");
         } else {
             result = R_SUCCESS;
             detail = String.format("闯%s而还，斩妖伏魔，煞气尽入己身。", t.getTitle());
@@ -225,6 +239,7 @@ public class SecretRealmService {
         data.put("net", net);
         data.put("exp", newExp);
         data.put("treasure", treasureName);
+        data.put("insightDrop", insightDrop);
         data.put("used", used + 1);
         data.put("left", Math.max(0, limit - used - 1));
         data.put("coinGain", coinGain);
@@ -276,6 +291,17 @@ public class SecretRealmService {
 
     private String bossText(Trial t) {
         return (t.getBoss() == null || t.getBoss().isEmpty()) ? "守关妖魔" : t.getBoss();
+    }
+
+    /** 秘境机缘掉落「悟道机缘」：入乾坤袋（物品未录入则跳过） */
+    private boolean dropInsightItem(Long userId) {
+        Item it = itemMapper.selectOne(new LambdaQueryWrapper<Item>()
+                .eq(Item::getCode, ArtService.ITEM_INSIGHT).last("LIMIT 1"));
+        if (it == null) {
+            return false;
+        }
+        shopService.addToBag(userId, it.getId(), 1);
+        return true;
     }
 
     /** 随机取一部功法名，作为机缘掉落的「残卷」 */

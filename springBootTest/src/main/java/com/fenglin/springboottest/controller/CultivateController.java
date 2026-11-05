@@ -62,7 +62,20 @@ public class CultivateController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("layersPerRealm", Realm.LAYERS);
         data.put("powerPerRealm", Realm.POWER_PER_REALM);
-        data.put("gradeMaxLayer", ArtService.GRADE_MAX_LAYER);
+        data.put("grades", com.fenglin.springboottest.common.ArtRank.GRADES);
+        data.put("stages", java.util.List.of(com.fenglin.springboottest.common.ArtRank.STAGES));
+        data.put("fragRatio", com.fenglin.springboottest.common.ArtRank.FRAG_RATIO);
+        data.put("fragMaxStage", com.fenglin.springboottest.common.ArtRank.FRAG_MAX_STAGE);
+        data.put("heartGate", com.fenglin.springboottest.common.ArtRank.HEART_GATE);
+        Map<String, Object> prices = new LinkedHashMap<>();
+        for (String g : com.fenglin.springboottest.common.ArtRank.GRADES) {
+            Map<String, Object> p = new LinkedHashMap<>();
+            p.put("currency", com.fenglin.springboottest.common.ArtRank.currencyName(g));
+            p.put("full", com.fenglin.springboottest.common.ArtRank.fullPrice(g));
+            p.put("frag", com.fenglin.springboottest.common.ArtRank.fragPrice(g));
+            prices.put(g, p);
+        }
+        data.put("prices", prices);
         data.put("baseArtCap", ArtService.BASE_ART_CAP);
         data.put("artCapPerRealm", ArtService.ART_CAP_PER_REALM);
         data.put("baseStats", Map.of(
@@ -78,7 +91,8 @@ public class CultivateController {
                 "insight", CultivateService.GROW_INSIGHT,
                 "agility", CultivateService.GROW_AGILITY));
         data.put("desc", "每境九重，九重圆满方可冲境；战力 = 境阶含重×8000 + 煞气 + 功法战力；"
-                + "功法战力 = 攻伐×8 + 护体×6 + 气血×1 + 悟性×4 + 身法×3。");
+                + "功法分完整/残片：残片价 = 完整×0.35，最高止步大成；"
+                + "进度 入门→小成→大成→圆满→入道→无上，圆满后须悟道机缘，入道后须死战悟道。");
         return Result.success(data);
     }
 

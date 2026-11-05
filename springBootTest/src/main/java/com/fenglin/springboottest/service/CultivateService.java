@@ -1,6 +1,7 @@
 package com.fenglin.springboottest.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fenglin.springboottest.common.ArtRank;
 import com.fenglin.springboottest.common.Origins;
 import com.fenglin.springboottest.common.Realm;
 import com.fenglin.springboottest.entity.Art;
@@ -11,6 +12,7 @@ import com.fenglin.springboottest.mapper.UserArtMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,11 +24,11 @@ import java.util.stream.Collectors;
  *
  * 数值来源三分：
  *   1) 境界基础：位阶与重数（每境九重）线性成长；
- *   2) 功法加成：已习功法的五维 bonus_* 累加；
- *   3) 魔种天赋：仅作用于战力（战意滔天），沿用原切磋公式，不改动既有平衡。
+ *   2) 功法加成：已习功法五维 × 形态系数（完整/残片）× 六重系数；
+ *   3) 魔种天赋：仅作用于战力，沿用原切磋公式，不改动既有平衡。
  *
- * 战力 = (境阶含重折算 × 8000 + 累计煞气 + 功法战力) × (1 + 魔种战力加成)
- * 功法战力 = 攻伐×8 + 护体×6 + 气血×1 + 悟性×4 + 身法×3
+ * 战力 = (境阶含重折算 × 8000 + 累计煞气 + 功法战力) × (1 + 魔种战力加成) × 心魔折损
+ * 功法战力 = 攻伐×8 + 护体×6 + 气血×1 + 悟性×4 + 身法×3（再乘形态与重数系数）
  */
 @Service
 public class CultivateService {
@@ -45,6 +47,10 @@ public class CultivateService {
     public static final int GROW_INSIGHT = 1;
     public static final int GROW_AGILITY = 2;
 
+    /** 引煞境可驾驭功法数（与 ArtService 同源，避免循环依赖直接写死基数） */
+    public static final int BASE_ART_CAP = 5;
+    public static final int ART_CAP_PER_REALM = 2;
+
     @Autowired
     private ArtMapper artMapper;
 
@@ -53,8 +59,7 @@ public class CultivateService {
 
     /** 已习功法（按习得顺序） */
     public List<Art> learnedArts(Long userId) {
-        List<UserArt> owned = userArtMapper.selectList(new LambdaQueryWrapper<UserArt>()
-                .eq(UserArt::getUserId, userId).orderByAsc(UserArt::getId));
+        List<UserArt> owned = myRows(userId);
         if (owned.isEmpty()) {
             return new ArrayList<>();
         }
@@ -71,13 +76,28 @@ public class CultivateService {
         return ordered;
     }
 
-    /** 功法战力折算 */
+    /** 我的习得记录（按习得顺序） */
+    public List<UserArt> myRows(Long userId) {
+        if (userId == null) {
+            return new ArrayList<>();
+        }
+        return userArtMapper.selectList(new LambdaQueryWrapper<UserArt>()
+                .eq(UserArt::getUserId, userId).orderByAsc(UserArt::getId));
+    }
+
+    /** 功法战力折算（不计形态与重数） */
     public static int artPower(Art a) {
+        return artPower(a, 1.0);
+    }
+
+    /** 功法战力折算（按形态与重数系数折算后） */
+    public static int artPower(Art a, double factor) {
         if (a == null) {
             return 0;
         }
-        return nz(a.getBonusAtk()) * 8 + nz(a.getBonusDef()) * 6 + nz(a.getBonusHp())
-                + nz(a.getBonusInsight()) * 4 + nz(a.getBonusAgility()) * 3;
+        double raw = nz(a.getBonusAtk()) * 8.0 + nz(a.getBonusDef()) * 6.0 + nz(a.getBonusHp())
+                + nz(a.getBonusInsight()) * 4.0 + nz(a.getBonusAgility()) * 3.0;
+        return (int) Math.round(raw * factor);
     }
 
     /** 计算修者当前数值 */
@@ -85,7 +105,7 @@ public class CultivateService {
         Stats s = new Stats();
         int index = Realm.indexOf(user.getCultivation());
         int exp = user.getExp() == null ? 0 : user.getExp();
-        int layer = Realm.layerOf(exp, index);
+        int layer = Math.max(nz(user.getLayer()), Realm.layerOf(exp, index));
 
         s.index = index;
         s.layer = layer;
@@ -95,15 +115,23 @@ public class CultivateService {
         s.title = index >= 0 && index < Realm.TITLES.size() ? Realm.TITLES.get(index) : "";
         s.exp = exp;
 
-        List<Art> arts = learnedArts(user.getId());
-        s.artCount = arts.size();
-        for (Art a : arts) {
-            s.artAtk += nz(a.getBonusAtk());
-            s.artDef += nz(a.getBonusDef());
-            s.artHp += nz(a.getBonusHp());
-            s.artInsight += nz(a.getBonusInsight());
-            s.artAgility += nz(a.getBonusAgility());
-            s.powerArt += artPower(a);
+        Map<Long, Art> arts = learnedArts(user.getId()).stream()
+                .collect(Collectors.toMap(Art::getId, a -> a, (a, b) -> a));
+        List<UserArt> rows = myRows(user.getId());
+        s.artCount = rows.size();
+        s.artCap = BASE_ART_CAP + index * ART_CAP_PER_REALM;
+        for (UserArt ua : rows) {
+            Art a = arts.get(ua.getArtId());
+            if (a == null) {
+                continue;
+            }
+            double f = ArtRank.factorOf(nz(ua.getForm()), ArtService.clampStage(ua.getStage()));
+            s.artAtk += (int) Math.round(nz(a.getBonusAtk()) * f);
+            s.artDef += (int) Math.round(nz(a.getBonusDef()) * f);
+            s.artHp += (int) Math.round(nz(a.getBonusHp()) * f);
+            s.artInsight += (int) Math.round(nz(a.getBonusInsight()) * f);
+            s.artAgility += (int) Math.round(nz(a.getBonusAgility()) * f);
+            s.powerArt += artPower(a, f);
         }
 
         s.realmAtk = BASE_ATK + s.totalLayer * GROW_ATK;
@@ -122,14 +150,18 @@ public class CultivateService {
         s.originTitle = origin.getTitle();
         s.originPowerMod = origin.getSparPowerBonus();
 
+        s.heartDemon = nz(user.getHeartDemon());
+        s.heartPenalty = ArtRank.heartPenalty(s.heartDemon);
+
         s.powerRealm = (int) Math.round(Realm.realmLevel(index, layer) * Realm.POWER_PER_REALM);
         long raw = (long) s.powerRealm + exp + s.powerArt;
-        s.power = (int) Math.round(raw * (1 + s.originPowerMod));
+        s.powerBeforeHeart = (int) Math.round(raw * (1 + s.originPowerMod));
+        s.power = (int) Math.round(s.powerBeforeHeart * s.heartPenalty);
         s.powerExp = exp;
         return s;
     }
 
-    /** 「修为」面板数据（数值卡 + 来源拆解 + 九重进度 + 已习功法） */
+    /** 「修为」面板数据（数值卡 + 来源拆解 + 九重进度 + 已习功法 + 心魔） */
     public Map<String, Object> panel(DemonUser user) {
         Stats s = stats(user);
         Map<String, Object> m = new LinkedHashMap<>();
@@ -149,16 +181,29 @@ public class CultivateService {
         m.put("layerPercent", layerPercent(s));
         m.put("nextRealm", s.index >= Realm.NAMES.size() - 1 ? null : Realm.name(s.index + 1));
         m.put("nextRealmExp", Realm.nextRealmExp(s.index));
-        m.put("canBreakthrough", !Realm.isFullLayer(s.layer) ? false
-                : s.exp >= Realm.nextRealmExp(s.index) && s.index < Realm.NAMES.size() - 1);
+        m.put("canBreakthrough", Realm.isFullLayer(s.layer)
+                && s.exp >= Realm.nextRealmExp(s.index)
+                && s.index < Realm.NAMES.size() - 1
+                && s.heartDemon < ArtRank.HEART_GATE);
         m.put("needFullLayer", !Realm.isFullLayer(s.layer));
+        m.put("heartBlocked", s.heartDemon >= ArtRank.HEART_GATE);
 
         m.put("power", s.power);
         m.put("powerRealm", s.powerRealm);
         m.put("powerExp", s.powerExp);
         m.put("powerArt", s.powerArt);
+        m.put("powerBeforeHeart", s.powerBeforeHeart);
         m.put("originTitle", s.originTitle);
         m.put("originPowerMod", s.originPowerMod);
+
+        m.put("learnedCount", s.artCount);
+        m.put("artCap", s.artCap);
+
+        m.put("heartDemon", s.heartDemon);
+        m.put("heartMax", ArtRank.HEART_MAX);
+        m.put("heartState", ArtRank.heartState(s.heartDemon));
+        m.put("heartPenalty", s.heartPenalty);
+        m.put("heartGate", ArtRank.HEART_GATE);
 
         List<Map<String, Object>> attrs = new ArrayList<>();
         attrs.add(attr("atk", "攻 伐", s.atk, s.realmAtk, s.artAtk, "出手之威，影响切磋与秘境杀伤"));
@@ -168,21 +213,48 @@ public class CultivateService {
         attrs.add(attr("agility", "身 法", s.agility, s.realmAgility, s.artAgility, "进退之速，身法快者先手伤人"));
         m.put("attrs", attrs);
 
+        Map<Long, Art> byId = learnedArts(user.getId()).stream()
+                .collect(Collectors.toMap(Art::getId, a -> a, (a, b) -> a));
         List<Map<String, Object>> arts = new ArrayList<>();
-        for (Art a : learnedArts(user.getId())) {
+        for (UserArt ua : myRows(user.getId())) {
+            Art a = byId.get(ua.getArtId());
+            if (a == null) {
+                continue;
+            }
+            int form = nz(ua.getForm());
+            int stage = ArtService.clampStage(ua.getStage());
+            int need = ArtRank.needOf(stage);
+            int prof = nz(ua.getProf());
+            int used = LocalDate.now().equals(ua.getTrainDate()) ? nz(ua.getTrainCount()) : 0;
+            double f = ArtRank.factorOf(form, stage);
+
             Map<String, Object> am = new LinkedHashMap<>();
             am.put("id", a.getId());
             am.put("name", a.getName());
             am.put("grade", a.getGrade());
-            am.put("layer", a.getLayer());
-            am.put("series", a.getSeries());
+            am.put("gradeText", a.getGrade() + "阶");
             am.put("category", a.getCategory());
-            am.put("atk", nz(a.getBonusAtk()));
-            am.put("def", nz(a.getBonusDef()));
-            am.put("hp", nz(a.getBonusHp()));
-            am.put("insight", nz(a.getBonusInsight()));
-            am.put("agility", nz(a.getBonusAgility()));
-            am.put("power", artPower(a));
+            am.put("form", form);
+            am.put("formName", ArtRank.formName(form));
+            am.put("stage", stage);
+            am.put("stageName", ArtRank.stageName(stage));
+            am.put("stageMax", ArtRank.STAGES.length);
+            am.put("prof", prof);
+            am.put("profNeed", need);
+            am.put("profPercent", need <= 0 ? (stage >= 4 ? 100 : 0)
+                    : Math.max(0, Math.min(100, Math.round(prof * 100f / need))));
+            am.put("atk", (int) Math.round(nz(a.getBonusAtk()) * f));
+            am.put("def", (int) Math.round(nz(a.getBonusDef()) * f));
+            am.put("hp", (int) Math.round(nz(a.getBonusHp()) * f));
+            am.put("insight", (int) Math.round(nz(a.getBonusInsight()) * f));
+            am.put("agility", (int) Math.round(nz(a.getBonusAgility()) * f));
+            am.put("power", artPower(a, f));
+            am.put("basePower", artPower(a));
+            am.put("trainLeft", Math.max(0, ArtRank.TRAIN_DAILY - used));
+            am.put("canTrain", ArtRank.trainable(form, stage) && used < ArtRank.TRAIN_DAILY);
+            am.put("canInsight", form == 0 && stage == 4);
+            am.put("canTranscend", form == 0 && stage == 5);
+            am.put("canComplete", form == 1);
             arts.add(am);
         }
         m.put("arts", arts);
@@ -227,10 +299,14 @@ public class CultivateService {
         public int totalLayer;
         public int exp;
         public int artCount;
+        public int artCap;
+        public int heartDemon;
+        public double heartPenalty = 1.0;
         public int power;
         public int powerRealm;
         public int powerExp;
         public int powerArt;
+        public int powerBeforeHeart;
         public double originPowerMod;
         public int atk;
         public int def;

@@ -85,7 +85,8 @@ public class ContentService {
                             .or().like(Art::getCategory, like)
                             .or().like(Art::getGrade, like)
                             .or().like(Art::getRealmReq, like)
-                            .or().like(Art::getSummary, like)));
+                            .or().like(Art::getSummary, like))
+                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), layer ASC, id ASC"));
             addGroup(groups, ART, ART_NAME, toItems(arts, ART, ART_NAME));
 
             List<Trial> trials = trialMapper.selectList(new LambdaQueryWrapper<Trial>()

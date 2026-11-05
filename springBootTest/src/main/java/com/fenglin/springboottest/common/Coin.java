@@ -29,8 +29,8 @@ public final class Coin {
     public static final int SIGN_COIN_STEP = 5;
     /** 单日魔晶封顶 */
     public static final int SIGN_COIN_CAP = 60;
-    /** 每连签满七日额外血玉 */
-    public static final int SIGN_JADE_BONUS = 1;
+    /** 每连签满七日额外血玉（v1 由 1 调为 2，补日活侧的硬通货来源） */
+    public static final int SIGN_JADE_BONUS = 2;
 
     // ---------------- 玩法产出 ----------------
     /** 每参悟一篇所得魔晶 */
@@ -42,8 +42,8 @@ public final class Coin {
     /** 秘境产出魔晶 = 所得煞气 / 该系数（下限 SECRET_COIN_MIN） */
     public static final int SECRET_COIN_RATE = 10;
     public static final int SECRET_COIN_MIN = 5;
-    /** 秘境触发「机缘」额外血玉 */
-    public static final int SECRET_JADE_TREASURE = 1;
+    /** 秘境触发「机缘」额外血玉（v1 由 1 调为 2） */
+    public static final int SECRET_JADE_TREASURE = 2;
 
     // ---------------- 鬼市（玩家间交易） ----------------
     /** 鬼市抽成百分比：成交额的 5% 由系统回收（焚香钱） */

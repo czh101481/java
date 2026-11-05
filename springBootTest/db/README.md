@@ -6,7 +6,8 @@
 ## 一、全新安装（推荐，一步到位）
 
 仓库根目录 `demon_db.sql` 是**全量快照**：23 张表的结构 + 全部数据，
-已包含典册 v3（46 条）、23 部功法及配图路径、10 件藏宝阁道具、鬼市/双币/社交/魔窟各表。
+已包含典册 v3/v4（46 条）、23 部功法及配图路径、10 件藏宝阁道具、鬼市/双币/社交/魔窟各表，
+以及 **v1 数值平衡**后的价格与 `demon_den` 每日结算记账列（见 `db/BALANCE.md`）。
 `魔族修行登录-Vue项目/demon_db.sql` 是同一份副本，两份保持一致。
 
 ```bash
@@ -55,6 +56,11 @@ mysql -uroot -p<口令> --default-character-set=utf8mb4 demon_db < demon_db.sql
 | 9 种子 | 27 | `seed_demo.sql` | 重插演示管理员「魔祖」（明文口令、`permission=0`） |
 | | 28 | `seed_characters.sql` | 各境界演示修者 |
 | | 29 | `seed_elite.sql` | 魔祖境翘楚 |
+| **10 数值平衡** | **30** | `demon_balance_v1.sql` | **最后执行**：给 `demon_den` 加每日结算记账两列、藏宝阁降价、功法血玉价同步；带旧值守卫，可重复跑 |
+| | **31** | `demon_archive_v4.sql` | 典册 9 条正文的硬编码数字改引用式，并写明每日封顶；不增删条目 |
+
+> 注意：21 号 `demon_coin.sql` 与 19 号 `demon_art_catalog.sql` 写的是**旧版价格**，
+> 必须靠 30 号脚本覆盖，顺序不能提前。全新安装走全量快照则无需跑 30/31。
 
 ## 三、踩过的坑
 
@@ -71,4 +77,12 @@ mysql -uroot -p<口令> --default-character-set=utf8mb4 demon_db < demon_db.sql
   `PasswordEncoder.matches`，两种存储格式都能登。
 - 校验是否重建成功：
   `SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='demon_db';` 应为 **23**；
-  `demon_archive` 46 条、`demon_art` 23 条、`demon_item` 10 条、`demon_debate` 20 条。
+  `demon_archive` 46 条、`demon_art` 23 条、`demon_item` 10 条、`demon_debate` 20 条；
+  `SHOW COLUMNS FROM demon_den LIKE 'collect%';` 应有 `collect_date` / `collected_sec` 两列。
+
+## 四、数值平衡
+
+**`db/BALANCE.md` 是数值的唯一事实依据**：每日产出预算、挂机占比、血玉收支、
+常量索引与改动流程全在那里。典册正文已改为引用式，改数值时**不需要**再改典册，
+但每次改完必须：同步 Java 常量 → 写幂等升级脚本 → 编译/冒烟 → 重导根目录
+`demon_db.sql` 与前端副本 → 提交。

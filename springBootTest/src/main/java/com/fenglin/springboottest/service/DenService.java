@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,10 +26,12 @@ import java.util.Map;
  * 魔族修行 · 魔窟（洞府挂机产出）业务
  *
  * 要点：
- *   1) 累积以 last_collect 为起点按秒折算，超过 CAP_HOURS 封顶；
- *   2) 收取用「乐观锁」防止连点双收：UPDATE ... WHERE last_collect = 旧值；
- *   3) 血玉走千分位（jade_carry）累积，避免低级时 floor 归零；
- *   4) 煞气直接进累计修为（demon_user.exp，原子自增），心魔高时聚煞阵降效。
+ *   1) 累积以 last_collect 为起点按秒折算，超过 CAP_HOURS（单次存量）封顶；
+ *   2) 另按 collect_date / collected_sec 记当日已结算秒数，一天最多结算
+ *      DAILY_CAP_HOURS 小时，跨日自动清零——收两次也拿不到双倍；
+ *   3) 收取用「乐观锁」防止连点双收：UPDATE ... WHERE last_collect = 旧值；
+ *   4) 血玉走千分位（jade_carry）累积，避免低级时 floor 归零；
+ *   5) 煞气直接进累计修为（demon_user.exp，原子自增），心魔高时聚煞阵降效。
  */
 @Service
 public class DenService {
@@ -62,6 +65,8 @@ public class DenService {
         fresh.setJadeLevel(0);
         fresh.setJadeCarry(0);
         fresh.setLastCollect(LocalDateTime.now());
+        fresh.setCollectDate(LocalDate.now());
+        fresh.setCollectedSec(0);
         try {
             denMapper.insert(fresh);
             return fresh;
@@ -83,13 +88,24 @@ public class DenService {
         int jadeLv = DenRule.level(d.getJadeLevel());
 
         long capSec = DenRule.CAP_HOURS * 3600L;
+        long dailyCapSec = DenRule.DAILY_CAP_HOURS * 3600L;
+
+        // 当日已结算秒数：记账日期不是今天则视为 0（跨日自动清零）
+        LocalDate today = LocalDate.now();
+        int collectedToday = 0;
+        if (today.equals(d.getCollectDate()) && d.getCollectedSec() != null) {
+            collectedToday = Math.max(0, d.getCollectedSec());
+        }
+        long dailyLeft = Math.max(0L, dailyCapSec - collectedToday);
+
         long elapsed = java.time.Duration.between(
                 d.getLastCollect() == null ? LocalDateTime.now() : d.getLastCollect(),
                 LocalDateTime.now()).getSeconds();
         if (elapsed < 0) {
             elapsed = 0;
         }
-        long eff = Math.min(elapsed, capSec);
+        // 三重约束：实际经过时长、单次存量上限、当日剩余额度
+        long eff = Math.min(Math.min(elapsed, capSec), dailyLeft);
 
         // 心魔惩罚只作用于聚煞阵
         int shaPerHour = DenRule.shaPerHour(shaLv, heart);
@@ -104,6 +120,12 @@ public class DenService {
         m.put("elapsedSec", elapsed);
         m.put("capSec", capSec);
         m.put("capped", elapsed >= capSec);
+        m.put("effSec", eff);
+        m.put("dailyCapHours", DenRule.DAILY_CAP_HOURS);
+        m.put("dailyCapSec", dailyCapSec);
+        m.put("collectedSecToday", collectedToday);
+        m.put("dailyLeftSec", dailyLeft);
+        m.put("dailyExhausted", dailyLeft <= 0);
         m.put("shaPending", shaPending);
         m.put("coinPending", coinPending);
         m.put("jadePending", jadePending);
@@ -130,6 +152,11 @@ public class DenService {
                 "jade", DenRule.level(d.getJadeLevel())));
         data.put("maxLevel", DenRule.MAX_LEVEL);
         data.put("capHours", DenRule.CAP_HOURS);
+        data.put("dailyCapHours", DenRule.DAILY_CAP_HOURS);
+        // 每级基准产量下发给前端，避免页面里再抄一份硬编码数值
+        data.put("shaPerLevel", DenRule.SHA_PER_HOUR);
+        data.put("coinPerLevel", DenRule.COIN_PER_HOUR);
+        data.put("jadeMilliPerLevel", DenRule.JADE_MILLI_PER_HOUR);
         data.put("lastCollect", d.getLastCollect());
         data.put("serverTime", LocalDateTime.now());
         data.put("heartDemon", user.getHeartDemon() == null ? 0 : user.getHeartDemon());
@@ -181,16 +208,25 @@ public class DenService {
         int jade = (int) p.get("jadePending");
         int remain = (int) p.get("jadeRemain");
 
+        if (Boolean.TRUE.equals(p.get("dailyExhausted"))) {
+            return Map.of("ok", false, "msg", "今日洞府之利已尽，明日再来。");
+        }
         if (sha <= 0 && coin <= 0 && jade <= 0) {
             return Map.of("ok", false, "msg", "魔窟之中尚无可取之物，稍候片刻再来。");
         }
+
+        LocalDateTime now = LocalDateTime.now();
+        int collectedToday = ((Number) p.get("collectedSecToday")).intValue();
+        long eff = ((Number) p.get("effSec")).longValue();
 
         // 乐观锁：仅当 last_collect 仍为结算起点时才入账（防连点双收）
         UpdateWrapper<Den> uw = new UpdateWrapper<>();
         uw.eq("user_id", user.getId())
                 .eq("last_collect", old)
-                .set("last_collect", LocalDateTime.now())
-                .set("jade_carry", remain);
+                .set("last_collect", now)
+                .set("jade_carry", remain)
+                .set("collect_date", java.sql.Date.valueOf(now.toLocalDate()))
+                .set("collected_sec", collectedToday + (int) eff);
         int rows = denMapper.update(null, uw);
         if (rows == 0) {
             return Map.of("ok", false, "msg", "收取太急，魔气尚未凝成，稍候片刻。");
@@ -332,6 +368,9 @@ public class DenService {
             long elapsedSec = ((Number) p.get("elapsedSec")).longValue();
             m.put("elapsedHours", Math.round(elapsedSec / 360.0) / 10.0);
             m.put("capped", p.get("capped"));
+            m.put("collectedSecToday", p.get("collectedSecToday"));
+            m.put("dailyLeftSec", p.get("dailyLeftSec"));
+            m.put("dailyExhausted", p.get("dailyExhausted"));
             m.put("shaPending", p.get("shaPending"));
             m.put("coinPending", p.get("coinPending"));
             m.put("jadePending", p.get("jadePending"));
@@ -412,6 +451,8 @@ public class DenService {
             d.setJadeLevel(0);
             d.setJadeCarry(0);
             d.setLastCollect(LocalDateTime.now());
+            d.setCollectDate(LocalDate.now());
+            d.setCollectedSec(0);
         }
         if (sha != null) {
             d.setShaLevel(sha);
@@ -427,6 +468,9 @@ public class DenService {
         }
         if (back != null && back > 0) {
             d.setLastCollect(LocalDateTime.now().minusHours(back));
+            // 回拨视为重新开放当日额度，便于演示 / 补发（否则会被每日封顶挡住）
+            d.setCollectDate(LocalDate.now());
+            d.setCollectedSec(0);
         }
         if (exists) {
             denMapper.updateById(d);

@@ -243,6 +243,9 @@ public final class Realm {
     /** 每一世转生带来的永久参悟加成（0.10 = +10%） */
     public static final double REINCARNATE_BONUS = 0.10;
 
+    /** 转世加成封顶（世数）：最多按 10 世计，即参悟/秘境倍率最高 +100% */
+    public static final int REINCARNATE_CAP = 10;
+
     /** 境界不足提示文案（%s 为所需境界名） */
     public static final String DENY_MSG = "修为不足，需修至「%s」境方可入内。";
 

@@ -30,8 +30,10 @@ public class GameService {
         long artCount = userArtMapper.selectCount(
                 new LambdaQueryWrapper<UserArt>().eq(UserArt::getUserId, user.getId()));
         double artBonus = Math.min(artCount, Realm.ART_BONUS_CAP) * Realm.ART_BONUS;
+        // v1 数值平衡：转世倍率封顶，避免累世叠加导致长期数值失控
+        int cappedReincarnate = Math.min(Math.max(0, reincarnate), Realm.REINCARNATE_CAP);
         return (1 + origin.getExploreBonus())
-                * (1 + reincarnate * Realm.REINCARNATE_BONUS)
+                * (1 + cappedReincarnate * Realm.REINCARNATE_BONUS)
                 * (1 + artBonus);
     }
 }

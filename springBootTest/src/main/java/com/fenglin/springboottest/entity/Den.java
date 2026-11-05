@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -34,6 +35,12 @@ public class Den {
 
     /** 上次收取时间（累积起点） */
     private LocalDateTime lastCollect;
+
+    /** 每日结算封顶记账：记账日期（跨日自动清零） */
+    private LocalDate collectDate;
+
+    /** 当日已结算秒数（上限 DenRule.DAILY_CAP_HOURS × 3600） */
+    private Integer collectedSec;
 
     private LocalDateTime createdAt;
 

@@ -1,5 +1,5 @@
 <template>
-  <!-- 魔窟：洞府挂机产出（聚煞阵 / 魔晶矿 / 血玉髓脉，12 小时封顶） -->
+  <!-- 魔窟：洞府挂机产出（单次存量 12h 封顶 + 每日累计结算 12h 封顶） -->
   <div class="dn">
     <div class="dn-aura" aria-hidden="true"></div>
 
@@ -29,9 +29,15 @@
                 <div class="sp-fill" :style="{ width: progress + '%' }"></div>
               </div>
               <div class="sp-text">
-                <template v-if="capped">已 积 满 {{ st.capHours }} 小 时 · 尽 快 收 取</template>
+                <template v-if="st.dailyExhausted">今 日 额 度 已 尽 · 明 日 再 来</template>
+                <template v-else-if="capped">已 积 满 {{ st.capHours }} 小 时 · 尽 快 收 取</template>
                 <template v-else>再 过 {{ remainText }} 积 满 {{ st.capHours }} 小 时</template>
               </div>
+            </div>
+            <div class="sum-note" :class="{ warn: st.dailyExhausted }">
+              今日已结算 {{ collectedText }} / {{ st.dailyCapHours }} 小时 ·
+              <template v-if="st.dailyExhausted">额度已尽，明日再来</template>
+              <template v-else>尚可结算 {{ dailyLeftText }}</template>
             </div>
             <div class="sum-note" v-if="st.shaPenalty < 1">
               心魔缠身（{{ st.heartDemon }}），聚煞阵效率 ×{{ st.shaPenalty }}
@@ -111,7 +117,8 @@
         </section>
 
         <p class="dn-foot">
-          魔窟气机自行流转，离线亦不停歇；积存上限 {{ st.capHours }} 小时，逾时不增，收取归零重计。
+          魔窟气机自行流转，离线亦不停歇；单次积存上限 {{ st.capHours }} 小时，逾时不增，收取归零重计。
+          一日之内累计最多结算 {{ st.dailyCapHours }} 小时，分次收取亦不逾此数，跨日重开。
           煞气直接计入累计修为；心魔 ≥ 60 聚煞阵降效两成，≥ 80 降四成。
           聚煞阵、魔晶矿以魔晶扩建；血玉髓脉开辟需凝煞境，以血玉扩建。
         </p>
@@ -171,6 +178,19 @@ const remainText = computed(() => {
   return `${h} 时 ${m} 分 ${s} 秒`
 })
 
+// 每日累计结算额度（后端 computePending 下发，跨日自动清零）
+const collectedText = computed(() => {
+  if (!st.value) return '0 时 0 分'
+  const s = Math.max(0, st.value.collectedSecToday || 0)
+  return `${Math.floor(s / 3600)} 时 ${Math.floor((s % 3600) / 60)} 分`
+})
+
+const dailyLeftText = computed(() => {
+  if (!st.value) return ''
+  const left = Math.max(0, st.value.dailyLeftSec || 0)
+  return `${Math.floor(left / 3600)} 时 ${Math.floor((left % 3600) / 60)} 分`
+})
+
 function walletOf(currency) {
   if (!st.value) return 0
   return currency === 'jade' ? st.value.jade : st.value.coin
@@ -195,13 +215,13 @@ function rateText(f) {
 function openRateText(f) {
   if (f.type === 'sha') return `${rate1('sha')} 煞气 / 时`
   if (f.type === 'coin') return `${rate1('coin')} 魔晶 / 时`
-  return '0.04 血玉 / 时'
+  return `${((st.value?.jadeMilliPerLevel || 0) / 1000).toFixed(2)} 血玉 / 时`
 }
 
 function rate1(type) {
-  // 1 级产量（心魔不折损开辟预览）
-  if (type === 'sha') return 3
-  return 3
+  // 1 级产量直接取后端下发的每级基准，避免前端再抄一份常量
+  if (!st.value) return 0
+  return type === 'sha' ? (st.value.shaPerLevel || 0) : (st.value.coinPerLevel || 0)
 }
 
 function pendingText(f) {
@@ -228,9 +248,11 @@ function refreshTick() {
   if (!st.value) return
   const last = st.value.lastCollect ? new Date(st.value.lastCollect).getTime() : Date.now()
   const cap = st.value.capSec || 0
+  // 三重约束与后端 computePending 一致：实际经过 / 单次存量 / 当日剩余额度
+  const dailyLeft = Math.max(0, st.value.dailyLeftSec ?? cap)
   let eff = Math.floor((now.value - last) / 1000)
   if (Number.isNaN(eff) || eff < 0) eff = 0
-  eff = Math.min(eff, cap)
+  eff = Math.min(eff, cap, dailyLeft)
   tick.effSec = eff
   tick.sha = Math.floor(((st.value.shaPerHour || 0) * eff) / 3600)
   tick.coin = Math.floor(((st.value.coinPerHour || 0) * eff) / 3600)
@@ -404,6 +426,7 @@ onBeforeUnmount(() => {
 }
 .sp-text { font-size: 12px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.75); white-space: nowrap; }
 .sum-note { margin-top: 10px; font-size: 12px; color: #ff8fa8; letter-spacing: 1px; }
+.sum-note.warn { color: #ffd479; }
 
 .sum-right { display: flex; align-items: center; gap: 22px; }
 .sum-pendings { display: flex; gap: 14px; }

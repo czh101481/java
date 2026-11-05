@@ -8,11 +8,14 @@ package com.fenglin.springboottest.common;
  *   魔晶矿   → 魔晶（入钱囊）
  *   血玉髓脉 → 血玉（入钱囊，按千分位累积进位，避免低级取整归零）
  *
- * 定位（用户选定「挂机为主」强度）：
- *   满级 12 小时约得 煞气 360 / 魔晶 360 / 血玉 4~5，
- *   超过签到+参悟+论道+切磋的日活总收益（约 100~200 煞气）。
+ * 定位（v1 数值平衡后改为「日活为本、洞府为底」）：
+ *   满级每日封顶 12 小时约得 煞气 240 / 魔晶 240 / 血玉 12，
+ *   低于焚香+参悟+论道+切磋+研读+秘境的日活总收益（约 655 煞气 / 387 魔晶）。
  *
- * 调整产出只需改本类常量（无需动业务代码）。
+ * 每日结算封顶：CAP_HOURS 是「单次未收存量」上限，DAILY_CAP_HOURS 是「一天累计可结算时长」
+ *   上限。二者分开记录，故一天收两次也不会拿到 24 小时的产出。详见 db/BALANCE.md。
+ *
+ * 调整产出只需改本类常量（无需动业务代码），改后请同步 db/BALANCE.md。
  */
 public final class DenRule {
 
@@ -27,20 +30,23 @@ public final class DenRule {
     /** 设施等级上限 */
     public static final int MAX_LEVEL = 10;
 
-    /** 离线累积存量上限（小时）：超过部分不再累积，鼓励收取 */
+    /** 离线累积存量上限（小时）：单次未收取最多积这么多，超过部分不再累积 */
     public static final int CAP_HOURS = 12;
+
+    /** 每日累计结算上限（小时）：一天内无论收取几次，最多只按此时长结算（跨日自动清零） */
+    public static final int DAILY_CAP_HOURS = 12;
 
     // ---------------- 每小时产量 ----------------
 
-    /** 聚煞阵：煞气/小时 = SHA_PER_HOUR × 等级（满级 30/h，12h 满 360） */
-    public static final int SHA_PER_HOUR = 3;
+    /** 聚煞阵：煞气/小时 = SHA_PER_HOUR × 等级（满级 20/h，每日封顶 240） */
+    public static final int SHA_PER_HOUR = 2;
 
-    /** 魔晶矿：魔晶/小时 = COIN_PER_HOUR × 等级（满级 30/h，12h 满 360） */
-    public static final int COIN_PER_HOUR = 3;
+    /** 魔晶矿：魔晶/小时 = COIN_PER_HOUR × 等级（满级 20/h，每日封顶 240） */
+    public static final int COIN_PER_HOUR = 2;
 
     /** 血玉髓脉：血玉千分位/小时 = JADE_MILLI_PER_HOUR × 等级
-     *  （满级 400‰/h = 0.4 血玉/h，12h 约 4.8 血玉） */
-    public static final int JADE_MILLI_PER_HOUR = 40;
+     *  （满级 1000‰/h = 1 血玉/h，每日封顶 12 血玉） */
+    public static final int JADE_MILLI_PER_HOUR = 100;
 
     // ---------------- 心魔影响 ----------------
 
@@ -64,8 +70,8 @@ public final class DenRule {
 
     /** 聚煞阵 / 魔晶矿：魔晶 = UPGRADE_COIN_FACTOR × L² */
     public static final int UPGRADE_COIN_FACTOR = 30;
-    /** 血玉髓脉：血玉 = ceil(L² / 2)（至少 1） */
-    public static final int UPGRADE_JADE_HALF = 2;
+    /** 血玉髓脉：血玉 = ceil(L² / UPGRADE_JADE_HALF)（至少 1；v1 由 2 调为 4，降低增产门槛） */
+    public static final int UPGRADE_JADE_HALF = 4;
 
     /** 血玉髓脉所需最低境界位阶（凝煞）；聚煞阵 / 魔晶矿无门槛 */
     public static final int JADE_REALM_INDEX = 1;

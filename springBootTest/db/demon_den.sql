@@ -6,8 +6,9 @@
 --        聚煞阵  sha_level  → 持续产出煞气（直接计入累计修为 demon_user.exp）
 --        魔晶矿  coin_level → 持续产出魔晶（入钱囊）
 --        血玉髓脉 jade_level → 持续产出血玉（入钱囊，走千分位进位）
---   2) 离线持续累积，存量上限 12 小时（CAP_HOURS），需手动「收取」
---   3) 收取 / 升级即时结算；升级消耗魔晶或血玉（见 DenRule 常量）
+--   2) 离线持续累积，单次存量上限 12 小时（CAP_HOURS），需手动「收取」
+--   3) 一天累计最多结算 12 小时（DAILY_CAP_HOURS），由 collect_date / collected_sec 记账
+--   4) 收取 / 升级即时结算；升级消耗魔晶或血玉（见 DenRule 常量）
 --
 -- 幂等：可重复执行（CREATE TABLE IF NOT EXISTS）
 -- 适用：init-db 全量初始化 与 upgrade-db 旧库升级
@@ -23,6 +24,8 @@ CREATE TABLE IF NOT EXISTS demon_den (
   jade_level   INT      NOT NULL DEFAULT 0 COMMENT '血玉髓脉等级',
   jade_carry   INT      NOT NULL DEFAULT 0 COMMENT '血玉千分位进位（1 血玉 = 1000）',
   last_collect DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上次收取时间（累积起点）',
+  collect_date DATE     NULL COMMENT '每日结算记账日期（跨日自动清零）',
+  collected_sec INT     NOT NULL DEFAULT 0 COMMENT '当日已累计结算秒数（上限 12h）',
   created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

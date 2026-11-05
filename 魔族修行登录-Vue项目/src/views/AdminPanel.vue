@@ -376,8 +376,9 @@ const MODULES = {
     api: { list: denList, update: denUpdate },
     imgDir: '', titleKey: 'name', addLabel: '',
     kwPlaceholder: '按道号检索洞府…',
-    hint: '三设施 0–10 级；离线累积上限 12 小时；心魔 ≥60 聚煞阵八折、≥80 六折。'
-      + '「回拨小时」用于演示/补发，最多 720 小时（仍按 12 小时封顶）。'
+    hint: '三设施 0–10 级；单次存量上限 12 小时，且一日累计最多结算 12 小时（跨日重开）。'
+      + '心魔 ≥60 聚煞阵八折、≥80 六折。'
+      + '「回拨小时」用于演示/补发，最多 720 小时，并会重置当日额度。'
       + '「拆毁洞府」会删除该行，修者下次进入时自动重新开辟。',
     columns: [
       { key: 'name', label: '道号' },
@@ -388,6 +389,8 @@ const MODULES = {
         fmt: (v, r) => `${r.shaPending} / ${r.coinPending} / ${r.jadePending}` },
       { key: 'elapsedHours', label: '累积', w: '112px',
         fmt: (v, r) => `${Number(v).toFixed(1)} h${r.capped ? ' · 封顶' : ''}` },
+      { key: 'dailyLeftSec', label: '今日额度', w: '104px',
+        fmt: (v, r) => r.dailyExhausted ? '已 尽' : `余 ${(Number(v || 0) / 3600).toFixed(1)} h` },
       { key: 'heartDemon', label: '心魔', w: '70px' },
       { key: 'wallet', label: '钱囊 晶/玉', w: '118px',
         fmt: (v, r) => `${r.coin} / ${r.jade}` },

@@ -10,10 +10,10 @@ import java.util.Map;
  * 形态：完整（可修至无上） / 残片（价 = 完整 × 0.35，最高止步大成，威能折损）。
  * 进度：入门 → 小成 → 大成 → 圆满 → 入道 → 无上（每部功法各自推进）。
  *
- * 价格恒定：
+ * 价格恒定（v1 数值平衡后，血玉计价三阶下调，详见 db/BALANCE.md）：
  *   黄 完整 100 魔晶 / 残片 35      玄 完整 800 魔晶 / 残片 280
- *   地 完整 50 血玉 / 残片 18       天 完整 300 血玉 / 残片 105
- *   仙 完整 2000 血玉 / 残片 700
+ *   地 完整 40 血玉 / 残片 14       天 完整 150 血玉 / 残片 53
+ *   仙 完整 600 血玉 / 残片 210
  */
 public final class ArtRank {
 
@@ -53,8 +53,8 @@ public final class ArtRank {
     /** 完整功法价（魔晶）：黄、玄以魔晶计价 */
     private static final Map<String, Integer> FULL_COIN = Map.of("黄", 100, "玄", 800);
 
-    /** 完整功法价（血玉）：地、天、仙以血玉计价 */
-    private static final Map<String, Integer> FULL_JADE = Map.of("地", 50, "天", 300, "仙", 2000);
+    /** 完整功法价（血玉）：地、天、仙以血玉计价（v1：50/300/2000 → 40/150/600） */
+    private static final Map<String, Integer> FULL_JADE = Map.of("地", 40, "天", 150, "仙", 600);
 
     /** 残片价 = 完整价 × 0.35（硬性规则） */
     public static final double FRAG_RATIO = 0.35;

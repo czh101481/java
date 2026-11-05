@@ -70,6 +70,9 @@ public class ArtService {
     @Autowired
     private BagItemMapper bagItemMapper;
 
+    @Autowired
+    private ItemUseLimitService itemUseLimit;
+
     /** 业务拒绝（文案直接给玩家看） */
     public static class Deny extends RuntimeException {
         public Deny(String message) {
@@ -565,9 +568,16 @@ public class ArtService {
         if (it == null) {
             throw new Deny("「" + name + "」尚未录入藏宝阁，暂不可用。");
         }
+        // v1.1：破关钥匙也计入每日使用上限，与 /api/coin/use 共用同一本账，
+        // 避免「不限购 + 囤积 + 一天连破数关」绕过限用。
+        String limitDeny = itemUseLimit.reserve(userId, it, 1);
+        if (limitDeny != null) {
+            throw new Deny(limitDeny);
+        }
         UpdateWrapper<BagItem> uw = new UpdateWrapper<>();
         uw.eq("user_id", userId).eq("item_id", it.getId()).ge("qty", 1).setSql("qty = qty - 1");
         if (bagItemMapper.update(null, uw) == 0) {
+            itemUseLimit.refund(userId, it.getId(), 1);
             throw new Deny(denyMsg);
         }
     }

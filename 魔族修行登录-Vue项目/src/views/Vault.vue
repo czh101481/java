@@ -94,6 +94,10 @@
               </template>
               <template v-else>不限购</template>
             </div>
+            <div class="sc-limit" v-if="it.dailyUseLimit > 0">
+              每日限用 {{ it.dailyUseLimit }} 件 · 今日已用 {{ it.usedToday }}
+              <i v-if="it.useSoldOut">· 额度已尽</i>
+            </div>
 
             <div class="sc-buy">
               <div class="qty">
@@ -128,19 +132,29 @@
             <div class="bag-main">
               <div class="bag-name">{{ it.name }}<i>×{{ it.qty }}</i></div>
               <div class="sc-cat">{{ it.category }} · {{ it.effectText }}</div>
+              <div class="sc-limit" v-if="it.dailyUseLimit > 0">
+                今日已用 {{ it.usedToday }} / {{ it.dailyUseLimit }} 件
+                <i v-if="it.useSoldOut">· 今日额度已尽</i>
+              </div>
+              <div class="sc-limit" v-else>不限日用 · 今日已用 {{ it.usedToday }} 件</div>
               <p class="sc-desc">{{ it.desc }}</p>
             </div>
             <div class="bag-acts">
               <div class="qty">
                 <button type="button" :disabled="qtyOf(it) <= 1" @click="stepQty(it, -1)">−</button>
                 <span>{{ qtyOf(it) }}</span>
-                <button type="button" :disabled="qtyOf(it) >= it.qty" @click="stepQty(it, 1)">＋</button>
+                <button type="button" :disabled="qtyOf(it) >= useCap(it)" @click="stepQty(it, 1)">＋</button>
               </div>
               <button type="button" class="sell-btn" :disabled="busy" @click="startSell(it)">
                 寄 售
               </button>
-              <button type="button" class="use-btn" :disabled="busy" @click="doUse(it)">
-                取 用 ×{{ qtyOf(it) }}
+              <button
+                type="button"
+                class="use-btn"
+                :disabled="busy || it.useSoldOut"
+                @click="doUse(it)"
+              >
+                {{ it.useSoldOut ? '今 日 已 尽' : '取 用 ×' + qtyOf(it) }}
               </button>
             </div>
           </article>
@@ -398,11 +412,19 @@ function countdown(end) {
 // 每个物品的下单/取用数量
 const qtys = ref({})
 const qtyOf = (it) => qtys.value[it.id] || 1
+
+// v1.1：乾坤袋单次可取用上限 = min(持有量, 今日剩余使用额度)
+function useCap(it) {
+  const held = Math.max(1, Number(it.qty) || 0)
+  if (!(it.dailyUseLimit > 0)) return held
+  const left = Math.max(0, Number(it.dailyUseLimit) - (Number(it.usedToday) || 0))
+  return Math.max(1, Math.min(held, left))
+}
 function stepQty(it, delta) {
   const cur = qtyOf(it)
   const max = it.dailyLimit > 0 && tab.value === 'shop'
     ? Math.max(1, it.remainToday === -1 ? 99 : it.remainToday)
-    : (tab.value === 'bag' ? Math.max(1, it.qty) : 99)
+    : (tab.value === 'bag' ? useCap(it) : 99)
   qtys.value = { ...qtys.value, [it.id]: Math.min(max, Math.max(1, cur + delta)) }
 }
 
@@ -599,16 +621,25 @@ async function doBuy(it) {
 
 async function doUse(it) {
   if (busy.value) return
-  const q = Math.min(qtyOf(it), it.qty)
+  const left = it.dailyUseLimit > 0
+    ? Math.max(0, Number(it.dailyUseLimit) - (Number(it.usedToday) || 0))
+    : 99
+  const q = Math.min(qtyOf(it), it.qty, left)
+  if (q <= 0) {
+    showToast('今日取用额度已尽，明日再来。', true)
+    return
+  }
   busy.value = true
   try {
     const res = await useItem(it.id, q)
     if (res.data.code === 200) {
       showToast(res.data.data.msg || '已生效')
       qtys.value = { ...qtys.value, [it.id]: 1 }
-      await Promise.all([loadWallet(), loadBag()])
+      await Promise.all([loadWallet(), loadShop(), loadBag()])
     } else {
       showToast(res.data.msg || '取用失败', true)
+      // 后端拒绝（如并发下额度被占）后同步一次额度，避免界面停在旧数字
+      await Promise.all([loadShop(), loadBag()])
     }
   } catch (e) {
     showToast(e.message || '取用失败', true)

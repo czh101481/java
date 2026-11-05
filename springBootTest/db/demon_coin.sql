@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS demon_item (
   effect_type  VARCHAR(20)  NOT NULL DEFAULT 'exp' COMMENT 'exp/explore/coin',
   effect_value INT          NOT NULL DEFAULT 0 COMMENT '效果数值',
   daily_limit  INT          NOT NULL DEFAULT 0 COMMENT '每日限购，0=不限',
+  daily_use_limit INT       NOT NULL DEFAULT -1 COMMENT '每日使用上限：-1 未初始化 / 0 不限 / >0 件数（由 demon_daily_v1.sql 定初值）',
   discount_percent TINYINT  NOT NULL DEFAULT 0 COMMENT '限时折扣：应付百分比 1-99，0=不打折',
   discount_start   DATETIME DEFAULT NULL COMMENT '折扣生效起点',
   discount_end     DATETIME DEFAULT NULL COMMENT '折扣截止',

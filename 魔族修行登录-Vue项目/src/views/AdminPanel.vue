@@ -349,6 +349,7 @@ const MODULES = {
       { key: 'priceJade', label: '血玉', w: '72px', fmt: (v) => (v > 0 ? v : '—') },
       { key: 'discountPercent', label: '折扣', w: '86px', fmt: (v) => (v > 0 ? discLabel(v) : '无') },
       { key: 'dailyLimit', label: '限购', w: '70px', fmt: (v) => (v > 0 ? v : '不限') },
+      { key: 'dailyUseLimit', label: '限用', w: '70px', fmt: (v) => (v > 0 ? v : '不限') },
       { key: 'status', label: '状态', w: '74px', map: { 1: '在售', 0: '下架' } },
       { key: 'sort', label: '排序', w: '60px' }
     ],
@@ -362,6 +363,7 @@ const MODULES = {
       { key: 'effectType', label: '效果类型', type: 'select', options: EFFECTS },
       { key: 'effectValue', label: '效果数值', type: 'number', ph: '如 60 表示煞气 +60' },
       { key: 'dailyLimit', label: '每日限购', type: 'number', ph: '0 = 不限' },
+      { key: 'dailyUseLimit', label: '每日使用上限', type: 'number', ph: '0 = 不限；建议与限购数相当' },
       { key: 'status', label: '上架状态', type: 'select', options: [{ v: 1, t: '在售' }, { v: 0, t: '下架' }] },
       { key: 'sort', label: '展示顺序', type: 'number', ph: '小在前' },
       { key: 'discountPercent', label: '限时折扣', type: 'number', ph: '80 = 八折；0 = 不打折' },

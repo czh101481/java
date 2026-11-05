@@ -46,6 +46,9 @@ public class Item {
     /** 每日限购，0=不限 */
     private Integer dailyLimit;
 
+    /** 每日使用上限：-1 未初始化 / 0 不限 / >0 件数（与限购相互独立） */
+    private Integer dailyUseLimit;
+
     /** 限时折扣：应付百分比（1-99，如 80 表示八折）；0 表示不打折 */
     private Integer discountPercent;
 

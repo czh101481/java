@@ -1079,6 +1079,7 @@ public class AdminController {
         it.setEffectType(textOr(body.get("effectType"), "exp"));
         it.setEffectValue(intOf(body.get("effectValue"), 0));
         it.setDailyLimit(intOf(body.get("dailyLimit"), 0));
+        it.setDailyUseLimit(intOf(body.get("dailyUseLimit"), 0));
         it.setDiscountPercent(intOf(body.get("discountPercent"), 0));
         it.setDiscountStart(parseTime(body.get("discountStart")));
         it.setDiscountEnd(parseTime(body.get("discountEnd")));
@@ -1137,6 +1138,7 @@ public class AdminController {
         if (body.containsKey("effectType"))     uw.set("effect_type", textOr(body.get("effectType"), "exp"));
         if (body.containsKey("effectValue"))    uw.set("effect_value", intOf(body.get("effectValue"), 0));
         if (body.containsKey("dailyLimit"))     uw.set("daily_limit", intOf(body.get("dailyLimit"), 0));
+        if (body.containsKey("dailyUseLimit"))  uw.set("daily_use_limit", intOf(body.get("dailyUseLimit"), 0));
         if (body.containsKey("discountPercent")) uw.set("discount_percent", intOf(body.get("discountPercent"), 0));
         if (body.containsKey("discountStart"))  uw.set("discount_start", parseTime(body.get("discountStart")));
         if (body.containsKey("discountEnd"))    uw.set("discount_end", parseTime(body.get("discountEnd")));
@@ -1203,6 +1205,10 @@ public class AdminController {
         int limit = intOf(b.get("dailyLimit"), 0);
         if (limit < 0) {
             return "每日限购不可为负。";
+        }
+        int useLimit = intOf(b.get("dailyUseLimit"), 0);
+        if (useLimit < 0) {
+            return "每日使用上限不可为负（0 表示不限）。";
         }
         int st = intOf(b.get("status"), 1);
         if (st != 0 && st != 1) {

@@ -29,7 +29,11 @@ import java.util.Map;
  * 魔族修行 · 藏宝阁与乾坤袋业务
  *
  * 购买流程：校验在售 → 校验限购 → 扣币 → 入袋 → 记购买流水
- * 使用流程：校验持有 → 扣袋 → 结算效果（加煞气 / 加参悟上限 / 开囊得魔晶）
+ * 使用流程：校验持有 → **占用当日使用额度** → 扣袋 → 结算效果
+ *           （加煞气 / 加参悟上限 / 开囊得魔晶）；任一步失败退回额度与背包。
+ *
+ * v1.1：限购（demon_purchase）与限用（demon_item_use）是两套独立账本，
+ * 前者管「买多少」，后者管「用多少」，杜绝提前囤积后一天内集中爆发。
  */
 @Service
 public class ShopService {
@@ -56,6 +60,9 @@ public class ShopService {
     @Autowired
     private CoinService coinService;
 
+    @Autowired
+    private ItemUseLimitService itemUseLimit;
+
     // ==================== 藏宝阁 ====================
 
     /** 在售物品一览：含今日已购、剩余可购、背包持有、是否买得起 */
@@ -70,6 +77,8 @@ public class ShopService {
 
         Map<Long, Integer> boughtToday = userId == null ? new HashMap<>() : boughtToday(userId);
         Map<Long, Integer> held = userId == null ? new HashMap<>() : heldMap(userId);
+        Map<Long, Integer> usedToday = userId == null
+                ? new HashMap<>() : itemUseLimit.usedTodayMap(userId);
 
         LocalDateTime now = LocalDateTime.now();
         List<Map<String, Object>> list = new ArrayList<>();
@@ -86,6 +95,13 @@ public class ShopService {
             m.put("remainToday", limit <= 0 ? -1 : Math.max(0, limit - bought));
             m.put("soldOut", limit > 0 && bought >= limit);
             m.put("held", held.getOrDefault(it.getId(), 0));
+            // v1.1：每日使用上限（与限购独立）
+            int useLimit = ItemUseLimitService.limitOf(it);
+            int used = usedToday.getOrDefault(it.getId(), 0);
+            m.put("dailyUseLimit", useLimit);
+            m.put("usedToday", used);
+            m.put("useRemainToday", useLimit <= 0 ? -1 : Math.max(0, useLimit - used));
+            m.put("useSoldOut", useLimit > 0 && used >= useLimit);
             m.put("payCurrency", useJade ? Coin.JADE : Coin.COIN);
             m.put("price", price);
             m.put("originalPrice", basePrice);
@@ -205,6 +221,7 @@ public class ShopService {
                 .eq(BagItem::getUserId, userId)
                 .gt(BagItem::getQty, 0)
                 .orderByDesc(BagItem::getUpdatedAt));
+        Map<Long, Integer> usedToday = itemUseLimit.usedTodayMap(userId);
         List<Map<String, Object>> list = new ArrayList<>();
         for (BagItem b : rows) {
             Item it = itemMapper.selectById(b.getItemId());
@@ -214,12 +231,19 @@ public class ShopService {
             Map<String, Object> m = itemMap(it);
             m.put("qty", b.getQty());
             m.put("effectText", effectText(it, b.getQty()));
+            // v1.1：乾坤袋页展示今日已用 / 尚可用
+            int useLimit = ItemUseLimitService.limitOf(it);
+            int used = usedToday.getOrDefault(it.getId(), 0);
+            m.put("dailyUseLimit", useLimit);
+            m.put("usedToday", used);
+            m.put("useRemainToday", useLimit <= 0 ? -1 : Math.max(0, useLimit - used));
+            m.put("useSoldOut", useLimit > 0 && used >= useLimit);
             list.add(m);
         }
         return list;
     }
 
-    /** 使用道具：扣袋 + 结算效果 */
+    /** 使用道具：占用当日额度 + 扣袋 + 结算效果（任一步失败自动退回） */
     public Map<String, Object> use(Long userId, Long itemId, int qty) {
         if (itemId == null) {
             throw new Deny("未指明所用何物。");
@@ -234,12 +258,19 @@ public class ShopService {
             throw new Deny(String.format("「%s」仅余 %d 件，不足 %d 件。", it.getName(), held, n));
         }
 
+        // v1.1：先占用当日使用额度；额度用尽时连背包都不动
+        String deny = itemUseLimit.reserve(userId, it, n);
+        if (deny != null) {
+            throw new Deny(deny);
+        }
+
         // 扣背包：带 qty >= n 条件，防并发超用
         UpdateWrapper<BagItem> uw = new UpdateWrapper<>();
         uw.eq("user_id", userId).eq("item_id", itemId).ge("qty", n)
           .setSql("qty = qty - " + n);
         int rows = bagItemMapper.update(null, uw);
         if (rows == 0) {
+            itemUseLimit.refund(userId, itemId, n);
             throw new Deny("乾坤袋已空，无法取用。");
         }
 
@@ -247,22 +278,30 @@ public class ShopService {
         int value = (it.getEffectValue() == null ? 0 : it.getEffectValue()) * n;
         int newExp = -1;
         String effectText;
-
-        if ("explore".equals(type)) {
-            applyExploreBonus(userId, value);
-            effectText = String.format("今日参悟上限 +%d", value);
-        } else if ("coin".equals(type)) {
-            coinService.earn(userId, Coin.COIN, value, "item", "item", itemId);
-            effectText = String.format("获得 %s +%d", Coin.COIN_NAME, value);
-        } else {
-            UpdateWrapper<DemonUser> uu = new UpdateWrapper<>();
-            uu.eq("id", userId).setSql("exp = exp + " + value);
-            userMapper.update(null, uu);
-            DemonUser after = userMapper.selectById(userId);
-            newExp = after == null || after.getExp() == null ? 0 : after.getExp();
-            effectText = String.format("煞气 +%d", value);
+        try {
+            if ("explore".equals(type)) {
+                applyExploreBonus(userId, value);
+                effectText = String.format("今日参悟上限 +%d", value);
+            } else if ("coin".equals(type)) {
+                coinService.earn(userId, Coin.COIN, value, "item", "item", itemId);
+                effectText = String.format("获得 %s +%d", Coin.COIN_NAME, value);
+            } else {
+                UpdateWrapper<DemonUser> uu = new UpdateWrapper<>();
+                uu.eq("id", userId).setSql("exp = exp + " + value);
+                userMapper.update(null, uu);
+                DemonUser after = userMapper.selectById(userId);
+                newExp = after == null || after.getExp() == null ? 0 : after.getExp();
+                effectText = String.format("煞气 +%d", value);
+            }
+        } catch (RuntimeException e) {
+            // 效果结算失败：退回本次额度与背包，避免「东西没了、效果没到」
+            itemUseLimit.refund(userId, itemId, n);
+            addToBag(userId, itemId, n);
+            throw e;
         }
 
+        int useLimit = ItemUseLimitService.limitOf(it);
+        int used = itemUseLimit.usedToday(userId, itemId);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("item", itemMap(it));
         data.put("qty", n);
@@ -272,6 +311,9 @@ public class ShopService {
         data.put("exp", newExp);
         data.put("bagQty", heldOf(userId, itemId));
         data.put("wallet", coinService.overview(userId));
+        data.put("usedToday", used);
+        data.put("dailyUseLimit", useLimit);
+        data.put("useRemainToday", useLimit <= 0 ? -1 : Math.max(0, useLimit - used));
         data.put("msg", String.format("服下「%s」×%d，%s。", it.getName(), n, effectText));
         return data;
     }
@@ -365,6 +407,7 @@ public class ShopService {
         m.put("priceCoin", it.getPriceCoin());
         m.put("priceJade", it.getPriceJade());
         m.put("dailyLimit", it.getDailyLimit());
+        m.put("dailyUseLimit", ItemUseLimitService.limitOf(it));
         m.put("discountPercent", activeDiscount(it, LocalDateTime.now()));
         m.put("discountEnd", it.getDiscountEnd());
         m.put("effectType", it.getEffectType());

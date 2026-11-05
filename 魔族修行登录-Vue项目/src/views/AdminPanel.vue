@@ -218,20 +218,36 @@ function discLabel(p) {
 const MODULES = {
   art: {
     label: '功 法 阁', short: '功法', api: { list: artList, add: artAdd, update: artUpdate, del: artDelete },
-    imgDir: 'art', titleKey: 'name', addLabel: '录 入 新 功 法',
+    imgDir: 'art', titleKey: 'name', addLabel: '录 入 新 功 法', quickStatus: true,
     kwPlaceholder: '按功法名 / 简介检索…',
     columns: [
       { key: 'name', label: '功法名' },
       { key: 'category', label: '类别', w: '90px' },
       { key: 'grade', label: '品阶', w: '70px' },
+      { key: 'layer', label: '重数', w: '70px', fmt: (v) => (v ? '第' + v + '重' : '—') },
+      { key: 'priceCoin', label: '售价', w: '104px',
+        fmt: (v, row) => (row.priceJade > 0 ? row.priceJade + ' 血玉' : (v > 0 ? v + ' 魔晶' : '免费')) },
+      { key: 'status', label: '状态', w: '74px', map: { 1: '在售', 0: '下架' } },
       { key: 'realmReq', label: '所需境界', w: '90px' },
       { key: 'summary', label: '简介', dim: true }
     ],
     fields: [
-      { key: 'name', label: '功法名', required: true, ph: '如：血煞戮天诀' },
+      { key: 'name', label: '功法名', required: true, ph: '如：凝血爪·一重' },
       { key: 'category', label: '类别', type: 'select', options: ['攻伐', '护体', '幻术', '炼魂', '御兽'].map(v => ({ v, t: v })) },
       { key: 'grade', label: '品阶', type: 'select', options: ['黄', '玄', '地', '天', '仙'].map(v => ({ v, t: v })) },
+      { key: 'layer', label: '重数', type: 'select',
+        options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ v: n, t: '第 ' + n + ' 重' })),
+        ph: '黄1-4 玄1-6 地1-7 天1-10 仙1-10' },
+      { key: 'series', label: '功法系列', ph: '同系列须按重递进；留空则自成一系列' },
       { key: 'realmReq', label: '所需境界', type: 'select', options: REALMS },
+      { key: 'priceCoin', label: '售价·魔晶', type: 'number', ph: '0 表示不以魔晶出售' },
+      { key: 'priceJade', label: '售价·血玉', type: 'number', ph: '>0 时以血玉计价' },
+      { key: 'status', label: '上架状态', type: 'select', options: [{ v: 1, t: '在售' }, { v: 0, t: '下架' }] },
+      { key: 'bonusAtk', label: '攻伐加成', type: 'number', ph: '0' },
+      { key: 'bonusDef', label: '护体加成', type: 'number', ph: '0' },
+      { key: 'bonusHp', label: '气血加成', type: 'number', ph: '0' },
+      { key: 'bonusInsight', label: '悟性加成', type: 'number', ph: '0' },
+      { key: 'bonusAgility', label: '身法加成', type: 'number', ph: '0' },
       { key: 'image', label: '配图', type: 'image' },
       { key: 'summary', label: '简介', wide: true, ph: '一句话点明此功法之要义…' },
       { key: 'content', label: '正文', type: 'textarea', wide: true, ph: '功法正文…' }

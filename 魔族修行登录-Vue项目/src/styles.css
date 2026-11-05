@@ -78,7 +78,9 @@ body {
   bottom: 26px;
   left: 0; right: 0;
   text-align: center;
-  z-index: 2;
+  /* 置于页面容器之下：仅作背景装饰，避免压住列表/表格内容 */
+  z-index: 1;
+  pointer-events: none;
   font-size: 13px;
   letter-spacing: 4px;
   color: rgba(176, 102, 255, 0.55);

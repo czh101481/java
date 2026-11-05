@@ -19,12 +19,13 @@
           @click="goModule(m.key)"
         >{{ m.title }}</a>
         <a class="nav-item" @click="goArchive">魔 枢 典 册</a>
+        <a class="nav-item" @click="goCultivate">修 为</a>
       </nav>
 
       <div class="nav-user">
         <div class="user-meta">
           <span class="user-name">{{ user?.name || '无名修者' }}</span>
-          <span class="user-realm" v-if="user?.cultivation">{{ user.cultivation }}境 · 第{{ realmIndex + 1 }}重</span>
+          <span class="user-realm" v-if="user?.cultivation">{{ user.cultivation }}境 · 第{{ user.layer || 1 }}重</span>
           <span class="user-realm" v-else-if="user?.realm">魔种 · {{ user.realm }}</span>
         </div>
         <div class="avatar">{{ initial }}</div>
@@ -207,6 +208,9 @@ function goHome() {
 }
 function goArchive() {
   router.push('/archive')
+}
+function goCultivate() {
+  router.push('/cultivate')
 }
 function openDetail(id) {
   router.push(`/detail/${type.value}/${id}`)

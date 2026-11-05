@@ -99,6 +99,12 @@ public class HomeController {
     @Autowired
     private com.fenglin.springboottest.service.CoinService coinService;
 
+    @Autowired
+    private com.fenglin.springboottest.service.ArtService artService;
+
+    @Autowired
+    private com.fenglin.springboottest.service.CultivateService cultivateService;
+
     // ==================== v2 加成计算 ====================
 
     /** 今日参悟上限：基础上限 + 道具加成（凝神符等，跨日失效） */
@@ -177,6 +183,11 @@ public class HomeController {
         DetailVO vo = contentService.detail(type, id);
         if (vo == null) {
             return Result.error(404, "魔渊之中并无此记载");
+        }
+        // 功法详情附「是否已习得」，前端据此决定按钮为「购得」还是「已习此功」
+        if ("art".equals(type)) {
+            Long uid = currentUserId(authorization);
+            vo.setOwned(artService.owned(uid, id));
         }
         return Result.success(vo);
     }
@@ -492,6 +503,15 @@ public class HomeController {
         }
         int exp = user.getExp() == null ? 0 : user.getExp();
         int need = Realm.thresholdOf(index + 1);
+
+        // 境界分重：须先修至本境九重圆满，方可冲击下一境
+        int layer = Math.max(user.getLayer() == null ? 1 : user.getLayer(), Realm.layerOf(exp, index));
+        if (!Realm.isFullLayer(layer)) {
+            return Result.error(400, String.format(
+                    "「%s」境须修至九重圆满方可冲境——你当前为第%s重（煞气 %d，九重需 %d）。",
+                    Realm.name(index), Realm.layerName(layer), exp,
+                    Realm.layerStartExp(index, Realm.LAYERS)));
+        }
         if (exp < need) {
             return Result.error(400, String.format(
                     "煞气不足，冲击「%s」境失败。当前煞气 %d / 需 %d，还差 %d 点。",
@@ -520,11 +540,11 @@ public class HomeController {
         String next = Realm.name(index + 1);
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
                 new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
-        uw.eq("id", user.getId()).set("cultivation", next).set("break_fail", 0);
+        uw.eq("id", user.getId()).set("cultivation", next).set("layer", 1).set("break_fail", 0);
         userMapper.update(null, uw);
         return Result.success(String.format(
-                "轰——魔气灌体，渡劫功成！已晋升「%s」境（第 %d 重）。%s",
-                next, index + 2,
+                "轰——魔气灌体，渡劫功成！已晋升「%s」境·一重。%s",
+                next,
                 guaranteed ? "（天道酬勤，此番再无阻碍。）" : ""));
     }
 
@@ -791,9 +811,15 @@ public class HomeController {
                 com.fenglin.springboottest.common.Origins.of(me.getRealm());
         double powerMod = 1 + myOrigin.getSparPowerBonus();
 
-        // v2：境界权重由 1000 提至 8000，让「一重境」真正压过「囤下的煞气」
-        int myBase = myIndex * Realm.POWER_PER_REALM + myExpBase;
-        int targetBase = targetIndex * Realm.POWER_PER_REALM + targetExpBase;
+        // v2：境界权重 8000；v3：境界分重后按「境阶含重」折算，再加煞气与功法战力
+        com.fenglin.springboottest.service.CultivateService.Stats myStats =
+                cultivateService.stats(me);
+        com.fenglin.springboottest.service.CultivateService.Stats targetStats =
+                cultivateService.stats(target);
+        int myBase = (int) Math.round(Realm.realmLevel(myIndex, myStats.layer) * Realm.POWER_PER_REALM)
+                + myExpBase + myStats.powerArt;
+        int targetBase = (int) Math.round(Realm.realmLevel(targetIndex, targetStats.layer)
+                * Realm.POWER_PER_REALM) + targetExpBase + targetStats.powerArt;
         java.util.random.RandomGenerator rng = java.util.random.RandomGenerator.getDefault();
         int myPower = (int) Math.round((myBase * powerMod + rng.nextInt(Realm.SPAR_RANDOM)) * myMod);
         int targetPower = (int) Math.round((targetBase + rng.nextInt(Realm.SPAR_RANDOM)) * targetMod);
@@ -846,8 +872,10 @@ public class HomeController {
         String myRealm = Realm.name(myIndex);
         String targetRealm = Realm.name(targetIndex);
         List<String> report = new ArrayList<>();
-        report.add(String.format("「%s」（%s境）煞气灌体，率先出手！", me.getName(), myRealm));
-        report.add(String.format("「%s」（%s境）不闪不避，硬撼其锋！", target.getName(), targetRealm));
+        report.add(String.format("「%s」（%s境·%s重）煞气灌体，率先出手！",
+                me.getName(), myRealm, Realm.layerName(myStats.layer)));
+        report.add(String.format("「%s」（%s境·%s重）不闪不避，硬撼其锋！",
+                target.getName(), targetRealm, Realm.layerName(targetStats.layer)));
         if (gap >= 2) {
             report.add(String.format("境界压制——「%s」高出两重以上，「%s」战力折损三成！", me.getName(), target.getName()));
         } else if (gap <= -2) {
@@ -1125,8 +1153,24 @@ public class HomeController {
         if (user == null) {
             return Result.error(401, "未持魔契，请先入魔道。");
         }
-        if (artMapper.selectById(artId) == null) {
+        com.fenglin.springboottest.entity.Art art = artMapper.selectById(artId);
+        if (art == null) {
             return Result.error(404, "魔域之中并无此功法。");
+        }
+        // 分重功法须以货币购得：本接口仅保留「免费功法」的直接习得
+        boolean paid = (art.getPriceJade() != null && art.getPriceJade() > 0)
+                || (art.getPriceCoin() != null && art.getPriceCoin() > 0);
+        if (paid) {
+            return Result.error(400, String.format(
+                    "《%s》（%s）须以 %s 购得——请回功法阁详情页「购 得 此 功」。",
+                    art.getName(), com.fenglin.springboottest.service.ArtService.gradeText(art),
+                    com.fenglin.springboottest.service.ArtService.priceText(art)));
+        }
+        com.fenglin.springboottest.entity.Art prev = artService.previousLayer(art);
+        if (prev != null && !artService.owned(user.getId(), prev.getId())) {
+            return Result.error(400, String.format(
+                    "《%s》须先习得《%s》——同系列功法须按重递进。",
+                    art.getName(), prev.getName()));
         }
         long learned = userArtMapper.selectCount(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
@@ -1139,7 +1183,7 @@ public class HomeController {
                         .eq(com.fenglin.springboottest.entity.UserArt::getArtId, artId)) > 0) {
             return Result.error(400, "此功法早已烂熟于心。");
         }
-        int cap = 1 + Realm.indexOf(user.getCultivation());
+        int cap = artService.capOf(user);
         if (learned >= cap) {
             return Result.error(400, String.format(
                     "以「%s」境之魔识，最多只能同时驾驭 %d 部功法——先冲境去罢。",
@@ -1259,11 +1303,34 @@ public class HomeController {
         vo.setCultivation(Realm.name(index));
         vo.setIndex(index);
         vo.setTotal(Realm.NAMES.size());
-        vo.setPercent(Math.round(index * 100f / (Realm.NAMES.size() - 1)));
+
+        // 境界分重：由累计煞气推算重数，只升不降（渡劫失败扣损不致掉重）
+        int storedLayer = user.getLayer() == null ? 1 : user.getLayer();
+        int layer = Math.max(storedLayer, Realm.layerOf(exp, index));
+        if (layer != storedLayer) {
+            com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> luw =
+                    new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
+            luw.eq("id", user.getId()).set("layer", layer);
+            userMapper.update(null, luw);
+            user.setLayer(layer);
+        }
+        int layerStart = Realm.layerStartExp(index, layer);
+        int layerNext = Realm.layerNextExp(index, layer);
+        int layerPercent = layerNext <= layerStart ? 100
+                : (int) Math.round(Math.max(0, exp - layerStart) * 100.0 / (layerNext - layerStart));
+        vo.setLayer(layer);
+        vo.setLayerName(Realm.layerName(layer));
+        vo.setLayerMax(Realm.LAYERS);
+        vo.setLayerStartExp(layerStart);
+        vo.setLayerNextExp(layerNext);
+        vo.setLayerPercent(Math.max(0, Math.min(100, layerPercent)));
+        vo.setTotalLayer(Realm.totalLayer(index, layer));
+        vo.setLayerFull(Realm.isFullLayer(layer));
+        vo.setPercent((int) Math.round(Realm.realmLevel(index, layer) * 100.0 / (Realm.NAMES.size() - 1)));
         vo.setNext(maxed ? null : Realm.name(index + 1));
         vo.setExp(exp);
         vo.setNextExp(need);
-        vo.setCanBreakthrough(!maxed && exp >= need);
+        vo.setCanBreakthrough(!maxed && exp >= need && Realm.isFullLayer(layer));
         vo.setExploreCount(countToday);
         vo.setExploreLimit(exploreLimitToday(user));
         vo.setSparCount(sparCount);

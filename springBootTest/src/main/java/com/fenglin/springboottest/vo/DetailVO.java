@@ -23,6 +23,26 @@ public class DetailVO {
     /** 属性表：门类/品阶/境界/地域/凶险/论者/卷册 等 */
     private List<Meta> meta = new ArrayList<>();
 
+    // ==================== 功法专属（其余类型为 null） ====================
+
+    /** 是否已习得 */
+    private Boolean owned;
+
+    /** 品阶·重，如「黄·三重」 */
+    private String gradeText;
+
+    /** 售价文案，如「魔晶 260」/「血玉 8」/「免费」 */
+    private String priceText;
+
+    /** 售价·魔晶 */
+    private Integer priceCoin;
+
+    /** 售价·血玉 */
+    private Integer priceJade;
+
+    /** 功法战力 */
+    private Integer power;
+
     public String getImg() {
         return img;
     }
@@ -87,9 +107,56 @@ public class DetailVO {
         this.meta = meta;
     }
 
+    public Boolean getOwned() {
+        return owned;
+    }
+
+    public void setOwned(Boolean owned) {
+        this.owned = owned;
+    }
+
+    public String getGradeText() {
+        return gradeText;
+    }
+
+    public void setGradeText(String gradeText) {
+        this.gradeText = gradeText;
+    }
+
+    public String getPriceText() {
+        return priceText;
+    }
+
+    public void setPriceText(String priceText) {
+        this.priceText = priceText;
+    }
+
+    public Integer getPriceCoin() {
+        return priceCoin;
+    }
+
+    public void setPriceCoin(Integer priceCoin) {
+        this.priceCoin = priceCoin;
+    }
+
+    public Integer getPriceJade() {
+        return priceJade;
+    }
+
+    public void setPriceJade(Integer priceJade) {
+        this.priceJade = priceJade;
+    }
+
+    public Integer getPower() {
+        return power;
+    }
+
+    public void setPower(Integer power) {
+        this.power = power;
+    }
+
     /** 详情页属性行 */
-    public static class Meta {
-        private String label;
+    public static class Meta {        private String label;
         private String value;
 
         public Meta() {

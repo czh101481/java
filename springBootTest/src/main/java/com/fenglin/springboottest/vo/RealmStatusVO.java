@@ -17,6 +17,32 @@ public class RealmStatusVO {
     /** 当前位阶（0 = 引煞） */
     private int index;
 
+    // ==================== 境界分重（每境九重） ====================
+
+    /** 当前重数（1~9） */
+    private int layer;
+
+    /** 当前重数中文（一/二/…/九） */
+    private String layerName;
+
+    /** 每境重数上限（9） */
+    private int layerMax;
+
+    /** 本重起始煞气 */
+    private int layerStartExp;
+
+    /** 冲击下一重所需煞气（九重时为下一境门槛） */
+    private int layerNextExp;
+
+    /** 本重进度百分比（0~100） */
+    private int layerPercent;
+
+    /** 累计重数（境阶×9 + 重数-1，用于数值成长） */
+    private int totalLayer;
+
+    /** 是否九重圆满（可冲境） */
+    private boolean layerFull;
+
     /** 总境数（10） */
     private int total;
 

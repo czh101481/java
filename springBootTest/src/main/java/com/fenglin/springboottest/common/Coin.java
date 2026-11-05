@@ -93,6 +93,8 @@ public final class Coin {
                 return "开囊所得";
             case "trade":
                 return "鬼市易物";
+            case "art":
+                return "功法购得";
             case "admin":
                 return "魔门赏赐";
             default:

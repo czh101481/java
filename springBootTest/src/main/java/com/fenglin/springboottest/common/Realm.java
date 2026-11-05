@@ -79,6 +79,97 @@ public final class Realm {
     /** 每日参悟上限（篇） */
     public static final int DAILY_EXPLORE_LIMIT = 10;
 
+    // ==================== 境界分重（每境九重） ====================
+
+    /** 每境重数：引煞一重 ~ 九重，九重圆满方可冲下一境 */
+    public static final int LAYERS = 9;
+
+    /** 重数中文名（索引 = 重数 - 1） */
+    public static final List<String> LAYER_NAMES = List.of(
+            "一", "二", "三", "四", "五", "六", "七", "八", "九");
+
+    /** 「无上」境无下一境，九重之后仍可继续积累——每重额外跨度（煞气） */
+    public static final int LAST_REALM_LAYER_SPAN = 2000;
+
+    /**
+     * 进入某境所需煞气（引煞为 0，其余取其阈值）。
+     * 与 {@link #thresholdOf(int)} 的区别：thresholdOf 是「冲击该境所需」，引煞无冲击动作。
+     */
+    public static int entryExp(int index) {
+        if (index <= 0) {
+            return 0;
+        }
+        return thresholdOf(index);
+    }
+
+    /** 下一境门槛；已至无上时按最后一重跨度外推 */
+    public static int nextRealmExp(int index) {
+        if (index >= NAMES.size() - 1) {
+            return entryExp(index) + LAST_REALM_LAYER_SPAN * LAYERS;
+        }
+        return thresholdOf(index + 1);
+    }
+
+    /** 当前境每重所需煞气跨度（区间等分九份） */
+    public static double layerSpan(int index) {
+        int lo = entryExp(index);
+        int hi = nextRealmExp(index);
+        return Math.max(1.0, (hi - lo) / (double) LAYERS);
+    }
+
+    /**
+     * 由累计煞气推算当前重数（1~9）。
+     * 语义：重数只用于展示与冲境门槛校验，冲境仍需累计煞气达下一境阈值。
+     */
+    public static int layerOf(int exp, int index) {
+        int lo = entryExp(index);
+        if (exp <= lo) {
+            return 1;
+        }
+        double span = layerSpan(index);
+        int k = (int) Math.floor((exp - lo) / span) + 1;
+        return Math.max(1, Math.min(LAYERS, k));
+    }
+
+    /** 该重起始煞气（含） */
+    public static int layerStartExp(int index, int layer) {
+        int lo = entryExp(index);
+        return (int) Math.round(lo + (clampLayer(layer) - 1) * layerSpan(index));
+    }
+
+    /** 下一重起始煞气（九重时为下一境门槛） */
+    public static int layerNextExp(int index, int layer) {
+        if (layer >= LAYERS) {
+            return nextRealmExp(index);
+        }
+        return layerStartExp(index, layer + 1);
+    }
+
+    /** 重数中文名（越界按一重/九重收敛） */
+    public static String layerName(int layer) {
+        return LAYER_NAMES.get(clampLayer(layer) - 1);
+    }
+
+    /** 重数收敛到 1~9 */
+    public static int clampLayer(int layer) {
+        return Math.max(1, Math.min(LAYERS, layer));
+    }
+
+    /** 累计重数（跨境累计，用于数值成长）：境阶×9 + 重数-1 */
+    public static int totalLayer(int index, int layer) {
+        return index * LAYERS + (clampLayer(layer) - 1);
+    }
+
+    /** 境界折算值（含重数小数部分），如 凝煞境·三重 = 1 + 2/9 */
+    public static double realmLevel(int index, int layer) {
+        return index + (clampLayer(layer) - 1) / (double) LAYERS;
+    }
+
+    /** 是否九重圆满（可冲境） */
+    public static boolean isFullLayer(int layer) {
+        return clampLayer(layer) >= LAYERS;
+    }
+
     /** 每日切磋上限（场，跨日清零） */
     public static final int DAILY_SPAR_LIMIT = 5;
 

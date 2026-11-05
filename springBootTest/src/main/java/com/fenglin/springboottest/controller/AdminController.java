@@ -75,6 +75,8 @@ public class AdminController {
     @Autowired
     private ArtMapper artMapper;
     @Autowired
+    private com.fenglin.springboottest.mapper.UserArtMapper userArtMapper;
+    @Autowired
     private TrialMapper trialMapper;
     @Autowired
     private DebateMapper debateMapper;
@@ -173,6 +175,15 @@ public class AdminController {
         if (!StringUtils.hasText(art.getRealmReq())) {
             art.setRealmReq("引煞");
         }
+        if (art.getLayer() == null || art.getLayer() < 1) {
+            art.setLayer(1);
+        }
+        int maxLayer = com.fenglin.springboottest.service.ArtService.maxLayerOf(art.getGrade());
+        if (art.getLayer() > maxLayer) {
+            return Result.error(400, String.format("「%s」品阶功法至多 %d 重，当前填了第 %d 重。",
+                    art.getGrade(), maxLayer, art.getLayer()));
+        }
+        normalizeArtNumbers(art);
         art.setId(null);
         artMapper.insert(art);
         return Result.success(art);
@@ -195,6 +206,18 @@ public class AdminController {
         if (art == null || !StringUtils.hasText(art.getName())) {
             return Result.error(400, "功法名不可为空。");
         }
+        // 分重上限校验：以提交值优先，缺省沿用旧值
+        String grade = StringUtils.hasText(art.getGrade()) ? art.getGrade() : old.getGrade();
+        int layer = art.getLayer() == null
+                ? (old.getLayer() == null ? 1 : old.getLayer()) : art.getLayer();
+        int maxLayer = com.fenglin.springboottest.service.ArtService.maxLayerOf(grade);
+        if (layer < 1 || layer > maxLayer) {
+            return Result.error(400, String.format("「%s」品阶功法至多 %d 重，当前填了第 %d 重。",
+                    grade, maxLayer, layer));
+        }
+        if (art.getLayer() == null) {
+            art.setLayer(layer);
+        }
         art.setId(id);
         artMapper.updateById(art);
         return Result.success(artMapper.selectById(id));
@@ -212,12 +235,48 @@ public class AdminController {
         if (artMapper.selectById(id) == null) {
             return Result.error(404, "魔渊之中并无此功法。");
         }
+        long owned = userArtMapper.selectCount(
+                new LambdaQueryWrapper<com.fenglin.springboottest.entity.UserArt>()
+                        .eq(com.fenglin.springboottest.entity.UserArt::getArtId, id));
+        if (owned > 0) {
+            return Result.error(400, "已有修者习得此功法，不可除名——请改为下架。");
+        }
         artMapper.deleteById(id);
         return Result.success("已将该功法从功法阁除名。");
     }
 
-    // ==================== 域外秘境（demon_trial） ====================
+    /** 功法新建时补全数值字段（未填按 0 / 默认值处理，避免库里出现 NULL） */
+    private void normalizeArtNumbers(Art art) {
+        if (art.getStatus() == null) {
+            art.setStatus(1);
+        }
+        if (art.getPriceCoin() == null) {
+            art.setPriceCoin(0);
+        }
+        if (art.getPriceJade() == null) {
+            art.setPriceJade(0);
+        }
+        if (art.getBonusAtk() == null) {
+            art.setBonusAtk(0);
+        }
+        if (art.getBonusDef() == null) {
+            art.setBonusDef(0);
+        }
+        if (art.getBonusHp() == null) {
+            art.setBonusHp(0);
+        }
+        if (art.getBonusInsight() == null) {
+            art.setBonusInsight(0);
+        }
+        if (art.getBonusAgility() == null) {
+            art.setBonusAgility(0);
+        }
+        if (!StringUtils.hasText(art.getSeries())) {
+            art.setSeries(art.getName());
+        }
+    }
 
+    // ==================== 域外秘境（demon_trial） ====================
     /** 秘境列表 GET /api/admin/trial/list?kw= → 全量（id 倒序，kw 过滤秘境名/所在域/守关/简介） */
     @GetMapping("/trial/list")
     public Result<List<Trial>> trialList(

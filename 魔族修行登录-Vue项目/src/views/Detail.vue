@@ -19,12 +19,13 @@
           @click="goModule(m.key)"
         >{{ m.title }}</a>
         <a class="nav-item" @click="goArchive">魔 枢 典 册</a>
+        <a class="nav-item" @click="goCultivate">修 为</a>
       </nav>
 
       <div class="nav-user">
         <div class="user-meta">
           <span class="user-name">{{ user?.name || '无名修者' }}</span>
-          <span class="user-realm" v-if="user?.cultivation">{{ user.cultivation }}境 · 第{{ realmIndex + 1 }}重</span>
+          <span class="user-realm" v-if="user?.cultivation">{{ user.cultivation }}境 · 第{{ user.layer || 1 }}重</span>
         </div>
         <div class="avatar">{{ initial }}</div>
         <button class="logout" type="button" @click="onLogout">断魔契</button>
@@ -87,7 +88,7 @@
             type="button"
             :disabled="learnDone || learning"
             @click="onLearn"
-          >{{ learnDone ? '已 习 此 功' : learning ? '习 得 中 ……' : '习 得 此 功' }}</button>
+          >{{ learnDone ? '已 习 此 功' : learning ? '购 得 中 ……' : `购 得 此 功 · ${info.priceText || '免费'}` }}</button>
           <span v-if="actMsg" class="act-msg">{{ actMsg }}</span>
         </div>
 
@@ -177,7 +178,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
-import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, learnArt, secretRealms, enterRealm, myRealmLog } from '../api/home'
+import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, secretRealms, enterRealm, myRealmLog } from '../api/home'
+import { buyArt } from '../api/art'
 // 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
 import { REALM_NAMES } from '../config/realm'
 
@@ -211,6 +213,8 @@ async function load() {
     const res = await homeDetail(type.value, id.value)
     if (res.data.code === 200) {
       info.value = res.data.data
+      // 功法：后端回传是否已习得，直接决定按钮状态
+      if (type.value === 'art') learnDone.value = !!info.value.owned
       // 论道页额外拉取问答题目（401/403 时静默，正文照常展示）
       if (type.value === 'debate') {
         try {
@@ -302,20 +306,22 @@ async function onRead() {
   }
 }
 
+// 购得功法：按重数分价，扣魔晶或血玉；免费功法直接入库
 async function onLearn() {
   if (learning.value || learnDone.value) return
   learning.value = true
   try {
-    const res = await learnArt(id.value)
+    const res = await buyArt(id.value)
     if (res.data.code === 200) {
       learnDone.value = true
       actMsg.value = res.data.data.msg
+      await load()
     } else {
-      actMsg.value = res.data.msg || '习得无应。'
-      if (res.data.code === 400) learnDone.value = true
+      actMsg.value = res.data.msg || '购得无应。'
+      if ((res.data.msg || '').includes('早已')) learnDone.value = true
     }
   } catch (e) {
-    actMsg.value = e.message || '习得无应。'
+    actMsg.value = e.message || '购得无应。'
   } finally {
     learning.value = false
   }
@@ -371,6 +377,7 @@ async function onAnswer(letter) {
 function goModule(key) { router.push('/module/' + key) }
 function goHome() { router.push('/home') }
 function goArchive() { router.push('/archive') }
+function goCultivate() { router.push('/cultivate') }
 function onLogout() { clearSession(); router.replace('/login') }
 
 onMounted(() => {

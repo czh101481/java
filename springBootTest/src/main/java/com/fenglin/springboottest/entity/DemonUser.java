@@ -29,6 +29,9 @@ public class DemonUser {
     /** 修为境界：引煞 / 凝煞 / 魔卒 / 魔尉 / 魔将 / 血煞 / 魔尊 / 魔祖 / 魔圣 / 无上 */
     private String cultivation;
 
+    /** 境界内重数（1~9，每境九重；由累计煞气自动推进，只升不降） */
+    private Integer layer;
+
     /** 煞气修为：浏览魔域内容积累，攒足可冲击下一境 */
     private Integer exp;
 

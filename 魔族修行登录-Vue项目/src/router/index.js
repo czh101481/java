@@ -9,6 +9,7 @@ import AdminLogin from '../views/AdminLogin.vue'
 import AdminPanel from '../views/AdminPanel.vue'
 import Social from '../views/Social.vue'
 import Vault from '../views/Vault.vue'
+import Cultivate from '../views/Cultivate.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -25,7 +26,9 @@ const routes = [
   // 传音 · 魔友（好友 + 私信 + 分享修炼心得）
   { path: '/social', name: 'social', component: Social },
   // 藏宝阁（魔晶 / 血玉 · 商店 · 乾坤袋 · 收支簿）
-  { path: '/vault', name: 'vault', component: Vault }
+  { path: '/vault', name: 'vault', component: Vault },
+  // 修为（战力 / 五维数值 / 九重进度 / 已习功法）
+  { path: '/cultivate', name: 'cultivate', component: Cultivate }
 ]
 
 export default createRouter({

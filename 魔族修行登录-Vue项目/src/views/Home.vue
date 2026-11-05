@@ -30,8 +30,14 @@
         </button>
         <div class="user-meta">
           <span class="user-name">{{ user?.name || '无名修者' }}</span>
-          <span class="user-realm-badge" v-if="user?.cultivation" :style="badgeStyle">
-            {{ user.cultivation }}境 · 第{{ myLevel + 1 }}重
+          <span
+            class="user-realm-badge"
+            v-if="user?.cultivation"
+            :style="badgeStyle"
+            title="查看修为数值（战力 / 五维）"
+            @click="goCultivate"
+          >
+            {{ user.cultivation }}境 · 第{{ myLayerName }}重
           </span>
           <span class="user-realm" v-if="user?.realm">魔种 · {{ user.realm }}</span>
         </div>
@@ -856,6 +862,10 @@ const myLevel = computed(() => {
   return i >= 0 ? i : 0
 })
 const myRealmName = computed(() => REALM_NAMES[myLevel.value])
+// 境界内重数（1~9）：后端自累计煞气推算，初始未拉取时按一重兜底
+const myLayer = computed(() => realmStatus.value?.layer ?? 1)
+const myLayerName = computed(() => realmStatus.value?.layerName ?? '一')
+const myLayerFull = computed(() => realmStatus.value?.layerFull ?? false)
 const myPercent = computed(() =>
   realmStatus.value?.percent ?? Math.round((myLevel.value * 100) / (REALM_NAMES.length - 1))
 )
@@ -875,14 +885,18 @@ const exploreCount = computed(() => realmStatus.value?.exploreCount ?? 0)
 const exploreLimit = computed(() => realmStatus.value?.exploreLimit ?? 10)
 const dailyCapped = computed(() => exploreCount.value >= exploreLimit.value)
 const expPercent = computed(() => {
-  if (isMaxRealm.value) return 100
+  if (isMaxRealm.value && myLayerFull.value) return 100
+  if (realmStatus.value?.layerPercent != null) return realmStatus.value.layerPercent
   if (!nextThreshold.value) return 0
   return Math.min(100, Math.round((myExp.value * 100) / nextThreshold.value))
 })
 const expText = computed(() => {
+  const layerPart = `第${myLayerName.value}重`
   const base = isMaxRealm.value
-    ? `${myRealmName}境 · 魔域之巅 · 煞气 ${myExp.value}`
-    : `煞气 ${myExp.value} / ${nextThreshold.value} · 冲击「${REALM_NAMES[myLevel.value + 1]}」境`
+    ? `${myRealmName.value}境·${layerPart} · 魔域之巅 · 煞气 ${myExp.value}`
+    : realmStatus.value?.layerNextExp
+      ? `${myRealmName.value}境·${layerPart} · 煞气 ${myExp.value} / ${realmStatus.value.layerNextExp}`
+      : `煞气 ${myExp.value} / ${nextThreshold.value} · 冲击「${REALM_NAMES[myLevel.value + 1]}」境`
   return `${base} · 今日参悟 ${exploreCount.value}/${exploreLimit.value}${dailyCapped.value ? '（已满）' : ''}`
 })
 const expTooltip = computed(() =>
@@ -894,6 +908,7 @@ const breakBtnText = computed(() => {
   if (isMaxRealm.value) return '已 至 巅 峰'
   if (breaking.value) return '冲 境 中 ……'
   if (canBreak.value) return '冲 击 境 界 ⟶'
+  if (!myLayerFull.value) return `第${myLayerName.value}重 · 须九重圆满`
   if (dailyCapped.value) return '今 日 已 满'
   return `还差 ${nextThreshold.value - myExp.value} 点煞气`
 })
@@ -1538,6 +1553,10 @@ function goVault() {
   router.push('/vault')
 }
 
+function goCultivate() {
+  router.push('/cultivate')
+}
+
 async function loadWallet() {
   try {
     const res = await walletOverview()
@@ -1789,6 +1808,13 @@ async function loadSocialUnread() {
   border-radius: 12px;
   padding: 1px 10px;
   background: rgba(10, 4, 16, 0.6);
+  cursor: pointer;
+  transition: 0.25s;
+}
+.user-realm-badge:hover {
+  border-color: #ffd9a0;
+  color: #ffd9a0;
+  box-shadow: 0 0 12px rgba(217, 176, 102, 0.45);
 }
 .user-realm { font-size: 11px; color: rgba(232, 220, 200, 0.45); letter-spacing: 1px; }
 .avatar {
@@ -2162,8 +2188,9 @@ async function loadSocialUnread() {
   justify-content: center;
   font-size: 10px;
   letter-spacing: 2px;
-  color: rgba(255, 255, 255, 0.75);
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+  color: rgba(255, 255, 255, 0.92);
+  /* 条内有彩色渐变，需足够重的描边才看得清 */
+  text-shadow: 0 0 3px rgba(0, 0, 0, 1), 0 1px 6px rgba(0, 0, 0, 0.95);
 }
 /* 冲击境界按钮 */
 .realm-break {

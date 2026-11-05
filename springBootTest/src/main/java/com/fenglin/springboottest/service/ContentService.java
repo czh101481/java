@@ -80,6 +80,7 @@ public class ContentService {
             String like = "%" + kw + "%";
 
             List<Art> arts = artMapper.selectList(new LambdaQueryWrapper<Art>()
+                    .ne(Art::getStatus, 0)
                     .and(w -> w.like(Art::getName, like)
                             .or().like(Art::getCategory, like)
                             .or().like(Art::getGrade, like)
@@ -137,7 +138,7 @@ public class ContentService {
             item.setId(a.getId());
             item.setTitle(a.getName());
             item.setSummary(a.getSummary());
-            item.setExtra(a.getGrade() + "·" + a.getRealmReq());
+            item.setExtra(ArtService.gradeText(a) + " · " + ArtService.priceText(a));
             item.setImg(a.getImage());
         } else if (o instanceof Trial t) {
             item.setId(t.getId());
@@ -189,7 +190,8 @@ public class ContentService {
     public List<SearchItemVO> highlights() {
         List<SearchItemVO> items = new ArrayList<>();
         items.addAll(toItems(artMapper.selectList(
-                new LambdaQueryWrapper<Art>().orderByDesc(Art::getId).last("LIMIT 2")), ART, ART_NAME));
+                new LambdaQueryWrapper<Art>().ne(Art::getStatus, 0)
+                        .orderByDesc(Art::getId).last("LIMIT 2")), ART, ART_NAME));
         items.addAll(toItems(trialMapper.selectList(
                 new LambdaQueryWrapper<Trial>().orderByDesc(Trial::getId).last("LIMIT 2")), TRIAL, TRIAL_NAME));
         items.addAll(toItems(debateMapper.selectList(
@@ -205,10 +207,14 @@ public class ContentService {
         String like = StringUtils.hasText(kw) ? "%" + kw.trim() + "%" : null;
 
         if (ART.equals(t)) {
-            LambdaQueryWrapper<Art> w = new LambdaQueryWrapper<Art>().orderByDesc(Art::getId);
+            // 功法阁：仅上架功法，按品阶（黄→仙）再按重数排序，便于逐重修炼
+            LambdaQueryWrapper<Art> w = new LambdaQueryWrapper<Art>()
+                    .ne(Art::getStatus, 0)
+                    .last("ORDER BY FIELD(grade, '黄', '玄', '地', '天', '仙'), layer ASC, id ASC");
             if (like != null) {
                 w.and(x -> x.like(Art::getName, like).or().like(Art::getCategory, like)
-                        .or().like(Art::getGrade, like).or().like(Art::getSummary, like));
+                        .or().like(Art::getGrade, like).or().like(Art::getSummary, like)
+                        .or().like(Art::getSeries, like));
             }
             return toItems(artMapper.selectList(w), ART, ART_NAME);
         }
@@ -256,8 +262,22 @@ public class ContentService {
             vo.setContent(a.getContent());
             vo.setImg(a.getImage());
             vo.getMeta().add(new DetailVO.Meta("门 类", nvl(a.getCategory())));
-            vo.getMeta().add(new DetailVO.Meta("品 阶", nvl(a.getGrade())));
+            vo.getMeta().add(new DetailVO.Meta("品 阶", ArtService.gradeText(a)));
             vo.getMeta().add(new DetailVO.Meta("所需境界", nvl(a.getRealmReq())));
+            if (StringUtils.hasText(a.getSeries())) {
+                vo.getMeta().add(new DetailVO.Meta("功 法 系", a.getSeries()));
+            }
+            vo.getMeta().add(new DetailVO.Meta("售 价", ArtService.priceText(a)));
+            vo.getMeta().add(new DetailVO.Meta("数 值", String.format(
+                    "攻伐 +%d · 护体 +%d · 气血 +%d · 悟性 +%d · 身法 +%d",
+                    nz(a.getBonusAtk()), nz(a.getBonusDef()), nz(a.getBonusHp()),
+                    nz(a.getBonusInsight()), nz(a.getBonusAgility()))));
+            vo.getMeta().add(new DetailVO.Meta("战 力", "+" + ArtService.powerOf(a)));
+            vo.setGradeText(ArtService.gradeText(a));
+            vo.setPriceText(ArtService.priceText(a));
+            vo.setPriceCoin(a.getPriceCoin());
+            vo.setPriceJade(a.getPriceJade());
+            vo.setPower(ArtService.powerOf(a));
             return vo;
         }
         if (TRIAL.equals(t)) {
@@ -320,5 +340,9 @@ public class ContentService {
 
     private String nvl(String s) {
         return s == null || s.isEmpty() ? "—" : s;
+    }
+
+    private static int nz(Integer v) {
+        return v == null ? 0 : v;
     }
 }

@@ -104,6 +104,8 @@ public class AdminController {
     private PurchaseMapper purchaseMapper;
     @Autowired
     private TradeMapper tradeMapper;
+    @Autowired
+    private com.fenglin.springboottest.service.DenService denService;
 
     /** 允许扫描的配图目录（白名单） */
     private static final Set<String> IMAGE_DIRS = Set.of("art", "trial", "codex");
@@ -653,6 +655,44 @@ public class AdminController {
         }
         archiveMapper.deleteById(id);
         return Result.success("已将该条目从魔枢典册抽离。");
+    }
+
+    // ==================== 魔窟 · 洞府挂机（demon_den） ====================
+
+    /**
+     * 洞府总览 GET /api/admin/den/list?kw=
+     * → 全部修者（含尚未开辟洞府者）的三设施等级、钱囊、心魔与待收预估；纯只读。
+     */
+    @GetMapping("/den/list")
+    public Result<List<Map<String, Object>>> denList(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "kw", required = false, defaultValue = "") String kw) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        return Result.success(denService.adminOverview(kw));
+    }
+
+    /**
+     * 洞府处置 PUT /api/admin/den/{userId}
+     * body：action = none（校订等级 / 千分位 / 回拨小时）| collect（代收）| reset（拆毁）
+     *       shaLevel / coinLevel / jadeLevel（0~10）、jadeCarry（0~999）、backHours（0~720）
+     */
+    @PutMapping("/den/{userId}")
+    public Result<?> denUpdate(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long userId,
+            @RequestBody Map<String, Object> patch) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        Map<String, Object> r = denService.adminAdjust(userId, patch);
+        if (!Boolean.TRUE.equals(r.get("ok"))) {
+            return Result.error(400, String.valueOf(r.getOrDefault("msg", "洞府处置失败。")));
+        }
+        return Result.success(r);
     }
 
     // ==================== 图片同步 ====================

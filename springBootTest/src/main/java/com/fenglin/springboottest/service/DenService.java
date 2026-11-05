@@ -10,12 +10,15 @@ import com.fenglin.springboottest.entity.DemonUser;
 import com.fenglin.springboottest.entity.Wallet;
 import com.fenglin.springboottest.mapper.DenMapper;
 import com.fenglin.springboottest.mapper.DemonUserMapper;
+import com.fenglin.springboottest.mapper.WalletMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -38,6 +41,10 @@ public class DenService {
 
     @Autowired
     private CoinService coinService;
+
+    /** 后台总览只读钱囊，不触发自动开户 */
+    @Autowired
+    private WalletMapper walletMapper;
 
     /** 取魔窟；不存在则开辟（并发下靠唯一键兜底） */
     public Den denOf(Long userId) {
@@ -272,6 +279,198 @@ public class DenService {
                 facilityName(type), cur + 1));
         data.putAll(state(userMapper.selectById(user.getId())));
         return data;
+    }
+
+    // ==================== 后台管理：只读总览 / 处置 ====================
+
+    /**
+     * 后台总览：全部修者的洞府状态与待收预估。
+     * 纯只读——不调用 denOf / walletOf，避免后台"看一眼"就自动开辟洞府或开户。
+     */
+    public List<Map<String, Object>> adminOverview(String kw) {
+        LambdaQueryWrapper<DemonUser> qw = new LambdaQueryWrapper<>();
+        if (kw != null && !kw.trim().isEmpty()) {
+            qw.like(DemonUser::getName, kw.trim());
+        }
+        qw.orderByDesc(DemonUser::getId);
+        List<DemonUser> users = userMapper.selectList(qw);
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (DemonUser u : users) {
+            Den d = denMapper.selectOne(
+                    new LambdaQueryWrapper<Den>().eq(Den::getUserId, u.getId()));
+            Den calc = d;
+            if (calc == null) {
+                // 未开辟者按「三设施 0 级、此刻为起点」计算，待收恒为 0
+                calc = new Den();
+                calc.setUserId(u.getId());
+                calc.setShaLevel(0);
+                calc.setCoinLevel(0);
+                calc.setJadeLevel(0);
+                calc.setJadeCarry(0);
+                calc.setLastCollect(LocalDateTime.now());
+            }
+            Map<String, Object> p = computePending(calc, u);
+            Wallet w = walletMapper.selectOne(
+                    new LambdaQueryWrapper<Wallet>().eq(Wallet::getUserId, u.getId()));
+
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", u.getId());                 // 供后台通用表格作为修改主键
+            m.put("name", u.getName());
+            m.put("cultivation", u.getCultivation());
+            m.put("exp", u.getExp() == null ? 0 : u.getExp());
+            m.put("heartDemon", u.getHeartDemon() == null ? 0 : u.getHeartDemon());
+            m.put("coin", w == null || w.getCoin() == null ? 0 : w.getCoin());
+            m.put("jade", w == null || w.getJade() == null ? 0 : w.getJade());
+            m.put("denId", d == null ? null : d.getId());
+            m.put("opened", d != null);
+            m.put("shaLevel", DenRule.level(calc.getShaLevel()));
+            m.put("coinLevel", DenRule.level(calc.getCoinLevel()));
+            m.put("jadeLevel", DenRule.level(calc.getJadeLevel()));
+            m.put("jadeCarry", calc.getJadeCarry() == null ? 0 : calc.getJadeCarry());
+            m.put("lastCollect", d == null ? null : d.getLastCollect());
+            long elapsedSec = ((Number) p.get("elapsedSec")).longValue();
+            m.put("elapsedHours", Math.round(elapsedSec / 360.0) / 10.0);
+            m.put("capped", p.get("capped"));
+            m.put("shaPending", p.get("shaPending"));
+            m.put("coinPending", p.get("coinPending"));
+            m.put("jadePending", p.get("jadePending"));
+            m.put("jadeRemain", p.get("jadeRemain"));
+            m.put("shaPerHour", p.get("shaPerHour"));
+            m.put("coinPerHour", p.get("coinPerHour"));
+            m.put("jadeMilliPerHour", p.get("jadeMilliPerHour"));
+            out.add(m);
+        }
+        // 已开辟洞府者优先，其余按修者 id 倒序——后台打开即可见有数据的洞府
+        out.sort((a, b) -> {
+            int ao = Boolean.TRUE.equals(a.get("opened")) ? 0 : 1;
+            int bo = Boolean.TRUE.equals(b.get("opened")) ? 0 : 1;
+            if (ao != bo) {
+                return ao - bo;
+            }
+            return Long.compare(((Number) b.get("id")).longValue(),
+                    ((Number) a.get("id")).longValue());
+        });
+        return out;
+    }
+
+    /**
+     * 后台处置：校订三设施等级 / 血玉千分位 / 回拨累积起点；
+     * 或代修者收取（复用玩家端 collect 的乐观锁结算）、拆毁洞府（删行，下次访问自动重建）。
+     * 返回 ok / msg，由 Controller 决定 success 或 error。
+     */
+    public Map<String, Object> adminAdjust(Long userId, Map<String, Object> patch) {
+        DemonUser user = userId == null ? null : userMapper.selectById(userId);
+        if (user == null) {
+            return Map.of("ok", false, "msg", "魔门之中并无此修者。");
+        }
+        Map<String, Object> p = patch == null ? Map.of() : patch;
+        String action = adminStr(p.get("action"));
+        if (action.isEmpty()) {
+            action = "none";
+        }
+
+        if ("reset".equals(action)) {
+            denMapper.delete(new LambdaQueryWrapper<Den>().eq(Den::getUserId, userId));
+            return Map.of("ok", true, "msg", "洞府已拆毁，三设施归零；修者下次进入时重新开辟。");
+        }
+        if ("collect".equals(action)) {
+            Map<String, Object> r = collect(user);
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("ok", Boolean.TRUE.equals(r.get("ok")));
+            res.put("msg", r.get("msg"));
+            return res;
+        }
+        if (!"none".equals(action)) {
+            return Map.of("ok", false, "msg", "未知的魔窟处置方式。");
+        }
+
+        Integer sha = adminInt(p.get("shaLevel"));
+        Integer coinLv = adminInt(p.get("coinLevel"));
+        Integer jadeLv = adminInt(p.get("jadeLevel"));
+        Integer carry = adminInt(p.get("jadeCarry"));
+        Integer back = adminInt(p.get("backHours"));
+        if (outOfRange(sha, DenRule.MAX_LEVEL)
+                || outOfRange(coinLv, DenRule.MAX_LEVEL)
+                || outOfRange(jadeLv, DenRule.MAX_LEVEL)) {
+            return Map.of("ok", false, "msg", "设施等级只可为 0～" + DenRule.MAX_LEVEL + "。");
+        }
+        if (outOfRange(carry, 999)) {
+            return Map.of("ok", false, "msg", "血玉千分位只可为 0～999。");
+        }
+        if (outOfRange(back, 720)) {
+            return Map.of("ok", false, "msg", "回拨小时只可为 0～720。");
+        }
+
+        Den d = denMapper.selectOne(new LambdaQueryWrapper<Den>().eq(Den::getUserId, userId));
+        boolean exists = d != null;
+        if (!exists) {
+            d = new Den();
+            d.setUserId(userId);
+            d.setShaLevel(0);
+            d.setCoinLevel(0);
+            d.setJadeLevel(0);
+            d.setJadeCarry(0);
+            d.setLastCollect(LocalDateTime.now());
+        }
+        if (sha != null) {
+            d.setShaLevel(sha);
+        }
+        if (coinLv != null) {
+            d.setCoinLevel(coinLv);
+        }
+        if (jadeLv != null) {
+            d.setJadeLevel(jadeLv);
+        }
+        if (carry != null) {
+            d.setJadeCarry(carry);
+        }
+        if (back != null && back > 0) {
+            d.setLastCollect(LocalDateTime.now().minusHours(back));
+        }
+        if (exists) {
+            denMapper.updateById(d);
+        } else {
+            denMapper.insert(d);
+        }
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("ok", true);
+        res.put("msg", String.format("洞府已校订：聚煞阵 %d 级 / 魔晶矿 %d 级 / 血玉髓脉 %d 级。",
+                d.getShaLevel(), d.getCoinLevel(), d.getJadeLevel()));
+        res.put("shaLevel", d.getShaLevel());
+        res.put("coinLevel", d.getCoinLevel());
+        res.put("jadeLevel", d.getJadeLevel());
+        res.put("jadeCarry", d.getJadeCarry());
+        res.put("lastCollect", d.getLastCollect());
+        return res;
+    }
+
+    private static boolean outOfRange(Integer v, int max) {
+        return v != null && (v < 0 || v > max);
+    }
+
+    /** 后台 number 输入可能是字符串或 JSON 数字；空串视为「不修改」 */
+    private static Integer adminInt(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof Number n) {
+            return n.intValue();
+        }
+        String s = String.valueOf(v).trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static String adminStr(Object v) {
+        return v == null ? "" : String.valueOf(v).trim();
     }
 
     public static String facilityName(String type) {

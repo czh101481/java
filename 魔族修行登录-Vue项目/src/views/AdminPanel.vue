@@ -150,6 +150,7 @@
           <p class="img-hint" v-if="cur.imgDir">
             配图清单由后端 <code>static/images/{{ cur.imgDir }}/</code> 实时同步，向该目录投放新图后刷新本页即可选用。
           </p>
+          <p class="img-hint" v-if="cur.hint">{{ cur.hint }}</p>
           <div class="modal-foot">
             <button type="button" class="gold-btn" @click="closeForm">取 消</button>
             <button type="submit" class="gold-btn primary" :disabled="saving">
@@ -172,6 +173,7 @@ import {
   artAdd, artDelete, artList, artUpdate,
   codexAdd, codexDelete, codexList, codexUpdate,
   debateAdd, debateDelete, debateList, debateUpdate,
+  denList, denUpdate,
   clearAdminSession, getAdminSession,
   imageList, itemAdd, itemDelete, itemList, itemUpdate,
   originAdd, originDelete, originList, originUpdate,
@@ -366,6 +368,43 @@ const MODULES = {
       { key: 'discountStart', label: '折扣开始', type: 'datetime', ph: '留空表示立即生效' },
       { key: 'discountEnd', label: '折扣结束', type: 'datetime', ph: '留空表示不限时长' },
       { key: 'descText', label: '物品说明', type: 'textarea', wide: true, ph: '一句话点明此物之用…' }
+    ]
+  },
+  // 魔窟 · 洞府挂机：全修者总览 + 校订 / 代收 / 拆毁（不新增、不删除修者）
+  den: {
+    label: '魔 窟', short: '洞府', noAdd: true, noDelete: true,
+    api: { list: denList, update: denUpdate },
+    imgDir: '', titleKey: 'name', addLabel: '',
+    kwPlaceholder: '按道号检索洞府…',
+    hint: '三设施 0–10 级；离线累积上限 12 小时；心魔 ≥60 聚煞阵八折、≥80 六折。'
+      + '「回拨小时」用于演示/补发，最多 720 小时（仍按 12 小时封顶）。'
+      + '「拆毁洞府」会删除该行，修者下次进入时自动重新开辟。',
+    columns: [
+      { key: 'name', label: '道号' },
+      { key: 'cultivation', label: '境界', w: '84px' },
+      { key: 'levels', label: '三设施 煞/晶/玉', w: '148px',
+        fmt: (v, r) => `${r.shaLevel} / ${r.coinLevel} / ${r.jadeLevel}` + (r.opened ? '' : ' · 未开辟') },
+      { key: 'pending', label: '待收 煞/晶/玉', w: '148px',
+        fmt: (v, r) => `${r.shaPending} / ${r.coinPending} / ${r.jadePending}` },
+      { key: 'elapsedHours', label: '累积', w: '112px',
+        fmt: (v, r) => `${Number(v).toFixed(1)} h${r.capped ? ' · 封顶' : ''}` },
+      { key: 'heartDemon', label: '心魔', w: '70px' },
+      { key: 'wallet', label: '钱囊 晶/玉', w: '118px',
+        fmt: (v, r) => `${r.coin} / ${r.jade}` },
+      { key: 'lastCollect', label: '上次收取', w: '160px', dim: true,
+        fmt: (v) => (v ? String(v).replace('T', ' ').slice(0, 16) : '—') }
+    ],
+    fields: [
+      { key: 'action', label: '处置方式', type: 'select', options: [
+        { v: 'none', t: '校订洞府（保存下方数值）' },
+        { v: 'collect', t: '代修者收取（即时结算入袋）' },
+        { v: 'reset', t: '拆毁洞府（清除魔窟数据）' }
+      ] },
+      { key: 'shaLevel', label: '聚煞阵等级', type: 'number', ph: '0 ~ 10' },
+      { key: 'coinLevel', label: '魔晶矿等级', type: 'number', ph: '0 ~ 10' },
+      { key: 'jadeLevel', label: '血玉髓脉等级', type: 'number', ph: '0 ~ 10' },
+      { key: 'jadeCarry', label: '血玉千分位', type: 'number', ph: '0 ~ 999' },
+      { key: 'backHours', label: '回拨小时', type: 'number', ph: '0 = 不回拨' }
     ]
   },
   // 修者名录：仅可修改权限（授予 / 收回管理员），不提供新增与删除

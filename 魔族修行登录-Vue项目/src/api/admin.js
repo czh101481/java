@@ -198,6 +198,16 @@ export function itemDelete(id) {
   return adminHttp.delete(`/api/admin/item/${id}`)
 }
 
+// ==================== 魔窟 · 洞府挂机（demon_den）· 总览 / 处置 ====================
+// 与通用表格一致：list 返回以 userId 为 id 的行；update 走 PUT /api/admin/den/{userId}
+export function denList(kw) {
+  return adminHttp.get('/api/admin/den/list', { params: { kw: kw || '' } })
+}
+
+export function denUpdate(userId, payload) {
+  return adminHttp.put(`/api/admin/den/${userId}`, payload)
+}
+
 // ==================== 图片同步 ====================
 // 扫描后端 static/images/{dir} 实际存在的图片，返回相对路径清单
 export function imageList(dir) {

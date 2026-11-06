@@ -253,6 +253,18 @@ public class ShopService {
         if (it == null) {
             throw new Deny("乾坤袋中并无此物。");
         }
+        String type = it.getEffectType() == null ? "exp" : it.getEffectType();
+        // 破关之钥只在功法阁的「顿悟入道 / 死战破境」里耗用，不可当丹符开囊。
+        // 旧逻辑把未识别的 effect_type 一律折成 effect_value 点煞气，既吞了秘宝又与典册相悖。
+        if ("insight".equals(type)) {
+            throw new Deny("「悟道机缘」乃破关之钥，不可开囊——请赴修为页，在圆满之完整功法上「顿悟入道」。");
+        }
+        if ("transcend".equals(type)) {
+            throw new Deny("「死战悟道」乃破关之钥，不可开囊——请赴修为页，在入道之完整功法上「死战破境」。");
+        }
+        if (!"exp".equals(type) && !"explore".equals(type) && !"coin".equals(type)) {
+            throw new Deny(String.format("「%s」效果未录枢机印（%s），暂不可取用。", it.getName(), type));
+        }
         int held = heldOf(userId, itemId);
         if (held < n) {
             throw new Deny(String.format("「%s」仅余 %d 件，不足 %d 件。", it.getName(), held, n));
@@ -274,7 +286,6 @@ public class ShopService {
             throw new Deny("乾坤袋已空，无法取用。");
         }
 
-        String type = it.getEffectType() == null ? "exp" : it.getEffectType();
         int value = (it.getEffectValue() == null ? 0 : it.getEffectValue()) * n;
         int newExp = -1;
         String effectText;
@@ -424,6 +435,12 @@ public class ShopService {
         }
         if ("coin".equals(type)) {
             return "获得" + Coin.COIN_NAME + " +" + v;
+        }
+        if ("insight".equals(type)) {
+            return "破关之钥 · 圆满 → 入道";
+        }
+        if ("transcend".equals(type)) {
+            return "破关之钥 · 入道 → 无上";
         }
         return "煞气 +" + v;
     }

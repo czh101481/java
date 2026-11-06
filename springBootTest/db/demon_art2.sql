@@ -118,9 +118,9 @@ INSERT INTO demon_item
    effect_type, effect_value, daily_limit, status, sort)
 VALUES
   ('insight_fate', '悟道机缘', '缘', '秘宝',
-   '完整功法修至圆满，凭此顿悟可入道（解锁本阶道韵）。残篇无用。', 0, 12, 'insight', 1, 0, 1, 90),
+   '圆满之完整功法，于修为页「顿悟入道」时耗一枚：功法升至入道（战力系数 1.3），此后日课「以煞养心」不再滋生心魔。残篇无用，不可开囊。', 0, 12, 'insight', 1, 0, 1, 90),
   ('death_battle', '死战悟道', '战', '秘宝',
-   '入道之后须经死战磨砺，方可破境无上（衍本命神通）。残篇无用。', 0, 25, 'transcend', 1, 0, 1, 100)
+   '入道之完整功法，于修为页「死战破境」时耗一枚：功法升至无上（战力系数 1.8，战力跨阶）。残篇无用，不可开囊。', 0, 25, 'transcend', 1, 0, 1, 100)
 AS incoming
 ON DUPLICATE KEY UPDATE
   name = incoming.name, icon = incoming.icon, category = incoming.category,

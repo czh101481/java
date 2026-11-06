@@ -8,7 +8,8 @@
 仓库根目录 `demon_db.sql` 是**全量快照**：**24 张表**的结构 + 全部数据，
 已包含典册 v3/v4/v5（46 条）、23 部功法及配图路径、10 件藏宝阁道具、鬼市/双币/社交/魔窟各表，
 **v1 数值平衡**后的价格与 `demon_den` 每日结算记账列，以及 **v1.1 每日循环**
-（论道/研读按日唯一键、`demon_item_use` 用量表、`daily_use_limit` 配置，见 `db/BALANCE.md` 第七节）。
+（论道/研读按日唯一键、`demon_item_use` 用量表、`daily_use_limit` 配置，见 `db/BALANCE.md` 第七节），
+以及**破关之钥文案修订**（两件秘宝不可开囊、丹符说明与实得数值一致）。
 `魔族修行登录-Vue项目/demon_db.sql` 是同一份副本，两份保持一致。
 
 ```bash
@@ -59,13 +60,14 @@ mysql -uroot -p<口令> --default-character-set=utf8mb4 demon_db < demon_db.sql
 | | 29 | `seed_elite.sql` | 魔祖境翘楚 |
 | **10 数值平衡** | **30** | `demon_balance_v1.sql` | 给 `demon_den` 加每日结算记账两列、藏宝阁降价、功法血玉价同步；带旧值守卫，可重复跑 |
 | | **31** | `demon_archive_v4.sql` | 典册硬编码数字改引用式，并写明每日封顶；不增删条目 |
-| **11 每日循环（v1.1）** | **32** | `demon_daily_v1.sql` | **最后执行**：给 quiz/read 两表加日期列并按日重建唯一键、建 `demon_item_use`、定 `daily_use_limit` 初值；带 `-1` 守卫，可重复跑 |
+| **11 每日循环（v1.1）** | **32** | `demon_daily_v1.sql` | 给 quiz/read 两表加日期列并按日重建唯一键、建 `demon_item_use`、定 `daily_use_limit` 初值；带 `-1` 守卫，可重复跑 |
 | | **33** | `demon_archive_v5.sql` | 典册 4 条正文同步「每日可重复 / 收益递减 / 每日限用」；不增删条目 |
+| **12 破关之钥** | **34** | `demon_item_key_fix.sql` | **最后执行**：两件秘宝与无上道果说明对齐实得、典册 37/41 写明「破关之钥不可开囊」；REPLACE 幂等，可重复跑 |
 
 > 注意：21 号 `demon_coin.sql` 与 19 号 `demon_art_catalog.sql` 写的是**旧版价格**，
 > 必须靠 30 号脚本覆盖，顺序不能提前。9 号 `demon_gameplay.sql` / 10 号 `demon_gameplay_v2.sql`
 > 已同步按日唯一键的定义，但**已存在的旧库**仍须靠 32 号脚本 ALTER 换键。
-> 全新安装走全量快照则无需跑 30~33。
+> 全新安装走全量快照则无需跑 30~34。
 
 ## 三、踩过的坑
 

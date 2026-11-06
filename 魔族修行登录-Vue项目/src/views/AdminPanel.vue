@@ -207,7 +207,9 @@ const LEVELS = ['通告', '警示', '喜讯', '秘辛'].map(v => ({ v, t: v }))
 const EFFECTS = [
   { v: 'exp', t: '加煞气' },
   { v: 'explore', t: '参悟上限' },
-  { v: 'coin', t: '得魔晶' }
+  { v: 'coin', t: '得魔晶' },
+  { v: 'insight', t: '破关钥 · 入道' },
+  { v: 'transcend', t: '破关钥 · 无上' }
 ]
 
 // 折扣展示：80 → 8 折，85 → 8.5 折

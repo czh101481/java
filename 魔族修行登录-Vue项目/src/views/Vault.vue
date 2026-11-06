@@ -132,6 +132,7 @@
             <div class="bag-main">
               <div class="bag-name">{{ it.name }}<i>×{{ it.qty }}</i></div>
               <div class="sc-cat">{{ it.category }} · {{ it.effectText }}</div>
+              <div v-if="isKeyItem(it)" class="sc-key-note">破关之钥不可开囊 · 须在修为页耗用</div>
               <div class="sc-limit" v-if="it.dailyUseLimit > 0">
                 今日已用 {{ it.usedToday }} / {{ it.dailyUseLimit }} 件
                 <i v-if="it.useSoldOut">· 今日额度已尽</i>
@@ -149,6 +150,16 @@
                 寄 售
               </button>
               <button
+                v-if="isKeyItem(it)"
+                type="button"
+                class="use-btn key-btn"
+                :disabled="busy"
+                @click="goBreakthrough"
+              >
+                赴 修 为 页
+              </button>
+              <button
+                v-else
                 type="button"
                 class="use-btn"
                 :disabled="busy || it.useSoldOut"
@@ -619,6 +630,12 @@ async function doBuy(it) {
   }
 }
 
+// 破关之钥（悟道机缘 / 死战悟道）不可开囊，只能在修为页的功法破关处耗用
+const isKeyItem = (it) => !!it && ['insight', 'transcend'].includes(it.effectType)
+function goBreakthrough() {
+  router.push('/cultivate')
+}
+
 async function doUse(it) {
   if (busy.value) return
   const left = it.dailyUseLimit > 0
@@ -959,6 +976,13 @@ onUnmounted(() => {
 }
 .use-btn:hover:not(:disabled) { background: rgba(255, 59, 107, 0.3); color: #fff; }
 .use-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.use-btn.key-btn {
+  border-color: rgba(217, 176, 102, 0.5);
+  background: rgba(217, 176, 102, 0.14);
+  color: var(--gold);
+}
+.use-btn.key-btn:hover:not(:disabled) { background: rgba(217, 176, 102, 0.28); color: #fff6dd; }
+.sc-key-note { margin-top: 4px; font-size: 11px; letter-spacing: 1px; color: var(--gold); opacity: 0.85; }
 
 /* ===== 收支簿 ===== */
 .log-list {

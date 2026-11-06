@@ -1194,8 +1194,9 @@ public class AdminController {
         }
         if (b.containsKey("effectType")) {
             String et = text(b.get("effectType"));
-            if (!"exp".equals(et) && !"explore".equals(et) && !"coin".equals(et)) {
-                return "效果类型只可为 exp（煞气）/ explore（参悟上限）/ coin（魔晶）。";
+            if (!"exp".equals(et) && !"explore".equals(et) && !"coin".equals(et)
+                    && !"insight".equals(et) && !"transcend".equals(et)) {
+                return "效果类型只可为 exp（煞气）/ explore（参悟上限）/ coin（魔晶）/ insight（入道钥）/ transcend（无上钥）。";
             }
         }
         int d = intOf(b.get("discountPercent"), 0);

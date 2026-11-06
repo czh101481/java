@@ -59,10 +59,12 @@ WHERE collect_date IS NULL OR collect_date <> CURDATE();
 UPDATE demon_item SET price_jade = 1
 WHERE code = 'realm_compass' AND price_jade = 2 AND price_coin = 0;
 
-UPDATE demon_item SET price_jade = 2, effect_value = 200, daily_limit = 1
+UPDATE demon_item SET price_jade = 2, effect_value = 200, daily_limit = 1,
+  desc_text = '捏碎魔珠，散出 200 枚魔晶'
 WHERE code = 'abyss_orb' AND price_jade = 3 AND effect_value = 300 AND daily_limit = 2;
 
-UPDATE demon_item SET price_jade = 5, effect_value = 1200
+UPDATE demon_item SET price_jade = 5, effect_value = 1200,
+  desc_text = '魔域至宝，服之煞气 +1200'
 WHERE code = 'supreme_fruit' AND price_jade = 8 AND effect_value = 2000;
 
 UPDATE demon_item SET price_jade = 8

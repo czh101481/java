@@ -85,7 +85,9 @@
                 class="row-btn"
                 :class="{ off: row.status === 0 }"
                 @click="toggleStatus(row)"
-              >{{ row.status === 1 ? '下 架' : '上 架' }}</button>
+              >{{ cur.statusLabels
+                  ? (row.status === 1 ? cur.statusLabels.on : cur.statusLabels.off)
+                  : (row.status === 1 ? '下 架' : '上 架') }}</button>
               <button type="button" class="row-btn" @click="openForm(row)">修 改</button>
               <button
                 v-if="!cur.noDelete"
@@ -168,6 +170,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { imgUrl } from '../api/home'
 import {
+  achievementAdd, achievementAdminList, achievementDelete, achievementUpdate,
   announcementAdd, announcementDelete, announcementList, announcementUpdate,
   archiveAdd, archiveDelete, archiveList, archiveUpdate,
   artAdd, artDelete, artList, artUpdate,
@@ -211,6 +214,31 @@ const EFFECTS = [
   { v: 'insight', t: '破关钥 · 入道' },
   { v: 'transcend', t: '破关钥 · 无上' }
 ]
+
+// 道途成就：判定类型必须与后端 AchievementService.COND_TYPES 白名单一致
+const CONDS = [
+  { v: 'realm_index', t: '境界位阶（0 起）' },
+  { v: 'total_layer', t: '累计境界重数' },
+  { v: 'exp', t: '累计煞气' },
+  { v: 'sign_total', t: '累计焚香日数' },
+  { v: 'sign_streak', t: '连续焚香日数' },
+  { v: 'quiz_correct', t: '答对不同论题数' },
+  { v: 'read_distinct', t: '图鉴去重篇数' },
+  { v: 'art_count', t: '已习功法数' },
+  { v: 'art_stage', t: '功法最高进度' },
+  { v: 'spar_win', t: '切磋胜场' },
+  { v: 'den_sum', t: '洞府三设施等级和' },
+  { v: 'coin_earned', t: '累计获得魔晶' },
+  { v: 'jade_earned', t: '累计获得血玉' },
+  { v: 'friend_count', t: '魔友数' },
+  { v: 'trade_sold', t: '鬼市卖出笔数' },
+  { v: 'reincarnate', t: '转世世数' },
+  { v: 'daily_all', t: '今日日课完成项数' }
+]
+const CONDMAP = Object.fromEntries(CONDS.map(o => [o.v, o.t]))
+const ACH_STAGES = ['初入', '登堂', '小成', '大成', '圆满', '无上'].map(v => ({ v, t: v }))
+const ACH_CATS = ['道途', '修行', '日课', '论道', '图鉴', '洞府', '财富', '交游', '终极'].map(v => ({ v, t: v }))
+const ACH_STATUS = [{ v: 1, t: '启用' }, { v: 0, t: '停用' }]
 
 // 折扣展示：80 → 8 折，85 → 8.5 折
 function discLabel(p) {
@@ -475,6 +503,43 @@ const MODULES = {
       { key: 'title', label: '标题', required: true, ph: '如：魔门大比将于望日开启' },
       { key: 'level', label: '类别', type: 'select', options: LEVELS },
       { key: 'content', label: '正文', type: 'textarea', wide: true, ph: '公告正文…' }
+    ]
+  },
+  // 道途成就：纯荣誉徽记，不发资源；达成后由玩家端读接口自动铭刻
+  achievement: {
+    label: '道 途 成 就', short: '道途',
+    api: { list: achievementAdminList, add: achievementAdd, update: achievementUpdate, del: achievementDelete },
+    imgDir: '', titleKey: 'name', addLabel: '录 入 新 徽 记', quickStatus: true,
+    statusLabels: { on: '停 用', off: '启 用' },
+    kwPlaceholder: '按成就名 / 代号 / 分类检索…',
+    hint: '徽记只给称号，不发魔晶、血玉、煞气，故不影响数值预算。'
+      + '判定类型只能选白名单内的项，阈值须 ≥ 1；达成后玩家端自动铭刻，无需领取。'
+      + '已有修者铭刻的徽记不可删除，请改为「停用」。',
+    columns: [
+      { key: 'icon', label: '徽', w: '44px' },
+      { key: 'name', label: '成就名' },
+      { key: 'code', label: '代号', w: '130px', dim: true },
+      { key: 'category', label: '分类', w: '70px' },
+      { key: 'stage', label: '分期', w: '66px' },
+      { key: 'condType', label: '判定类型', w: '136px', fmt: (v) => CONDMAP[v] || v },
+      { key: 'condValue', label: '阈值', w: '66px' },
+      { key: 'titleReward', label: '称号', w: '106px' },
+      { key: 'status', label: '状态', w: '74px', map: { 1: '启用', 0: '停用' } },
+      { key: 'sortOrder', label: '排序', w: '58px' }
+    ],
+    fields: [
+      { key: 'code', label: '成就代号', required: true, ph: '英文唯一，如 first_step' },
+      { key: 'name', label: '成就名', required: true, ph: '如：初入魔道' },
+      { key: 'icon', label: '徽记单字', ph: '如：启' },
+      { key: 'category', label: '分类', type: 'select', options: ACH_CATS },
+      { key: 'stage', label: '道途分期', type: 'select', options: ACH_STAGES },
+      { key: 'condType', label: '判定类型', type: 'select', options: CONDS },
+      { key: 'condValue', label: '达成阈值', type: 'number', ph: '≥ 1' },
+      { key: 'titleReward', label: '荣衔称号', ph: '如：引煞童子（纯荣誉）' },
+      { key: 'subtitle', label: '条件说明', ph: '如：煞气累计 50' },
+      { key: 'sortOrder', label: '展示顺序', type: 'number', ph: '小在前' },
+      { key: 'status', label: '状态', type: 'select', options: ACH_STATUS },
+      { key: 'description', label: '叙事说明', type: 'textarea', wide: true, ph: '一句话点明此枚徽记之来由…' }
     ]
   }
 }

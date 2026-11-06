@@ -9,6 +9,7 @@ import com.fenglin.springboottest.config.RealmConfigLoader;
 import com.fenglin.springboottest.dto.AdminLoginDTO;
 import com.fenglin.springboottest.common.Origins;
 import com.fenglin.springboottest.config.OriginConfigLoader;
+import com.fenglin.springboottest.entity.Achievement;
 import com.fenglin.springboottest.entity.Announcement;
 import com.fenglin.springboottest.entity.Archive;
 import com.fenglin.springboottest.entity.Art;
@@ -21,6 +22,8 @@ import com.fenglin.springboottest.entity.OriginConfig;
 import com.fenglin.springboottest.entity.Purchase;
 import com.fenglin.springboottest.entity.Trade;
 import com.fenglin.springboottest.entity.Trial;
+import com.fenglin.springboottest.entity.UserAchievement;
+import com.fenglin.springboottest.mapper.AchievementMapper;
 import com.fenglin.springboottest.mapper.AnnouncementMapper;
 import com.fenglin.springboottest.mapper.ArchiveMapper;
 import com.fenglin.springboottest.mapper.ArtMapper;
@@ -34,6 +37,8 @@ import com.fenglin.springboottest.mapper.PurchaseMapper;
 import com.fenglin.springboottest.mapper.RealmLogMapper;
 import com.fenglin.springboottest.mapper.TradeMapper;
 import com.fenglin.springboottest.mapper.TrialMapper;
+import com.fenglin.springboottest.mapper.UserAchievementMapper;
+import com.fenglin.springboottest.service.AchievementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.StringUtils;
@@ -107,6 +112,10 @@ public class AdminController {
     private TradeMapper tradeMapper;
     @Autowired
     private com.fenglin.springboottest.service.DenService denService;
+    @Autowired
+    private AchievementMapper achievementMapper;
+    @Autowired
+    private UserAchievementMapper userAchievementMapper;
 
     /** 允许扫描的配图目录（白名单） */
     private static final Set<String> IMAGE_DIRS = Set.of("art", "trial", "codex");
@@ -1177,6 +1186,167 @@ public class AdminController {
         }
         itemMapper.deleteById(id);
         return Result.success("已将此物自藏宝阁抹去。");
+    }
+
+    // ==================== 道途成就（阶段 13） ====================
+
+    /** 成就定义列表 GET /api/admin/achievement/list */
+    @GetMapping("/achievement/list")
+    public Result<List<Achievement>> achievementList(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "kw", required = false, defaultValue = "") String kw) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        LambdaQueryWrapper<Achievement> qw = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(kw)) {
+            String k = kw.trim();
+            qw.like(Achievement::getName, k).or().like(Achievement::getCode, k)
+                    .or().like(Achievement::getCategory, k);
+        }
+        qw.orderByAsc(Achievement::getSortOrder).orderByAsc(Achievement::getId);
+        return Result.success(achievementMapper.selectList(qw));
+    }
+
+    /** 新增成就 POST /api/admin/achievement */
+    @PostMapping("/achievement")
+    public Result<?> achievementAdd(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody Map<String, Object> body) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        if (body == null) {
+            return Result.error(400, "无可录之功行。");
+        }
+        String code = text(body.get("code"));
+        if (code.isEmpty()) {
+            return Result.error(400, "成就代号不可为空。");
+        }
+        long dup = achievementMapper.selectCount(
+                new LambdaQueryWrapper<Achievement>().eq(Achievement::getCode, code));
+        if (dup > 0) {
+            return Result.error(400, "此成就代号已被占用，请另起一名。");
+        }
+        String bad = validateAchievementBody(body);
+        if (bad != null) {
+            return Result.error(400, bad);
+        }
+
+        Achievement a = new Achievement();
+        a.setCode(code);
+        a.setName(text(body.get("name")));
+        a.setIcon(textOr(body.get("icon"), "印"));
+        a.setCategory(textOr(body.get("category"), "道途"));
+        a.setSubtitle(text(body.get("subtitle")));
+        a.setDescription(text(body.get("description")));
+        a.setCondType(textOr(body.get("condType"), "exp"));
+        a.setCondValue(intOf(body.get("condValue"), 1));
+        a.setTitleReward(text(body.get("titleReward")));
+        a.setStage(textOr(body.get("stage"), "初入"));
+        a.setSortOrder(intOf(body.get("sortOrder"), 0));
+        a.setStatus(intOf(body.get("status"), 1));
+        achievementMapper.insert(a);
+        return Result.success(achievementMapper.selectById(a.getId()));
+    }
+
+    /** 修改成就 PUT /api/admin/achievement/{id}：只改请求体里出现的字段 */
+    @PutMapping("/achievement/{id}")
+    public Result<?> achievementUpdate(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        Achievement old = achievementMapper.selectById(id);
+        if (old == null) {
+            return Result.error(404, "道途之中并无此枚徽记。");
+        }
+        if (body == null) {
+            return Result.error(400, "无可改之数。");
+        }
+        String bad = validateAchievementBody(body);
+        if (bad != null) {
+            return Result.error(400, bad);
+        }
+        if (body.containsKey("code")) {
+            String code = text(body.get("code"));
+            if (code.isEmpty()) {
+                return Result.error(400, "成就代号不可为空。");
+            }
+            long dup = achievementMapper.selectCount(new LambdaQueryWrapper<Achievement>()
+                    .eq(Achievement::getCode, code).ne(Achievement::getId, id));
+            if (dup > 0) {
+                return Result.error(400, "此成就代号已被别的徽记占用。");
+            }
+        }
+
+        UpdateWrapper<Achievement> uw = new UpdateWrapper<>();
+        uw.eq("id", id);
+        if (body.containsKey("code"))         uw.set("code", text(body.get("code")));
+        if (body.containsKey("name"))         uw.set("name", text(body.get("name")));
+        if (body.containsKey("icon"))         uw.set("icon", textOr(body.get("icon"), "印"));
+        if (body.containsKey("category"))     uw.set("category", textOr(body.get("category"), "道途"));
+        if (body.containsKey("subtitle"))     uw.set("subtitle", text(body.get("subtitle")));
+        if (body.containsKey("description"))  uw.set("description", text(body.get("description")));
+        if (body.containsKey("condType"))     uw.set("cond_type", textOr(body.get("condType"), "exp"));
+        if (body.containsKey("condValue"))    uw.set("cond_value", intOf(body.get("condValue"), 1));
+        if (body.containsKey("titleReward"))  uw.set("title_reward", text(body.get("titleReward")));
+        if (body.containsKey("stage"))        uw.set("stage", textOr(body.get("stage"), "初入"));
+        if (body.containsKey("sortOrder"))    uw.set("sort_order", intOf(body.get("sortOrder"), 0));
+        if (body.containsKey("status"))       uw.set("status", intOf(body.get("status"), 1));
+        achievementMapper.update(null, uw);
+        return Result.success(achievementMapper.selectById(id));
+    }
+
+    /** 删除成就：已有修者铭刻时不可删，改为停用 */
+    @DeleteMapping("/achievement/{id}")
+    public Result<?> achievementDelete(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id) {
+        String denied = checkAdmin(authorization);
+        if (denied != null) {
+            return Result.error(401, denied);
+        }
+        Achievement old = achievementMapper.selectById(id);
+        if (old == null) {
+            return Result.error(404, "道途之中并无此枚徽记。");
+        }
+        long got = userAchievementMapper.selectCount(new LambdaQueryWrapper<UserAchievement>()
+                .eq(UserAchievement::getAchievementId, id));
+        if (got > 0) {
+            return Result.error(400, String.format(
+                    "「%s」已有 %d 位修者铭刻，不可删除；请改为停用（状态 0）。", old.getName(), got));
+        }
+        achievementMapper.deleteById(id);
+        return Result.success("已将此枚徽记自道途抹去。");
+    }
+
+    /** 成就字段校验：条件类型走 AchievementService 白名单，避免后台写出永远无法达成的徽记 */
+    private String validateAchievementBody(Map<String, Object> b) {
+        if (b.containsKey("name") && text(b.get("name")).isEmpty()) {
+            return "成就名不可为空。";
+        }
+        if (b.containsKey("condType")
+                && !AchievementService.COND_TYPE_SET.contains(text(b.get("condType")))) {
+            return "判定类型不在白名单内，可用：" + String.join(" / ", AchievementService.COND_TYPES);
+        }
+        if (intOf(b.get("condValue"), 1) < 1) {
+            return "达成阈值须 ≥ 1。";
+        }
+        if (b.containsKey("stage")
+                && !AchievementService.STAGES.contains(text(b.get("stage")))) {
+            return "道途分期只可为：" + String.join(" / ", AchievementService.STAGES);
+        }
+        int st = intOf(b.get("status"), 1);
+        if (st != 0 && st != 1) {
+            return "状态只可为 1（启用）或 0（停用）。";
+        }
+        return null;
     }
 
     /** 物品字段校验（只校验请求体里出现的字段） */

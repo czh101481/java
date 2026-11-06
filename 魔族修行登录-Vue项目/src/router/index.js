@@ -11,6 +11,7 @@ import Social from '../views/Social.vue'
 import Vault from '../views/Vault.vue'
 import Cultivate from '../views/Cultivate.vue'
 import Den from '../views/Den.vue'
+import Achievement from '../views/Achievement.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -31,7 +32,9 @@ const routes = [
   // 修为（战力 / 五维数值 / 九重进度 / 已习功法）
   { path: '/cultivate', name: 'cultivate', component: Cultivate },
   // 魔窟（洞府挂机：聚煞阵 / 魔晶矿 / 血玉髓脉，12 小时封顶）
-  { path: '/den', name: 'den', component: Den }
+  { path: '/den', name: 'den', component: Den },
+  // 道途成就（纯荣誉徽记 + 六期进度；不发任何资源）
+  { path: '/achievement', name: 'achievement', component: Achievement }
 ]
 
 export default createRouter({

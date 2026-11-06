@@ -21,6 +21,7 @@
         <a class="nav-item" @click="goSocial()">传 音<span v-if="socialUnread" class="nav-badge">{{ socialUnread }}</span></a>
         <a class="nav-item" @click="goVault()">藏 宝 阁</a>
         <a class="nav-item" @click="goDen()">魔 窟</a>
+        <a class="nav-item" @click="goAchievement()">道 途</a>
       </nav>
 
       <div class="nav-user">
@@ -274,7 +275,35 @@
     <section class="daily">
       <div class="sec-title">
         <span>修 行 日 常</span>
-        <em>焚香 · 参悟 · 论道 · 图鉴 · 战绩</em>
+        <em>焚香 · 参悟 · 论道 · 研读 · 秘境 · 洞府 · 战绩</em>
+      </div>
+
+      <!-- 今日七课：完成度总览（只读后端既有计数），逐项可点入对应玩法 -->
+      <div class="quest" v-if="daily">
+        <div class="quest-top">
+          <span class="quest-label">今 日 修 行</span>
+          <span class="quest-count">{{ daily.doneCount }} / {{ daily.total }} 课 已 竟</span>
+          <span class="quest-pct">{{ daily.percent }}%</span>
+          <span class="quest-all" v-if="daily.allDone">日 课 无 缺</span>
+          <button class="quest-link" type="button" @click="goAchievement()">道 途 成 就 ⟶</button>
+        </div>
+        <div class="quest-bar"><i :style="{ width: daily.percent + '%' }"></i></div>
+        <div class="quest-items">
+          <button
+            v-for="q in daily.items"
+            :key="q.key"
+            type="button"
+            class="qi"
+            :class="{ done: q.done }"
+            :title="q.hint"
+            @click="onDailyAction(q)"
+          >
+            <span class="qi-name">{{ q.name }}</span>
+            <span class="qi-num">{{ q.cur }}/{{ q.limit }}</span>
+            <span class="qi-bar"><i :style="{ width: q.percent + '%' }"></i></span>
+          </button>
+        </div>
+        <div class="quest-tip" v-if="dailyTip">{{ dailyTip }}</div>
       </div>
 
       <div class="daily-grid">
@@ -718,6 +747,7 @@ import { homeOverview, homeSearch, homeAnnouncements, homeHighlights, homeRealms
 import { archiveCategories } from '../api/archive'
 import { messageUnread } from '../api/social'
 import { walletOverview } from '../api/coin'
+import { dailyProgress } from '../api/achievement'
 import { AVATARS, renderAvatar, isImageAvatar } from '../config/avatars'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
@@ -970,6 +1000,44 @@ const sparWinRate = computed(() =>
     ? 0
     : Math.round((sparWin.value * 100) / (sparWin.value + sparLose.value))
 )
+
+// ==================== 今日修行七课（只读聚合，不新增产出） ====================
+const daily = ref(null)
+let dailyTimer = null
+const dailyTip = computed(() => {
+  if (!daily.value) return ''
+  const miss = (daily.value.items || []).find(x => !x.done)
+  return miss ? `下 一 课 · ${miss.name} —— ${miss.hint}` : '七 课 皆 竟，可赴道途查看新徽记'
+})
+
+async function loadDaily() {
+  try {
+    const res = await dailyProgress()
+    if (res.data.code === 200) daily.value = res.data.data
+  } catch (e) { /* 静默，沿用上次进度 */ }
+}
+
+function scrollToSection(sel) {
+  const el = document.querySelector(sel)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+function onDailyAction(q) {
+  switch (q.action) {
+    case 'sign': if (!signSigned.value) onSign(); break
+    case 'explore': if (!dailyCapped.value) onExplore(); break
+    case 'quiz': quizVisible.value = true; break
+    case 'spar': scrollToSection('.rank'); break
+    case 'read': router.push('/module/codex'); break
+    case 'secret': scrollToSection('.secret'); break
+    case 'den': router.push('/den'); break
+    default: break
+  }
+}
+
+function goAchievement() {
+  router.push('/achievement')
+}
 
 async function refreshStatus() {
   try {
@@ -1492,12 +1560,17 @@ onMounted(async () => {
 
   // 钱囊余额（导航展示）
   await loadWallet()
+
+  // 今日修行七课：首次加载 + 20 秒轮询，操作后不久即会反映到进度
+  await loadDaily()
+  dailyTimer = setInterval(loadDaily, 20000)
 })
 
 onBeforeUnmount(() => {
   if (tickerTimer) clearInterval(tickerTimer)
   if (realmTimer) clearTimeout(realmTimer)
   if (socialTimer) clearInterval(socialTimer)
+  if (dailyTimer) clearInterval(dailyTimer)
   if (avatarSavedTimer) clearTimeout(avatarSavedTimer)
 })
 
@@ -2974,6 +3047,47 @@ async function loadSocialUnread() {
 
 /* ==================== v2 修行日常 ==================== */
 .daily { position: relative; z-index: 3; }
+/* ===== 今日修行七课 ===== */
+.quest {
+  margin: 0 0 18px; padding: 16px 18px; border-radius: 12px;
+  background: rgba(20, 6, 14, 0.55);
+  border: 1px solid rgba(217, 176, 102, 0.22);
+}
+.quest-top { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.quest-label { font-size: 12px; letter-spacing: 4px; color: rgba(217, 176, 102, 0.9); }
+.quest-count { font-size: 12px; letter-spacing: 2px; color: rgba(232, 220, 200, 0.7); }
+.quest-pct { font-size: 18px; color: #ffd7a1; }
+.quest-all {
+  padding: 2px 10px; border-radius: 20px; font-size: 11px; letter-spacing: 2px;
+  color: #ffd7a1; background: rgba(217, 176, 102, 0.14);
+  border: 1px solid rgba(217, 176, 102, 0.35);
+}
+.quest-link {
+  margin-left: auto; padding: 5px 13px; border-radius: 8px; cursor: pointer;
+  font-family: inherit; font-size: 11px; letter-spacing: 2px;
+  color: rgba(232, 220, 200, 0.75); background: rgba(255, 59, 107, 0.10);
+  border: 1px solid rgba(255, 59, 107, 0.28);
+}
+.quest-link:hover { color: #ffe9d2; border-color: rgba(255, 59, 107, 0.55); }
+.quest-bar { height: 7px; margin-top: 12px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
+.quest-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #b3183a, #d9b066); }
+.quest-items { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.qi {
+  display: flex; flex-direction: column; gap: 5px; padding: 9px 8px;
+  border-radius: 9px; cursor: pointer; font-family: inherit; text-align: left;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.qi:hover { border-color: rgba(255, 59, 107, 0.45); }
+.qi.done { background: rgba(217, 176, 102, 0.10); border-color: rgba(217, 176, 102, 0.35); }
+.qi-name { font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.7); white-space: nowrap; }
+.qi.done .qi-name { color: #ffd7a1; }
+.qi-num { font-size: 12px; color: rgba(232, 220, 200, 0.5); }
+.qi-bar { display: block; height: 4px; border-radius: 4px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
+.qi-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #b3183a, #ff7a5c); }
+.qi.done .qi-bar > i { background: #d9b066; }
+.quest-tip { margin-top: 12px; font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.5); }
+@media (max-width: 1100px) { .quest-items { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .quest-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .daily-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

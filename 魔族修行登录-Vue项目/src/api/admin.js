@@ -236,6 +236,23 @@ export function denUpdate(userId, payload) {
   return adminHttp.put(`/api/admin/den/${userId}`, payload)
 }
 
+// ==================== 道途成就（demon_achievement）· 增删改查 ====================
+export function achievementAdminList(kw) {
+  return adminHttp.get('/api/admin/achievement/list', { params: { kw: kw || '' } })
+}
+
+export function achievementAdd(payload) {
+  return adminHttp.post('/api/admin/achievement', payload)
+}
+
+export function achievementUpdate(id, payload) {
+  return adminHttp.put(`/api/admin/achievement/${id}`, payload)
+}
+
+export function achievementDelete(id) {
+  return adminHttp.delete(`/api/admin/achievement/${id}`)
+}
+
 // ==================== 图片同步 ====================
 // 扫描后端 static/images/{dir} 实际存在的图片，返回相对路径清单
 export function imageList(dir) {

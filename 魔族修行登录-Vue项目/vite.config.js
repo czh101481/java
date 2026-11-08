@@ -8,6 +8,12 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    open: true
+    open: true,
+    // 头像等上传资源走同源相对路径，由这里转发到后端。
+    // 换台电脑用局域网地址访问本机服务时，图片依旧能正确取到。
+    proxy: {
+      '/uploads': { target: 'http://localhost:8081', changeOrigin: true },
+      '/api': { target: 'http://localhost:8081', changeOrigin: true }
+    }
   }
 })

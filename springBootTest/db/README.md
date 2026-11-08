@@ -5,12 +5,16 @@
 
 ## 一、全新安装（推荐，一步到位）
 
-仓库根目录 `demon_db.sql` 是**全量快照**：**26 张表**的结构 + 全部数据，
+仓库根目录 `demon_db.sql` 是**全量快照**：**27 张表**的结构 + 全部数据，
 已包含典册 v3/v4/v5 + 道途篇（47 条）、23 部功法及配图路径、10 件藏宝阁道具、鬼市/双币/社交/魔窟/道途成就各表，
 **v1 数值平衡**后的价格与 `demon_den` 每日结算记账列，以及 **v1.1 每日循环**
 （论道/研读按日唯一键、`demon_item_use` 用量表、`daily_use_limit` 配置，见 `db/BALANCE.md` 第七节），
 以及**破关之钥文案修订**（两件秘宝不可开囊、丹符说明与实得数值一致），
-以及**道途成就**（`demon_achievement` 25 条 + `demon_user_achievement` 解锁账，纯荣誉不发资源）。
+以及**道途成就**（`demon_achievement` 25 条 + `demon_user_achievement` 解锁账，纯荣誉不发资源），
+以及**自定义头像图片本体**（`demon_avatar_file` 表，base64 存库）。
+> 因此快照里**自带所有上传过的头像**：换一台电脑只要导入本快照，即使 `uploads/` 目录为空，
+> 英杰榜 / 道牌 / 传音里的头像也能正常显示。图片由 `GET /uploads/**` 提供（库优先、磁盘兜底），
+> 前端用同源相对路径取图，跨机器访问也不会指向访问者自己的 `localhost`。
 `魔族修行登录-Vue项目/demon_db.sql` 是同一份副本，两份保持一致。
 
 ```bash
@@ -64,12 +68,13 @@ mysql -uroot -p<口令> --default-character-set=utf8mb4 demon_db < demon_db.sql
 | **11 每日循环（v1.1）** | **32** | `demon_daily_v1.sql` | 给 quiz/read 两表加日期列并按日重建唯一键、建 `demon_item_use`、定 `daily_use_limit` 初值；带 `-1` 守卫，可重复跑 |
 | | **33** | `demon_archive_v5.sql` | 典册 4 条正文同步「每日可重复 / 收益递减 / 每日限用」；不增删条目 |
 | **12 破关之钥** | **34** | `demon_item_key_fix.sql` | 两件秘宝与无上道果说明对齐实得、典册 37/41 写明「破关之钥不可开囊」；REPLACE 幂等，可重复跑 |
-| **13 道途成就** | **35** | `demon_achievement.sql` | **最后执行**：建 `demon_achievement` / `demon_user_achievement` 两表，25 条种子成就，典册补「道途与功行」；`INSERT IGNORE` 幂等，不会覆盖后台手改 |
+| **13 道途成就** | **35** | `demon_achievement.sql` | 建 `demon_achievement` / `demon_user_achievement` 两表，25 条种子成就，典册补「道途与功行」；`INSERT IGNORE` 幂等，不会覆盖后台手改 |
+| **14 头像图片入库** | **36** | `demon_avatar_file.sql` | **最后执行**：建 `demon_avatar_file`（图片本体 base64）；`CREATE TABLE IF NOT EXISTS` 幂等。已有库跑完还需在 `springBootTest/` 目录执行一次 `python migrate_avatars.py`，把 `uploads/avatars/` 里的历史图片补录进表（可重复跑） |
 
 > 注意：21 号 `demon_coin.sql` 与 19 号 `demon_art_catalog.sql` 写的是**旧版价格**，
 > 必须靠 30 号脚本覆盖，顺序不能提前。9 号 `demon_gameplay.sql` / 10 号 `demon_gameplay_v2.sql`
 > 已同步按日唯一键的定义，但**已存在的旧库**仍须靠 32 号脚本 ALTER 换键。
-> 全新安装走全量快照则无需跑 30~35。
+> 全新安装走全量快照则无需跑 30~36，也无需跑迁移脚本（快照里已含图片）。
 
 ## 三、踩过的坑
 
@@ -87,9 +92,9 @@ mysql -uroot -p<口令> --default-character-set=utf8mb4 demon_db < demon_db.sql
 - **MySQL 唯一键含可为 NULL 的列时不生效**（NULL 互不相等）：32 号脚本给
   `quiz_date` / `read_date` 回填历史日期后必须 `MODIFY ... NOT NULL`，否则按日判重会失效。
 - 校验是否重建成功：
-  `SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='demon_db';` 应为 **26**；
+  `SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='demon_db';` 应为 **27**；
   `demon_archive` 47 条、`demon_art` 23 条、`demon_item` 10 条、`demon_debate` 20 条、
-  `demon_achievement` 25 条；
+  `demon_achievement` 25 条、`demon_avatar_file` 至少 9 条（历史上传头像）；
   `SHOW COLUMNS FROM demon_den LIKE 'collect%';` 应有 `collect_date` / `collected_sec` 两列；
   `SHOW INDEX FROM demon_quiz_record;` 应有 `uk_user_debate_day` 而无 `uk_user_debate`，
   `SHOW INDEX FROM demon_read_record;` 应有 `uk_user_ref_day` 而无 `uk_user_ref`。

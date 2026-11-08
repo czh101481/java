@@ -149,21 +149,11 @@ export function myRealmLog(limit) {
   return http.get('/api/home/secret/log', { params: { limit: limit || 20 } })
 }
 
-// ==================== 内容互动（点赞 / 收藏） ====================
+// ==================== 内容互动（点赞） ====================
 
 // 点赞（切换式）：再次调用即取消，返回 { liked, likeCount }
 export function likeContent(type, id) {
   return http.post('/api/home/like', { type, id })
-}
-
-// 收藏（切换式）：再次调用即取消，返回 { favorited, favoriteCount }
-export function favoriteContent(type, id) {
-  return http.post('/api/home/favorite', { type, id })
-}
-
-// 我的收藏：按收藏时间倒序，返回 { total, list }
-export function myFavorites() {
-  return http.get('/api/home/favorites')
 }
 
 // ==================== 内容评论 ====================

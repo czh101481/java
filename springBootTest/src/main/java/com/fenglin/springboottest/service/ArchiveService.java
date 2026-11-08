@@ -28,7 +28,7 @@ public class ArchiveService {
             {"ancient", "上古秘录", "远古大战、旧枢机覆灭传说", "✠", "/images/codex/codex-4.jpg", "卷"}
     };
 
-    /** 分类键 → 中文名（详情页 / 收藏阁共用） */
+    /** 分类键 → 中文名（详情页共用） */
     public static String categoryName(String key) {
         for (Object[] c : CATEGORIES) {
             if (c[0].equals(key)) return (String) c[1];
@@ -36,7 +36,7 @@ public class ArchiveService {
         return key == null ? "—" : key;
     }
 
-    /** 分类键 → 封面图（分类卡片 / 详情页 / 收藏阁共用） */
+    /** 分类键 → 封面图（分类卡片 / 详情页共用） */
     public static String coverOf(String key) {
         for (Object[] c : CATEGORIES) {
             if (c[0].equals(key)) return (String) c[4];

@@ -179,12 +179,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { getSession } from '../api/auth'
 import {
   friendList, friendRequests, applyFriend, handleFriend, removeFriend,
-  searchUsers, messageHistory, sendMessage, messageUnread
+  searchUsers, messageHistory, sendMessage
 } from '../api/social'
 import { homeSearch } from '../api/home'
 import { renderAvatar } from '../config/avatars'
@@ -228,8 +228,6 @@ const insightKw = ref('')
 const insightResults = ref([])
 const searchingInsight = ref(false)
 
-const requestCount = computed(() => requests.value.length)
-
 const TYPE_LABEL = { art: '功法阁', codex: '魔典秘录', archive: '魔枢典册' }
 function refTypeName(t) { return TYPE_LABEL[t] || t || '典籍' }
 
@@ -261,22 +259,6 @@ async function refreshRequests() {
   try {
     const res = await friendRequests()
     if (res.data.code === 200) requests.value = res.data.data || []
-  } catch (e) { /* 静默 */ }
-}
-
-async function refreshUnread() {
-  try {
-    const res = await messageUnread()
-    if (res.data.code === 200) {
-      // 把各好友未读数同步进 friends 列表（与接口返回的去重，这里以列表自带为准）
-      const per = res.data.data?.list || []
-      const map = {}
-      for (const p of per) map[p.friendId] = p.count
-      for (const f of friends.value) {
-        // 列表接口已带未读；此处仅兜底，不覆盖
-        if (f.unread == null) f.unread = map[f.userId] || 0
-      }
-    }
   } catch (e) { /* 静默 */ }
 }
 

@@ -97,11 +97,6 @@ export function sparring(targetName) {
 
 // ==================== v2 玩法 ====================
 
-// 每日签到状态：今日是否已签 / 连签天数 / 今日可领煞气
-export function signInfo() {
-  return http.get('/api/home/sign')
-}
-
 // 执行签到：连签越久赏赐越厚，连满七日另有大赏
 export function doSign() {
   return http.post('/api/home/sign')
@@ -115,16 +110,6 @@ export function reincarnate() {
 // 研读典籍：首次研读该篇得煞气，并计入图鉴收集度
 export function readDoc(module, id) {
   return http.post('/api/home/read', { module, id })
-}
-
-// 图鉴收集度：已读篇数 / 全库总篇数
-export function myCollection() {
-  return http.get('/api/home/collection')
-}
-
-// 习得功法：每部 +5% 参悟加成（最多叠加 4 部）
-export function learnArt(artId) {
-  return http.post(`/api/home/learn/${artId}`)
 }
 
 // 随机论题：取一道本人尚未作答的论题，供首页「今日论道」直接开答
@@ -148,31 +133,3 @@ export function enterRealm(id) {
 export function myRealmLog(limit) {
   return http.get('/api/home/secret/log', { params: { limit: limit || 20 } })
 }
-
-// ==================== 内容互动（点赞） ====================
-
-// 点赞（切换式）：再次调用即取消，返回 { liked, likeCount }
-export function likeContent(type, id) {
-  return http.post('/api/home/like', { type, id })
-}
-
-// ==================== 内容评论 ====================
-
-// 评论列表：倒序分页，返回 { total, limit, offset, list }
-export function commentList(type, id, limit, offset) {
-  return http.get('/api/home/comments', {
-    params: { type, id, limit: limit || 20, offset: offset || 0 }
-  })
-}
-
-// 发表评论：至多 300 字，同一修者 10 秒内仅一条
-export function addComment(type, id, content) {
-  return http.post('/api/home/comment', { type, id, content })
-}
-
-// 删除自己的评论（管理员可删任意）
-export function deleteComment(commentId) {
-  return http.delete(`/api/home/comment/${commentId}`)
-}
-
-

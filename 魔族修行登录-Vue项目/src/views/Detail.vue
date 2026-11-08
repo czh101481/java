@@ -256,8 +256,6 @@ import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
 import { homeDetail, explore, debateQuiz, debateAnswer, imgUrl, readDoc, secretRealms, enterRealm, myRealmLog } from '../api/home'
 import { buyArt, completeArt, cultivateArt, insightArt, transcendArt } from '../api/art'
-// 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
-import { REALM_NAMES } from '../config/realm'
 
 const route = useRoute()
 const router = useRouter()
@@ -267,10 +265,6 @@ const user = ref(session.user)
 const type = computed(() => String(route.params.type || 'art'))
 const id = computed(() => Number(route.params.id || 0))
 
-const realmIndex = computed(() => {
-  const i = REALM_NAMES.indexOf(user.value?.cultivation)
-  return i >= 0 ? i : 0
-})
 const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
 
 const navModules = [
@@ -355,7 +349,6 @@ async function onEnterRealm() {
 const readLabel = computed(() => (type.value === 'trial' ? '勘 察 此 境' : '研 读 本 篇'))
 const readDoneLabel = computed(() => (type.value === 'trial' ? '今 日 已 勘 察' : '今 日 已 读'))
 const reading = ref(false)
-const learning = ref(false)
 const readDone = ref(false)
 const learnDone = ref(false)
 const actMsg = ref('')

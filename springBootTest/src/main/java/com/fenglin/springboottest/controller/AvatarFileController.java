@@ -28,6 +28,11 @@ import java.util.regex.Pattern;
  *
  * 前端把图片地址改成同源相对路径（不再拼 localhost:8081），
  * 因此从别的电脑访问同一套服务时也不会指向访问者自己的机器。
+ *
+ * 注意：**不要再注册 /uploads/** 静态资源映射**（例如 WebMvcConfigurer 的
+ * addResourceHandlers）。同一路径若同时存在静态资源 Handler 与 Controller，
+ * 行为取决于 HandlerMapping 优先级，会出现「有文件没库 / 有库没文件」表现不一致。
+ * 磁盘 uploads/ 仅作本机备份，不参与对外取图路由。
  */
 @RestController
 public class AvatarFileController {

@@ -893,14 +893,8 @@ const myLevel = computed(() => {
   return i >= 0 ? i : 0
 })
 const myRealmName = computed(() => REALM_NAMES[myLevel.value])
-// 境界内重数（1~9）：后端自累计煞气推算，初始未拉取时按一重兜底
-const myLayer = computed(() => realmStatus.value?.layer ?? 1)
 const myLayerName = computed(() => realmStatus.value?.layerName ?? '一')
 const myLayerFull = computed(() => realmStatus.value?.layerFull ?? false)
-const myPercent = computed(() =>
-  realmStatus.value?.percent ?? Math.round((myLevel.value * 100) / (REALM_NAMES.length - 1))
-)
-
 // ==================== 煞气修为与冲境 ====================
 // 冲击各境界所需煞气：来自 ../config/realm（由后端 demon_realm 表驱动，索引即目标位阶）
 
@@ -1591,10 +1585,6 @@ async function onSearch() {
 function clearSearch() {
   keyword.value = ''
   searchResult.value = null
-}
-
-function onLocked(name) {
-  alert(`「${name}」此殿尚未开启，静待魔主谕令。`)
 }
 
 function onLogout() {

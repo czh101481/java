@@ -24,8 +24,3 @@ export function insightArt(artId) {
 export function transcendArt(artId) {
   return http.post(`/api/art/transcend/${artId}`)
 }
-
-// 我已习得的功法（含形态、六重进度与实得数值）
-export function myArts() {
-  return http.get('/api/art/mine')
-}

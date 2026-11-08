@@ -187,11 +187,6 @@ export function originDelete(id) {
   return adminHttp.delete(`/api/admin/origin/${id}`)
 }
 
-// 手动重载魔种天赋配置（一般无需调用，增删改已自动重载）
-export function originReload() {
-  return adminHttp.post('/api/admin/origin/reload')
-}
-
 // ==================== 魔门公告（demon_announcement） ====================
 export function announcementList(kw) {
   return adminHttp.get('/api/admin/announcement/list', { params: { kw: kw || '' } })

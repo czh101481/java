@@ -10,7 +10,3 @@ export function archiveList(cat, kw) {
   return http.get('/api/archive/list', { params: { cat: cat || '', kw: kw || '' } })
 }
 
-// 魔枢典册 · 单条详情
-export function archiveDetail(id) {
-  return http.get('/api/archive/detail', { params: { id } })
-}

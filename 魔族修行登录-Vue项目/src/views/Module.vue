@@ -103,8 +103,6 @@ import { useRoute, useRouter } from 'vue-router'
 import DemonBackground from '../components/DemonBackground.vue'
 import { getSession, clearSession } from '../api/auth'
 import { homeList, imgUrl, secretRealms, enterRealm } from '../api/home'
-// 境界位阶（引煞 0 → 无上 9）：来自 ../config/realm，由后端 demon_realm 表驱动
-import { REALM_NAMES } from '../config/realm'
 
 const route = useRoute()
 const router = useRouter()
@@ -114,11 +112,6 @@ const user = ref(session.user)
 const type = computed(() => String(route.params.type || 'art'))
 const initial = computed(() => (user.value?.name || '魔').slice(0, 1))
 const isHome = ref(false)
-
-const realmIndex = computed(() => {
-  const i = REALM_NAMES.indexOf(user.value?.cultivation)
-  return i >= 0 ? i : 0
-})
 
 const META = {
   art:    { icon: '☥', title: '功 法 阁', desc: '修魔之术，万千法门', unit: '部' },

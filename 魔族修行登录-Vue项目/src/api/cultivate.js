@@ -4,8 +4,3 @@ import { http } from './auth'
 export function cultivatePanel() {
   return http.get('/api/cultivate/panel')
 }
-
-// 数值规则（公开）：每境重数、成长系数、品阶重数上限
-export function cultivateRules() {
-  return http.get('/api/cultivate/rules')
-}

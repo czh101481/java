@@ -1318,14 +1318,6 @@ public class HomeController {
         return Result.success(data);
     }
 
-    /** 按主键更新修者煞气修为 */
-    private void updateExp(Long userId, int exp) {
-        com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
-                new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
-        uw.eq("id", userId).set("exp", exp);
-        userMapper.update(null, uw);
-    }
-
     /** 由 Authorization 头解析当前修者（无效返回 null） */
     private DemonUser currentUser(String authorization) {
         Long userId = currentUserId(authorization);

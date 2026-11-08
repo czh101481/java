@@ -8,7 +8,9 @@ import com.fenglin.springboottest.common.TokenManager;
 import com.fenglin.springboottest.dto.ChangePasswordDTO;
 import com.fenglin.springboottest.dto.LoginDTO;
 import com.fenglin.springboottest.dto.RegisterDTO;
+import com.fenglin.springboottest.entity.AvatarFile;
 import com.fenglin.springboottest.entity.DemonUser;
+import com.fenglin.springboottest.mapper.AvatarFileMapper;
 import com.fenglin.springboottest.mapper.DemonUserMapper;
 import com.fenglin.springboottest.vo.LoginVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +22,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -37,6 +41,10 @@ public class AuthService {
 
     @Autowired
     private DemonUserMapper userMapper;
+
+    /** 头像图片本体（base64 存库，随全量快照跨机器迁移） */
+    @Autowired
+    private AvatarFileMapper avatarFileMapper;
 
     @Autowired
     private TokenManager tokenManager;
@@ -216,7 +224,7 @@ public class AuthService {
         return Result.success(user);
     }
 
-    /** 上传自定义头像：校验图片 → 落盘 uploads/avatars → 写库返回最新修者 */
+    /** 上传自定义头像：校验图片 → 图片本体入 demon_avatar_file → 落盘备份 → 更新 avatar 路径 */
     public Result<DemonUser> uploadAvatar(String token, MultipartFile file) {
         if (!StringUtils.hasText(token)) {
             return Result.error(401, "未持魔契，请先入魔道。");
@@ -249,20 +257,53 @@ public class AuthService {
             return Result.error(404, "修者不复存在。");
         }
 
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            return Result.error(500, "刻印失败，图像未能读取。");
+        }
+        if (bytes.length == 0) {
+            return Result.error(400, "图像空空如也，无从刻印。");
+        }
+
         String filename = userId + "_" + System.currentTimeMillis() + "." + ext;
+        String url = "/uploads/avatars/" + filename;
+
+        // ① 图片本体入 demon_avatar_file —— 权威副本，随 demon_db.sql 快照一起迁移。
+        //    换电脑导入快照后，即使 uploads/ 目录为空，英杰榜/道牌/传音仍能取到图。
+        try {
+            AvatarFile rec = new AvatarFile();
+            rec.setFilePath(url);
+            rec.setMime(mimeOf(ext));
+            rec.setImgBase64(Base64.getEncoder().encodeToString(bytes));
+            rec.setCreatedAt(LocalDateTime.now());
+            AvatarFile exists = avatarFileMapper.selectOne(
+                    new LambdaQueryWrapper<AvatarFile>()
+                            .eq(AvatarFile::getFilePath, url).last("LIMIT 1"));
+            if (exists == null) {
+                avatarFileMapper.insert(rec);
+            } else {
+                rec.setId(exists.getId());
+                avatarFileMapper.updateById(rec);
+            }
+        } catch (Exception e) {
+            return Result.error(500, "刻印失败，图像未能入藏经阁。");
+        }
+
+        // ② 磁盘仅作本机备份，写失败不影响主流程
         try {
             Path dir = Paths.get(System.getProperty("user.dir"), "uploads", "avatars").toAbsolutePath();
             Files.createDirectories(dir);
-            file.transferTo(dir.resolve(filename).toFile());
-        } catch (IOException e) {
-            return Result.error(500, "刻印失败，图像未能落定。");
+            Files.write(dir.resolve(filename), bytes);
+        } catch (IOException ignored) {
+            /* 库里已有权威副本 */
         }
 
-        String url = "/uploads/avatars/" + filename;
         String old = user.getAvatar();
         userMapper.update(null, new UpdateWrapper<DemonUser>()
                 .eq("id", userId).set("avatar", url));
-        // 清理上一张自定义头像（仅 /uploads/ 下的文件，预设 key 不动）
+        // 清理上一张自定义头像（库记录 + 磁盘文件，预设 key 不动）
         deleteUploaded(old);
 
         user.setAvatar(url);
@@ -270,10 +311,34 @@ public class AuthService {
         return Result.success(user);
     }
 
-    /** 删除旧的、位于 uploads/ 下的头像文件（不存在或非上传路径则忽略） */
+    /** 由扩展名定 mime（不直接信任客户端传来的 contentType） */
+    private static String mimeOf(String ext) {
+        switch (ext) {
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            case "webp":
+                return "image/webp";
+            case "bmp":
+                return "image/bmp";
+            default:
+                return "image/jpeg";
+        }
+    }
+
+    /** 删除旧的自定义头像（库记录 + 磁盘文件；预设 key / 空值不动） */
     private void deleteUploaded(String oldAvatar) {
         if (oldAvatar == null || !oldAvatar.startsWith("/uploads/")) {
             return;
+        }
+        // 库记录优先删：跨机器后磁盘可能不存在，但库里的旧图必须清掉，
+        // 否则快照会一直背着一张无人引用的图片。
+        try {
+            avatarFileMapper.delete(new LambdaQueryWrapper<AvatarFile>()
+                    .eq(AvatarFile::getFilePath, oldAvatar));
+        } catch (Exception ignored) {
+            /* 表尚未建立时不影响主流程 */
         }
         try {
             Path base = Paths.get(System.getProperty("user.dir")).toAbsolutePath();

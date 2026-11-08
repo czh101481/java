@@ -30,9 +30,17 @@ export function isImageAvatar(key) {
 }
 
 // 把后端相对路径拼成可访问地址
+// /uploads/** 的图片本体已存入数据库，由后端 GET /uploads/** 提供，
+// 因此这里走「同源相对路径」：从别的电脑访问同一套服务时，
+// 图片不会指向访问者自己的 localhost:8081（Vite dev 由代理转发）。
+// 仅 file:// 直开 dist 的离线场景没有同源服务，才退回绝对地址。
 export function avatarImageUrl(key) {
   if (!key) return ''
   if (/^(https?:|data:|blob:)/.test(key)) return key
+  if (key.startsWith('/uploads/') && typeof window !== 'undefined'
+      && window.location.protocol !== 'file:') {
+    return key
+  }
   return API_BASE + key
 }
 

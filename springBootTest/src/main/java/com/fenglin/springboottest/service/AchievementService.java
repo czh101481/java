@@ -317,8 +317,11 @@ public class AchievementService {
 
         long secret = scalar(realmLogMapper.selectMaps(new QueryWrapper<RealmLog>()
                 .select("COUNT(*) AS c").eq("user_id", uid).ge("created_at", start)));
+        // 只统计九处正境：newbie_only=1 的入门试炼仅新兵期开放，
+        // 若计入会把七课「秘境」上限从 19 抬到 22，且新兵期过后永远打不满。
         long secretLimit = scalar(trialMapper.selectMaps(new QueryWrapper<Trial>()
-                .select("COALESCE(SUM(daily_limit), 0) AS c")));
+                .select("COALESCE(SUM(daily_limit), 0) AS c")
+                .eq("newbie_only", 0)));
 
         Den den = denMapper.selectOne(
                 new LambdaQueryWrapper<Den>().eq(Den::getUserId, uid).last("LIMIT 1"));

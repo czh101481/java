@@ -63,7 +63,7 @@ def rows_of(d):
 def cleanup():
     uid = sql1("SELECT id FROM demon_user WHERE name='%s'" % NAME)
     if uid:
-        for t in ("demon_user_art", "demon_bag", "demon_item_use", "demon_wallet",
+        for t in ("demon_newbie", "demon_user_art", "demon_bag", "demon_item_use", "demon_wallet",
                   "demon_coin_log", "demon_purchase", "demon_explore_log",
                   "demon_quiz_record", "demon_read_record"):
             sql("DELETE FROM %s WHERE user_id=%s" % (t, uid))

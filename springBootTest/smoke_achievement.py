@@ -56,7 +56,7 @@ def sql1(stmt):
 def cleanup():
     old = sql1("SELECT id FROM demon_user WHERE name='%s'" % NAME)
     if old:
-        for t in ("demon_user_achievement", "demon_wallet", "demon_coin_log", "demon_bag",
+        for t in ("demon_newbie", "demon_user_achievement", "demon_wallet", "demon_coin_log", "demon_bag",
                   "demon_purchase", "demon_den", "demon_quiz_record", "demon_read_record",
                   "demon_explore_log", "demon_realm_log", "demon_friend", "demon_message"):
             sql("DELETE FROM %s WHERE user_id=%s" % (t, old))
@@ -111,7 +111,8 @@ check("下一目标为初入魔道", (ad.get("next") or {}).get("name") == "初�
       ad.get("next"))
 
 # ---------- 3. 达成自动铭刻 ----------
-sql("UPDATE demon_user SET exp=60 WHERE id=%s" % uid)
+# 首枚徽记是行动型条件（首次焚香），开局礼包不会自动点亮
+sql("UPDATE demon_user SET sign_total=1 WHERE id=%s" % uid)
 a = call("GET", "/api/achievement/list", tok)
 ad = a.get("data") or {}
 first = next((x for x in (ad.get("list") or []) if x["code"] == "first_step"), {})
@@ -124,10 +125,10 @@ cnt2 = sql1("SELECT COUNT(*) FROM demon_user_achievement WHERE user_id=%s" % uid
 check("重复读取不重复铭刻", cnt2 == "1", cnt2)
 
 # ---------- 4. 条件回退不抹去已铭功行 ----------
-sql("UPDATE demon_user SET exp=0 WHERE id=%s" % uid)
+sql("UPDATE demon_user SET sign_total=0 WHERE id=%s" % uid)
 a = call("GET", "/api/achievement/list", tok)
 first = next((x for x in ((a.get("data") or {}).get("list") or []) if x["code"] == "first_step"), {})
-check("煞气回落后徽记仍在", first.get("unlocked") is True and first.get("cur") == 0,
+check("条件回落后徽记仍在", first.get("unlocked") is True and first.get("cur") == 0,
       (first.get("unlocked"), first.get("cur")))
 
 # ---------- 5. 停用后不再出现在玩家端 ----------

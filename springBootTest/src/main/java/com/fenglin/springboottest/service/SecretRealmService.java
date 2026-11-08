@@ -49,6 +49,10 @@ public class SecretRealmService {
     @Autowired
     private CoinService coinService;
 
+    /** 入魔道：新兵期开放入门试炼，且启门不耗煞（纯读，不触发补发） */
+    @Autowired
+    private NewbieService newbieService;
+
     @Autowired
     private ItemMapper itemMapper;
 
@@ -77,16 +81,25 @@ public class SecretRealmService {
                 new LambdaQueryWrapper<Trial>().orderByAsc(Trial::getId));
         int myIndex = Realm.indexOf(user.getCultivation());
         int exp = user.getExp() == null ? 0 : user.getExp();
+        boolean newbie = newbieService.boostActive(user.getId());
 
         List<Map<String, Object>> list = new ArrayList<>();
         for (Trial t : trials) {
+            // 入门试炼只在 14 天新兵期内出现，期过自隐，不成为长期产出通道
+            boolean trialOnly = t.getNewbieOnly() != null && t.getNewbieOnly() == 1;
+            if (trialOnly && !newbie) {
+                continue;
+            }
             Map<String, Object> m = base(t);
             int limit = limitOf(t);
             int used = usedToday(user.getId(), t.getId());
             int left = Math.max(0, limit - used);
-            int cost = nvl(t.getCostExp());
+            // 新兵期启门不耗煞：避免「探一次秘境反而把累计修为打回去」
+            int cost = newbie ? 0 : nvl(t.getCostExp());
             boolean unlocked = myIndex >= Realm.indexOf(t.getRealmReq());
 
+            m.put("costExp", cost);
+            m.put("newbieOnly", trialOnly);
             m.put("used", used);
             m.put("left", left);
             m.put("unlocked", unlocked);
@@ -145,6 +158,11 @@ public class SecretRealmService {
         if (t == null) {
             throw new Deny("魔域之中并无此秘境。");
         }
+        boolean newbie = newbieService.boostActive(user.getId());
+        boolean trialOnly = t.getNewbieOnly() != null && t.getNewbieOnly() == 1;
+        if (trialOnly && !newbie) {
+            throw new Deny("入门试炼只对新兵开放，期过此径自隐。");
+        }
         int myIndex = Realm.indexOf(user.getCultivation());
         int reqIndex = Realm.indexOf(t.getRealmReq());
         if (myIndex < reqIndex) {
@@ -156,7 +174,8 @@ public class SecretRealmService {
             throw new Deny(String.format("「%s」今日已探 %d 次（上限 %d），须待明日再启。",
                     t.getTitle(), used, limit));
         }
-        int cost = nvl(t.getCostExp());
+        // 新兵期启门不耗煞：正境的 20/60/150 点入场费对新手是「越玩越倒退」
+        int cost = newbie ? 0 : nvl(t.getCostExp());
         int exp = user.getExp() == null ? 0 : user.getExp();
         if (exp < cost) {
             throw new Deny(String.format("煞气不足，启门需 %d 点，尚缺 %d 点。", cost, cost - exp));
@@ -231,6 +250,8 @@ public class SecretRealmService {
         }
 
         Map<String, Object> data = new HashMap<>(base(t));
+        data.put("costExp", cost);
+        data.put("newbieOnly", trialOnly);
         data.put("result", result);
         data.put("detail", detail);
         data.put("gain", gain);

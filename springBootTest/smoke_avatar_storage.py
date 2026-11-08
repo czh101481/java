@@ -92,7 +92,7 @@ def sql1(stmt):
 def cleanup():
     uid = sql1("SELECT id FROM demon_user WHERE name='%s'" % NAME)
     if uid:
-        for t in ("demon_user_achievement", "demon_user_art", "demon_bag", "demon_item_use",
+        for t in ("demon_newbie", "demon_user_achievement", "demon_user_art", "demon_bag", "demon_item_use",
                   "demon_wallet", "demon_coin_log", "demon_purchase", "demon_den",
                   "demon_quiz_record", "demon_read_record", "demon_explore_log",
                   "demon_realm_log", "demon_friend", "demon_message"):

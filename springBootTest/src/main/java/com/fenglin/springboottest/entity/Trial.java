@@ -53,6 +53,9 @@ public class Trial {
     /** 机缘概率（百分比整数，15 = 15% 得宝，所得翻倍） */
     private Integer treasureRate;
 
+    /** 仅新兵期可见可入的「入门试炼」（1 = 是）；期过自动从列表隐藏，不进稳态日产 */
+    private Integer newbieOnly;
+
     /** 简介 */
     private String summary;
 

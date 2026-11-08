@@ -105,6 +105,10 @@ public class HomeController {
     @Autowired
     private com.fenglin.springboottest.service.CultivateService cultivateService;
 
+    /** 入魔道：新兵期煞气倍率与渡劫减半（纯读，不触发补发） */
+    @Autowired
+    private com.fenglin.springboottest.service.NewbieService newbieService;
+
     // ==================== v2 加成计算 ====================
 
     /** 今日参悟上限：基础上限 + 道具加成（凝神符等，跨日失效） */
@@ -404,7 +408,9 @@ public class HomeController {
         com.fenglin.springboottest.common.Origins.Bonus origin =
                 com.fenglin.springboottest.common.Origins.of(user.getRealm());
         java.util.random.RandomGenerator rng = java.util.random.RandomGenerator.getDefault();
-        int gain = (int) Math.round(Realm.EXPLORE_GAIN * exploreMultiplier(user));
+        // 入魔道：新兵期参悟所得煞气 ×1.5（与焚香共用同一倍率，魔晶产出不变）
+        int gain = (int) Math.round(Realm.EXPLORE_GAIN * exploreMultiplier(user)
+                * newbieService.expMult(user.getId()));
         boolean insight = false;
         if (origin.getInsightChance() > 0 && rng.nextDouble() < origin.getInsightChance()) {
             gain *= 2;
@@ -539,9 +545,11 @@ public class HomeController {
         int failStreak = user.getBreakFail() == null ? 0 : user.getBreakFail();
         boolean guaranteed = failStreak >= Realm.BREAK_FAIL_GUARANTEE;
         java.util.random.RandomGenerator brng = java.util.random.RandomGenerator.getDefault();
-        if (!guaranteed && brng.nextDouble() < Realm.BREAK_FAIL_RATE) {
+        // 入魔道：新兵期渡劫失败概率与失败时煞气溃散各减半，避免前期「越冲越退」
+        double failMult = newbieService.breakFailMult(user.getId());
+        if (!guaranteed && brng.nextDouble() < Realm.BREAK_FAIL_RATE * failMult) {
             int loss = Math.min(Realm.BREAK_FAIL_LOSS_CAP,
-                    (int) Math.round(exp * Realm.BREAK_FAIL_LOSS_RATE));
+                    (int) Math.round(exp * Realm.BREAK_FAIL_LOSS_RATE * failMult));
             int left = Math.max(0, exp - loss);
             com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> fuw =
                     new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
@@ -984,7 +992,8 @@ public class HomeController {
         data.put("streak", streak);
         data.put("total", user.getSignTotal() == null ? 0 : user.getSignTotal());
         data.put("nextStreak", nextStreak);
-        data.put("reward", signed ? 0 : signReward(nextStreak));
+        data.put("reward", signed ? 0
+                : (int) Math.round(signReward(nextStreak) * newbieService.expMult(user.getId())));
         data.put("coinReward", signed ? 0 : com.fenglin.springboottest.common.Coin.signCoin(nextStreak));
         data.put("jadeReward", !signed && nextStreak % Realm.SIGN_STREAK_CAP == 0
                 ? com.fenglin.springboottest.common.Coin.SIGN_JADE_BONUS : 0);
@@ -1008,7 +1017,9 @@ public class HomeController {
         int streak0 = user.getSignStreak() == null ? 0 : user.getSignStreak();
         int streak = (user.getSignDate() != null && user.getSignDate().plusDays(1).equals(today))
                 ? streak0 + 1 : 1;
-        int gain = signReward(streak);
+        // 入魔道：新兵期焚香所得煞气 ×1.5（倍率只影响煞气，魔晶/血玉照旧）
+        double signBoost = newbieService.expMult(user.getId());
+        int gain = (int) Math.round(signReward(streak) * signBoost);
         int exp = (user.getExp() == null ? 0 : user.getExp()) + gain;
 
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DemonUser> uw =
@@ -1041,9 +1052,10 @@ public class HomeController {
         data.put("jadeGain", jadeGain);
         data.put("coin", wallet == null ? 0 : wallet.getCoin());
         data.put("jade", wallet == null ? 0 : wallet.getJade());
-        data.put("msg", String.format("魔前焚香，第 %d 日不间断——煞气 +%d、魔晶 +%d。%s",
+        data.put("msg", String.format("魔前焚香，第 %d 日不间断——煞气 +%d、魔晶 +%d。%s%s",
                 streak, gain, coinGain,
-                streak % Realm.SIGN_STREAK_CAP == 0 ? "连满七日，另得血玉一枚！" : ""));
+                streak % Realm.SIGN_STREAK_CAP == 0 ? "连满七日，另得血玉一枚！" : "",
+                signBoost > 1.0 ? "（新兵之恤：煞气 ×1.5）" : ""));
         return Result.success(data);
     }
 

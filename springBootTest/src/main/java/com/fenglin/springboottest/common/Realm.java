@@ -66,15 +66,19 @@ public final class Realm {
     private static volatile boolean loadedFromTable = false;
 
     /**
-     * 各功能模块所需最低境界位阶（与 demon_realm 表描述、魔枢典册「典册封禁之律」一致）：
-     * art 引煞（无门槛）/ trial 魔卒 / debate 魔卒 / codex 魔尉 / archive 魔将
+     * 各功能模块所需最低境界位阶（v1.2 新手期放宽，与典册 33「典册封禁之律」一致）：
+     * art 引煞（无门槛）/ trial 引煞 / debate 引煞 / codex 凝煞 / archive 魔卒。
+     *
+     * 旧值 trial/debate=2(魔卒)、codex=3(魔尉)、archive=4(魔将) 会让新号
+     * 在累计 1200 / 3000 / 6000 煞之前无内容可玩；具体秘境仍按
+     * demon_trial.realm_req 单独判定，九处正境的魔卒门槛未变。
      */
     public static final Map<String, Integer> FEATURE_REQUIREMENT = Map.of(
             "art", 0,
-            "trial", 2,
-            "debate", 2,
-            "codex", 3,
-            "archive", 4);
+            "trial", 0,
+            "debate", 0,
+            "codex", 1,
+            "archive", 2);
 
     /** 每日参悟上限（篇） */
     public static final int DAILY_EXPLORE_LIMIT = 10;

@@ -278,6 +278,46 @@
         <em>焚香 · 参悟 · 论道 · 研读 · 秘境 · 洞府 · 战绩</em>
       </div>
 
+      <!-- 入魔道：开局资粮 / 七日礼 / 新兵期（仅新兵期内或未领满七日时显示） -->
+      <div class="newbie" v-if="nbVisible && nb">
+        <div class="nb-head">
+          <span class="nb-seal">入 魔 道</span>
+          <span class="nb-day">第 {{ nb.loginDay }} / 7 日</span>
+          <span class="nb-boost" v-if="nb.boostActive">
+            新 兵 之 恤 · 余 {{ nb.boostDaysLeft }} 天 · 焚香参悟 ×1.5 / 洞府 ×2 / 渡劫减半
+          </span>
+          <button class="nb-toggle" type="button" @click="nbShow = !nbShow">
+            {{ nbShow ? '收 起' : '七 日 礼 单' }}
+          </button>
+        </div>
+        <div class="nb-body">
+          <div class="nb-reward">
+            <span class="nb-cap">
+              {{ nb.allDone ? '七 日 之 礼 已 圆 满' : nb.claimedToday ? '今 日 已 领 · 明 日 再 来' : '今 日 可 领' }}
+            </span>
+            <span class="nb-text" v-if="!nb.allDone">{{ nb.nextReward.text }}</span>
+          </div>
+          <button
+            class="nb-btn"
+            type="button"
+            :disabled="nb.allDone || nb.claimedToday || nbBusy"
+            @click="claimNewbie"
+          >{{ nb.allDone ? '圆 满' : nb.claimedToday ? '已 领' : nbBusy ? '领 取 中' : '领 取 今 日' }}</button>
+        </div>
+        <div class="nb-list" v-if="nbShow">
+          <div
+            v-for="r in nb.rewards"
+            :key="r.day"
+            class="nb-row"
+            :class="{ got: r.claimed, next: r.next && !nb.claimedToday }"
+          >
+            <span>第 {{ r.day }} 日</span>
+            <span>{{ r.text }}</span>
+            <span>{{ r.claimed ? '已 领' : r.next ? '待 领' : '未 至' }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- 今日七课：完成度总览（只读后端既有计数），逐项可点入对应玩法 -->
       <div class="quest" v-if="daily">
         <div class="quest-top">
@@ -332,7 +372,7 @@
         <div class="daily-card">
           <div class="dc-label">今 日 论 道</div>
           <div class="dc-value">
-            {{ myLevel < TYPE_REQ.debate ? '需 魔 卒 境' : dailyQuiz ? '有 论 待 辩' : '论 题 已 尽' }}
+            {{ myLevel < TYPE_REQ.debate ? '需 ' + realmName(TYPE_REQ.debate) + ' 境' : dailyQuiz ? '有 论 待 辩' : '论 题 已 尽' }}
           </div>
           <button
             class="dc-btn"
@@ -387,6 +427,7 @@
           <div class="sc-head">
             <span class="sc-icon">⛩</span>
             <span class="sc-name" @click="openDetail({ type: 'trial', id: r.id })">{{ r.title }}</span>
+            <span class="sc-newbie" v-if="r.newbieOnly">入 门 试 炼</span>
             <span class="sc-danger" :class="'d-' + dangerKey(r.difficulty)">{{ r.difficulty }}</span>
           </div>
 
@@ -748,6 +789,7 @@ import { archiveCategories } from '../api/archive'
 import { messageUnread } from '../api/social'
 import { walletOverview } from '../api/coin'
 import { dailyProgress } from '../api/achievement'
+import { newbieState, newbieClaim } from '../api/newbie'
 import { AVATARS, renderAvatar, isImageAvatar } from '../config/avatars'
 // 境界体系统一出口：默认值与后端 demon_realm 表一致，应用启动时自动同步
 import { REALM_NAMES, REALM_COLORS, REALM_THRESHOLDS } from '../config/realm'
@@ -869,7 +911,8 @@ onBeforeUnmount(() => clearTimeout(navClickTimer))
 // 位阶 0 起；demon_user.cultivation 存当前境界名（与魔种 realm 相互独立）
 // REALM_NAMES / REALM_COLORS 来自 ../config/realm，其内容由后端 demon_realm 表驱动
 // 各功能模块所需最低境界（与后端 Realm.FEATURE_REQUIREMENT 一致）
-const TYPE_REQ = { art: 0, trial: 1, debate: 2, codex: 3, archive: 4 }
+// v1.2 新手期放宽：论道 / 秘境引煞可入，魔典凝煞，典册魔卒（后端 Realm.FEATURE_REQUIREMENT 同步）
+const TYPE_REQ = { art: 0, trial: 0, debate: 0, codex: 1, archive: 2 }
 
 // 境界阶梯（先用本地兜底数据渲染，成功拉取后端后覆盖）
 const ladder = ref([
@@ -1009,6 +1052,43 @@ async function loadDaily() {
     const res = await dailyProgress()
     if (res.data.code === 200) daily.value = res.data.data
   } catch (e) { /* 静默，沿用上次进度 */ }
+}
+
+// ==================== 入魔道（开局资粮 / 七日礼 / 新兵期） ====================
+const nb = ref(null)
+const nbShow = ref(false)
+const nbBusy = ref(false)
+const nbVisible = computed(() => {
+  const s = nb.value
+  return !!s && (s.boostActive || !s.allDone)
+})
+
+async function loadNewbie() {
+  try {
+    const res = await newbieState()
+    if (res.data.code === 200) nb.value = res.data.data
+  } catch (e) { /* 静默，沿用上次状态 */ }
+}
+
+async function claimNewbie() {
+  if (nbBusy.value) return
+  nbBusy.value = true
+  try {
+    const res = await newbieClaim()
+    if (res.data.code === 200) {
+      nb.value = res.data.data
+      // 礼中含煞气与双币：同步境界进度、钱囊余额与英杰榜
+      await Promise.all([refreshStatus(), loadWallet(), loadRank()])
+      alert(res.data.data.msg || '入魔道之礼已入囊。')
+    } else {
+      alert(res.data.msg || '领取无应。')
+      await loadNewbie()
+    }
+  } catch (e) {
+    alert(e.message || '魔门无应，连通失败')
+  } finally {
+    nbBusy.value = false
+  }
 }
 
 function scrollToSection(sel) {
@@ -1557,7 +1637,9 @@ onMounted(async () => {
 
   // 今日修行七课：首次加载 + 20 秒轮询，操作后不久即会反映到进度
   await loadDaily()
-  dailyTimer = setInterval(loadDaily, 20000)
+  // 入魔道：首次拉取会为存量账号懒补发开局礼包，之后与七课同频刷新
+  await loadNewbie()
+  dailyTimer = setInterval(() => { loadDaily(); loadNewbie() }, 20000)
 })
 
 onBeforeUnmount(() => {
@@ -3037,6 +3119,48 @@ async function loadSocialUnread() {
 
 /* ==================== v2 修行日常 ==================== */
 .daily { position: relative; z-index: 3; }
+/* ===== 入魔道 · 七日礼 ===== */
+.newbie {
+  margin: 0 0 18px; padding: 15px 18px; border-radius: 12px;
+  background: rgba(20, 6, 14, 0.55);
+  border: 1px solid rgba(255, 59, 107, 0.30);
+}
+.nb-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.nb-seal { font-size: 12px; letter-spacing: 4px; color: #ff7a95; }
+.nb-day { font-size: 12px; letter-spacing: 2px; color: rgba(232, 220, 200, 0.8); }
+.nb-boost { font-size: 11px; letter-spacing: 1px; color: rgba(217, 176, 102, 0.8); }
+.nb-toggle {
+  margin-left: auto; padding: 4px 12px; border-radius: 8px; cursor: pointer;
+  font-family: inherit; font-size: 11px; letter-spacing: 2px;
+  color: rgba(232, 220, 200, 0.75); background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(232, 220, 200, 0.22);
+}
+.nb-toggle:hover { color: #ffe9d2; border-color: rgba(255, 59, 107, 0.5); }
+.nb-body { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
+.nb-reward { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.nb-cap { font-size: 11px; letter-spacing: 2px; color: rgba(232, 220, 200, 0.5); }
+.nb-text { font-size: 13px; letter-spacing: 1px; color: #ffd7a1; }
+.nb-btn {
+  flex-shrink: 0; padding: 8px 20px; border-radius: 8px; cursor: pointer;
+  font-family: inherit; font-size: 12px; letter-spacing: 3px;
+  color: #ffe9d2; background: rgba(255, 59, 107, 0.18);
+  border: 1px solid rgba(255, 59, 107, 0.48);
+}
+.nb-btn:hover:not(:disabled) { background: rgba(255, 59, 107, 0.32); }
+.nb-btn:disabled { opacity: 0.42; cursor: not-allowed; }
+.nb-list {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 6px 14px; margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid rgba(232, 220, 200, 0.10);
+}
+.nb-row {
+  display: flex; justify-content: space-between; gap: 8px;
+  font-size: 11px; letter-spacing: 1px; color: rgba(232, 220, 200, 0.45);
+}
+.nb-row.got { color: rgba(150, 220, 175, 0.8); }
+.nb-row.next { color: #ffd7a1; }
+@media (max-width: 640px) { .nb-body { flex-direction: column; align-items: stretch; } }
+
 /* ===== 今日修行七课 ===== */
 .quest {
   margin: 0 0 18px; padding: 16px 18px; border-radius: 12px;
@@ -3175,6 +3299,12 @@ async function loadSocialUnread() {
   text-shadow: 0 0 10px rgba(255, 59, 107, 0.3);
 }
 .sc-name:hover { color: #ff6b8f; }
+.sc-newbie {
+  flex-shrink: 0; padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; letter-spacing: 1px; white-space: nowrap;
+  color: #ffd7a1; background: rgba(217, 176, 102, 0.14);
+  border: 1px solid rgba(217, 176, 102, 0.35);
+}
 .sc-danger {
   padding: 2px 10px; border-radius: 12px; font-size: 11px; letter-spacing: 1px;
   border: 1px solid rgba(255, 59, 107, 0.45); color: #ff6b8f;

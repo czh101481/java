@@ -49,6 +49,10 @@ public class AuthService {
     @Autowired
     private TokenManager tokenManager;
 
+    /** 入魔道：注册即发开局礼包 */
+    @Autowired
+    private NewbieService newbieService;
+
     /** 入魔道：校验道号 / 密令，签发魔契令牌 */
     public Result<LoginVO> login(LoginDTO dto) {
         if (!StringUtils.hasText(dto.getName()) || !StringUtils.hasText(dto.getPassword())) {
@@ -112,6 +116,8 @@ public class AuthService {
         user.setPassword(PasswordEncoder.encode(dto.getPassword()));
         user.setPermission(1); // 注册修者皆为默认权限，管理员需另行提权
         userMapper.insert(user);
+        // 入魔道：发放开局资粮并开启 14 天新兵期（数值见 common/NewbieRule）
+        newbieService.grantStarterOnRegister(user.getId());
         return Result.success();
     }
 

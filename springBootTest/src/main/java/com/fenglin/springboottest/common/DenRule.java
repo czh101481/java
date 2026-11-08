@@ -73,8 +73,10 @@ public final class DenRule {
     /** 血玉髓脉：血玉 = ceil(L² / UPGRADE_JADE_HALF)（至少 1；v1 由 2 调为 4，降低增产门槛） */
     public static final int UPGRADE_JADE_HALF = 4;
 
-    /** 血玉髓脉所需最低境界位阶（凝煞）；聚煞阵 / 魔晶矿无门槛 */
-    public static final int JADE_REALM_INDEX = 1;
+    /** 血玉髓脉所需最低境界位阶。
+     *  v1.2 由「凝煞(1)」放宽为「引煞(0)」：旧律要 2 玉才能开凿产玉设施，
+     *  而新号前 7 日拿不到任何血玉，形成死锁；开局礼包已直接给 3 玉。 */
+    public static final int JADE_REALM_INDEX = 0;
 
     // ==================== 计算工具 ====================
 

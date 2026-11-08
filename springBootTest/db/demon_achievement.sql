@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS demon_user_achievement (
 -- ------------------------------------------------------------
 INSERT IGNORE INTO demon_achievement
 (code, name, icon, category, subtitle, description, cond_type, cond_value, title_reward, stage, sort_order, status) VALUES
-('first_step',      '初入魔道',   '启', '道途', '煞气累计 50',              '魔气初凝，道途自此而始。',                    'exp',            50,    '引煞童子',   '初入', 1,  1),
+('first_step',      '初入魔道',   '启', '道途', '首次焚香',                  '入魔道后第一炷香，道途自此而始。',            'sign_total',     1,     '引煞童子',   '初入', 1,  1),
 ('realm_3',         '魔尉之阶',   '尉', '道途', '修至魔尉境',              '过魔卒而掌一队魔兵，方算登堂。',              'realm_index',   3,    '魔门都尉',   '登堂', 2,  1),
 ('realm_7',         '魔祖临世',   '祖', '道途', '修至魔祖境',              '一域之尊，诸魔俯首。',                        'realm_index',   7,    '一方魔祖',   '大成', 3,  1),
 ('realm_9',         '无上魔圣',   '圣', '道途', '修至无上境',              '十境之巅，魔道尽头。',                        'realm_index',   9,    '无上魔圣',   '圆满', 4,  1),

@@ -45,6 +45,10 @@ public class DenService {
     @Autowired
     private CoinService coinService;
 
+    /** 入魔道：新兵期洞府三设施产量 ×2（纯读，不触发补发） */
+    @Autowired
+    private NewbieService newbieService;
+
     /** 后台总览只读钱囊，不触发自动开户 */
     @Autowired
     private WalletMapper walletMapper;
@@ -107,11 +111,15 @@ public class DenService {
         // 三重约束：实际经过时长、单次存量上限、当日剩余额度
         long eff = Math.min(Math.min(elapsed, capSec), dailyLeft);
 
-        // 心魔惩罚只作用于聚煞阵
-        int shaPerHour = DenRule.shaPerHour(shaLv, heart);
+        // 心魔惩罚只作用于聚煞阵；新兵期三设施产量整体 ×2，
+        // 下发给前端的每小时产量同步加倍，保证本地秒级折算与后端结算一致。
+        double denBoost = newbieService.denMult(user.getId());
+        int shaPerHour = (int) Math.round(DenRule.shaPerHour(shaLv, heart) * denBoost);
+        int coinPerHour = (int) Math.round(DenRule.coinPerHour(coinLv) * denBoost);
+        int jadeMilliPerHour = (int) Math.round(DenRule.jadeMilliPerHour(jadeLv) * denBoost);
         int shaPending = clampInt(shaPerHour * eff / 3600L);
-        int coinPending = clampInt(DenRule.coinPerHour(coinLv) * eff / 3600L);
-        long jadeMilli = (long) DenRule.jadeMilliPerHour(jadeLv) * eff / 3600L
+        int coinPending = clampInt(coinPerHour * eff / 3600L);
+        long jadeMilli = (long) jadeMilliPerHour * eff / 3600L
                 + (d.getJadeCarry() == null ? 0 : d.getJadeCarry());
         int jadePending = (int) (jadeMilli / 1000);
         int jadeRemain = (int) (jadeMilli % 1000);
@@ -132,8 +140,9 @@ public class DenService {
         m.put("jadeRemain", jadeRemain);
         m.put("jadeCarry", d.getJadeCarry() == null ? 0 : d.getJadeCarry());
         m.put("shaPerHour", shaPerHour);
-        m.put("coinPerHour", DenRule.coinPerHour(coinLv));
-        m.put("jadeMilliPerHour", DenRule.jadeMilliPerHour(jadeLv));
+        m.put("coinPerHour", coinPerHour);
+        m.put("jadeMilliPerHour", jadeMilliPerHour);
+        m.put("denBoost", denBoost);
         return m;
     }
 
@@ -153,10 +162,11 @@ public class DenService {
         data.put("maxLevel", DenRule.MAX_LEVEL);
         data.put("capHours", DenRule.CAP_HOURS);
         data.put("dailyCapHours", DenRule.DAILY_CAP_HOURS);
-        // 每级基准产量下发给前端，避免页面里再抄一份硬编码数值
-        data.put("shaPerLevel", DenRule.SHA_PER_HOUR);
-        data.put("coinPerLevel", DenRule.COIN_PER_HOUR);
-        data.put("jadeMilliPerLevel", DenRule.JADE_MILLI_PER_HOUR);
+        // 每级基准产量下发给前端，避免页面里再抄一份硬编码数值；新兵期同步加倍
+        double denBoost = ((Number) p.get("denBoost")).doubleValue();
+        data.put("shaPerLevel", (int) Math.round(DenRule.SHA_PER_HOUR * denBoost));
+        data.put("coinPerLevel", (int) Math.round(DenRule.COIN_PER_HOUR * denBoost));
+        data.put("jadeMilliPerLevel", (int) Math.round(DenRule.JADE_MILLI_PER_HOUR * denBoost));
         data.put("lastCollect", d.getLastCollect());
         data.put("serverTime", LocalDateTime.now());
         data.put("heartDemon", user.getHeartDemon() == null ? 0 : user.getHeartDemon());

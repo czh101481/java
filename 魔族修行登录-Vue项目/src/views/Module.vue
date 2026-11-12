@@ -269,16 +269,27 @@ function onLogout() {
   router.replace('/login')
 }
 
+// archive（魔枢典册）不在 META 里，旧链接 /module/archive 会被兜底成「功法阁」，
+// 这里统一改道回典册页，避免走错殿。
+function archiveRedirect() {
+  if (type.value !== 'archive') return false
+  const cat = String(route.query.cat || '')
+  router.replace(cat ? '/archive/' + cat : '/archive')
+  return true
+}
+
 onMounted(() => {
   if (!session.token) {
     router.replace('/login')
     return
   }
+  if (archiveRedirect()) return
   load()
 })
 
 // 切换模块（导航跳转）时重新拉取
 watch(type, () => {
+  if (archiveRedirect()) return
   kw.value = ''
   load()
 })

@@ -18,7 +18,7 @@
           :class="{ active: m.key === type }"
           @click="goModule(m.key)"
         >{{ m.title }}</a>
-        <a class="nav-item" @click="goArchive">魔 枢 典 册</a>
+        <a class="nav-item" :class="{ active: type === 'archive' }" @click="goArchive">魔 枢 典 册</a>
         <a class="nav-item" @click="goCultivate">修 为</a>
       </nav>
 
@@ -42,7 +42,7 @@
         <div class="crumbs">
           <span class="crumb-link" @click="goHome">魔域枢机</span>
           <span class="sep">/</span>
-          <span class="crumb-link" @click="goModule(type)">{{ info.typeName }}</span>
+          <span class="crumb-link" @click="goBack">{{ info.typeName }}</span>
           <span class="sep">/</span>
           <span class="crumb-now">{{ info.title }}</span>
         </div>
@@ -239,7 +239,7 @@
         </template>
 
         <div class="actions">
-          <button class="btn ghost" type="button" @click="goModule(type)">⟵ 返 回 {{ info.typeName }}</button>
+          <button class="btn ghost" type="button" @click="goBack">⟵ 返 回 {{ info.typeName }}</button>
           <button class="btn" type="button" @click="goHome">回 魔 域 枢 机</button>
         </div>
       </template>
@@ -508,7 +508,24 @@ async function onAnswer(letter) {
 
 function goModule(key) { router.push('/module/' + key) }
 function goHome() { router.push('/home') }
-function goArchive() { router.push('/archive') }
+// 典册详情不在 /module/:type 体系内：返回必须回魔枢典册，否则 Module.vue 会把
+// 未知类型 archive 兜底成 META.art，页面错误显示「功法阁」。
+// 有 cat 参数时回到原先打开的那一卷（如 /archive/daotu）。
+function goBack() {
+  if (type.value !== 'archive') {
+    router.push('/module/' + type.value)
+    return
+  }
+  const cat = String(route.query.cat || '')
+  router.push(cat ? '/archive/' + cat : '/archive')
+}
+function goArchive() {
+  if (type.value === 'archive') {
+    goBack()
+    return
+  }
+  router.push('/archive')
+}
 function goCultivate() { router.push('/cultivate') }
 function onLogout() { clearSession(); router.replace('/login') }
 

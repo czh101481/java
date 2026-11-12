@@ -12,8 +12,8 @@ export default defineConfig({
     // 头像等上传资源走同源相对路径，由这里转发到后端。
     // 换台电脑用局域网地址访问本机服务时，图片依旧能正确取到。
     proxy: {
-      '/uploads': { target: 'http://localhost:8081', changeOrigin: true },
-      '/api': { target: 'http://localhost:8081', changeOrigin: true }
+      '/uploads': { target: 'http://192.168.68.70:8081', changeOrigin: true },
+      '/api': { target: 'http://192.168.68.70:8081', changeOrigin: true }
     }
   }
 })

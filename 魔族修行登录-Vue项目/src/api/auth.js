@@ -1,8 +1,8 @@
 import axios from 'axios'
 
-// 后端基地址：默认本地 Spring Boot（端口 8081）
-// 如需切换，可在项目根目录新建 .env 文件写入：VITE_API_BASE=http://localhost:8081
-export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8081'
+// 后端基地址：局域网 IP（192.168.68.70:8081），同一网络内的设备均可访问
+// 如需切换，可在项目根目录新建 .env 文件写入：VITE_API_BASE=http://192.168.68.70:8081
+export const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.168.68.70:8081'
 
 export const http = axios.create({
   baseURL: API_BASE,

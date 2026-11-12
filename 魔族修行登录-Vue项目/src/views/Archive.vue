@@ -195,9 +195,9 @@ function goHome() {
 function goModule(key) {
   router.push('/module/' + key)
 }
-// 独览：进入详情页
+// 独览：进入详情页；把当前卷（分类）带上，返回时可回到原卷
 function openDetail(id) {
-  router.push(`/detail/archive/${id}`)
+  router.push({ path: `/detail/archive/${id}`, query: { cat: activeCat.value } })
 }
 function onLogout() {
   clearSession()
